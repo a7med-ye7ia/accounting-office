@@ -1,0 +1,83 @@
+import MainLayout from "../../../shared/layout/MainLayout";
+import useMockAsyncData from "../../../shared/hooks/useMockAsyncData";
+import { fetchLedgerRows } from "../../../shared/data/mockDataService";
+import useLedgerFilters from "../hooks/useLedgerFilters";
+import { getStatusTone } from "../utils/statusTone";
+
+function EquilibriumLedgerPage() {
+  const { data, isLoading } = useMockAsyncData(fetchLedgerRows, []);
+  const { currencyFilter, setCurrencyFilter, sortDirection, setSortDirection, pageIndex, setPageIndex, filteredRows, paginatedRows, maxPage } =
+    useLedgerFilters(data);
+
+  const kpi = {
+    totalEntries: filteredRows.length,
+    totalEgp: filteredRows.filter((row) => row.currency === "EGP").length,
+    totalSar: filteredRows.filter((row) => row.currency === "SAR").length,
+    overdue: filteredRows.filter((row) => row.status === "Overdue").length,
+  };
+
+  return (
+    <MainLayout title="Equilibrium Ledger" subtitle="Ledger Intelligence">
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">Ledger Entries</p><p className="mt-2 text-3xl font-extrabold">{kpi.totalEntries}</p></div>
+        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">EGP Rows</p><p className="mt-2 text-3xl font-extrabold text-brand">{kpi.totalEgp}</p></div>
+        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">SAR Rows</p><p className="mt-2 text-3xl font-extrabold text-brand">{kpi.totalSar}</p></div>
+        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">Overdue</p><p className="mt-2 text-3xl font-extrabold text-danger">{kpi.overdue}</p></div>
+      </div>
+      <section className="mt-6 rounded-2xl bg-appSurface">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <h3 className="text-xl font-bold">Multi-Currency Ledger Grid</h3>
+          <div className="flex items-center gap-2">
+            <select value={currencyFilter} onChange={(event) => { setCurrencyFilter(event.target.value); setPageIndex(0); }} className="rounded-lg bg-appMuted px-3 py-2 text-sm">
+              <option value="ALL">All Currencies</option>
+              <option value="EGP">EGP</option>
+              <option value="SAR">SAR</option>
+            </select>
+            <button className="rounded-lg bg-appMuted px-3 py-2 text-sm font-semibold" onClick={() => setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))}>
+              Sort: {sortDirection === "desc" ? "Newest" : "Oldest"}
+            </button>
+          </div>
+        </div>
+        <div className="hidden md:block">
+          <div className="grid grid-cols-6 bg-appMuted px-5 py-3 text-xs font-bold uppercase tracking-wider text-appSubtext">
+            <p>Entry ID</p><p>Company</p><p>Department</p><p className="text-right">Amount</p><p>Currency</p><p>Status</p>
+          </div>
+          {isLoading ? (
+            <div className="p-5 text-sm text-appSubtext">Loading ledger rows...</div>
+          ) : (
+            paginatedRows.map((row, index) => (
+              <div key={row.id} className={`grid grid-cols-6 px-5 py-4 text-sm ${index % 2 === 0 ? "bg-appSurface" : "bg-appMuted/50"}`}>
+                <p className="font-semibold">{row.id}</p>
+                <p>{row.company}</p>
+                <p>{row.department}</p>
+                <p className="text-right font-semibold tabular-nums">{row.amount}</p>
+                <p>{row.currency}</p>
+                <p><span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusTone(row.status)}`}>{row.status}</span></p>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="space-y-3 p-4 md:hidden">
+          {paginatedRows.map((row) => (
+            <div key={row.id} className="rounded-xl bg-appMuted p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-appSubtext">{row.id}</p>
+              <p className="mt-2 text-sm font-semibold">{row.company}</p>
+              <p className="mt-1 text-sm text-appSubtext">{row.department}</p>
+              <p className="mt-3 text-sm font-bold tabular-nums">{row.amount}</p>
+              <p className="mt-1 text-xs text-appSubtext">{row.currency}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between border-t border-appBorder px-5 py-4">
+          <p className="text-xs text-appSubtext">Page {pageIndex + 1} of {maxPage + 1}</p>
+          <div className="flex gap-2">
+            <button className="rounded bg-appMuted px-3 py-1 text-sm disabled:opacity-40" disabled={pageIndex === 0} onClick={() => setPageIndex((prev) => prev - 1)}>Previous</button>
+            <button className="rounded bg-appMuted px-3 py-1 text-sm disabled:opacity-40" disabled={pageIndex >= maxPage} onClick={() => setPageIndex((prev) => prev + 1)}>Next</button>
+          </div>
+        </div>
+      </section>
+    </MainLayout>
+  );
+}
+
+export default EquilibriumLedgerPage;
