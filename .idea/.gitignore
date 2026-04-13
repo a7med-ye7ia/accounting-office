@@ -1,0 +1,41 @@
+# Dependency directories
+node_modules/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.iml
+
+# Local configuration and storage
+/shelf/
+/workspace.xml
+/httpRequests/
+/dataSources/
+/dataSources.local.xml
+
+# Python and AI files
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Build outputs
+Backend/target/
+Frontend/build/
+Frontend/dist/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+AI/*.pdf
+
+# AI results and datasets
+AI/ocr_result.json
+AI/contract_structured.json
+
+# Python virtual environment
+AI/venv/
+AI/.env
