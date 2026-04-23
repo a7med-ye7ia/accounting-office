@@ -1,17 +1,20 @@
+import useSidebar from "../hooks/useSidebar";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
 function MainLayout({ title, subtitle, actions, children }) {
+  const { isOpen, isMobile } = useSidebar();
+
   return (
-    <div className="min-h-screen bg-appBg text-appText flex overflow-x-hidden w-full max-w-[100vw]">
-      {/* Sidebar handles its own responsive fixed positioning */}
+    <div className="min-h-screen bg-appBg text-appText flex flex-row-reverse overflow-hidden w-full" dir="rtl">
+      {/* SIDEBAR - on the right, pushes content on desktop/tablet */}
       <Sidebar />
       
-      {/* Main Content Area - padded left on large screens to accommodate the fixed sidebar */}
-      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300 lg:pl-64 w-full">
+      {/* MAIN CONTENT - takes remaining space */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
         <TopBar />
         
-        <main className="p-4 sm:p-6 lg:p-8 flex-1 w-full max-w-full overflow-hidden">
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 w-full max-w-full overflow-auto">
           {/* Header Row */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
@@ -20,7 +23,7 @@ function MainLayout({ title, subtitle, actions, children }) {
                   {subtitle}
                 </p>
               )}
-              <h1 className="font-display text-2xl sm:text-3xl lg:text-5xl font-extrabold leading-none text-appText">
+              <h1 className="font-display text-2xl sm:text-3xl lg:text-5xl font-extrabold leading-none text-appText" dir="ltr" style={{ textAlign: 'left' }}>
                 {title}
               </h1>
             </div>

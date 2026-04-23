@@ -2,7 +2,7 @@ import MainLayout from "../../../shared/layout/MainLayout";
 import useMockAsyncData from "../../../shared/hooks/useMockAsyncData";
 import { fetchLedgerRows } from "../../../shared/data/mockDataService";
 import useLedgerFilters from "../hooks/useLedgerFilters";
-import { getStatusTone } from "../utils/statusTone";
+import { getStatusTone } from "../services/statusTone";
 
 function EquilibriumLedgerPage() {
   const { data, isLoading } = useMockAsyncData(fetchLedgerRows, []);

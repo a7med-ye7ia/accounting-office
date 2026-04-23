@@ -29,7 +29,7 @@ function EditContractAiPage() {
           <div className="mt-6 space-y-3">
             {isLoading ? <div className="rounded-xl bg-appMuted p-4 text-sm text-appSubtext">Loading contract clauses...</div> : null}
             {clauses.map((clause) => (
-              <button key={clause.id} onClick={() => setSelectedClauseId(clause.id)} className={`w-full rounded-xl p-4 text-left transition ${selectedClauseId === clause.id ? "bg-badgeBlueBg" : "bg-appMuted hover:bg-slate-200"}`}>
+              <button key={clause.id} onClick={() => setSelectedClauseId(clause.id)} className={`w-full rounded-xl p-4 text-right transition ${selectedClauseId === clause.id ? "bg-badgeBlueBg" : "bg-appMuted hover:bg-slate-200"}`} dir="rtl">
                 <p className="font-semibold text-appText">{clause.title}</p>
                 <p className="mt-1 text-sm text-appSubtext">{clause.body}</p>
               </button>

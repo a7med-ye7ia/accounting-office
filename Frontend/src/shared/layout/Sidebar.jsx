@@ -1,94 +1,172 @@
 import { NavLink } from "react-router-dom";
-import { useSidebar } from "../../context/SidebarContext";
-import { 
-  LayoutDashboard, Building, FileText, Users, 
-  ClipboardList, Building2, FileSignature, BookOpen, 
-  X, Settings, LifeBuoy, PlusCircle 
+import useSidebar from "../hooks/useSidebar";
+import {
+  LayoutDashboard, Building, FileText, Users,
+  ClipboardList, Building2, FileSignature, BookOpen,
+  X, Settings, LifeBuoy, PlusCircle, ChevronRight, ChevronLeft
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", path: "/Dashboard", icon: LayoutDashboard },
-  { label: "Companies", path: "/CompaniesDirectory", icon: Building },
-  { label: "Documents", path: "/Documents", icon: FileText },
-  { label: "Employees", path: "/EmployeeManagement", icon: Users },
-  { label: "Employee Tasks", path: "/EmployeeTasks", icon: ClipboardList },
-  { label: "Departments", path: "/Departments", icon: Building2 },
-  { label: "Contracts", path: "/ContractAi", icon: FileSignature },
-  { label: "Ledger", path: "/EquilibriumLedger", icon: BookOpen },
+  { label: "لوحة التحكم", path: "/Dashboard", icon: LayoutDashboard },
+  { label: "الشركات", path: "/CompaniesDirectory", icon: Building },
+  { label: "المستندات", path: "/Documents", icon: FileText },
+  { label: "الموظفون", path: "/EmployeeManagement", icon: Users },
+  { label: "مهام الموظفين", path: "/EmployeeTasks", icon: ClipboardList },
+  { label: "الأقسام", path: "/Departments", icon: Building2 },
+  { label: "العقود", path: "/ContractAi", icon: FileSignature },
+  { label: "السجل", path: "/EquilibriumLedger", icon: BookOpen },
 ];
 
 function Sidebar() {
-  const { mobileOpen, close } = useSidebar();
+  const { isOpen, isMobile, isDesktop, isTablet, toggle, close } = useSidebar();
+
+  // Desktop/Tablet: inline relative (pushes content)
+  // Mobile: fixed overlay (slides over content)
+  const sidebarWidth = isOpen ? 256 : 56; // 256px open, 56px collapsed
+  const mobileSidebarWidth = isOpen ? 256 : 0; // 256px open, 0px hidden on mobile
+
+  // Calculate actual width based on device
+  const width = isMobile ? mobileSidebarWidth : sidebarWidth;
 
   return (
     <>
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden transition-opacity"
-          onClick={close}
-        />
-      )}
-
-      {/* Sidebar container */}
-      <aside 
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-appBorder bg-appSurfacae lg:bg-appMuted transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0 shadow-2xl bg-appMuted" : "-translate-x-full"
-        }`}
+      {/* Sidebar - adapts based on device */}
+      <aside
+        style={{
+          // Position: inline on desktop/tablet, fixed on mobile
+          position: isMobile ? 'fixed' : 'relative',
+          right: 0,
+          top: 0,
+          height: isMobile ? '100vh' : 'auto',
+          
+          // Width transitions
+          width: `${width}px`,
+          flexShrink: 0,
+          
+          // Transitions
+          transition: 'width 0.3s ease-in-out',
+          overflow: 'hidden',
+          
+          // Z-index: high on mobile (overlay), auto on desktop
+          zIndex: isMobile ? 50 : 'auto',
+          
+          // Styling
+          backgroundColor: '#f1f5f9', // appMuted
+          borderRight: '1px solid #e2e8f0', // appBorder
+        }}
+        className="flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
-          <div>
-            <h1 className="font-display text-2xl font-black uppercase leading-none tracking-tight text-brandDeep">Architectural<br/>Ledger</h1>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-appSubtext font-bold">Accounting Mgmt</p>
-          </div>
-          <button 
-            onClick={close} 
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+        {/* Toggle button at top */}
+        <div className="flex items-center justify-between h-16 px-3 shrink-0 border-b border-appBorder">
+          <button
+            onClick={toggle}
+            className="p-2 rounded-lg text-appSubtext hover:bg-slate-200 hover:text-slate-800 transition-colors flex-shrink-0"
+            title={isOpen ? "Close sidebar" : "Open sidebar"}
           >
-            <X size={20} />
+            {isOpen ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           </button>
+          {isOpen && !isMobile && (
+            <div className="text-end flex-1 min-w-0">
+              <h1 className="font-display text-lg font-black uppercase leading-none tracking-tight text-brandDeep truncate">المعمارية</h1>
+            </div>
+          )}
         </div>
 
-        <nav className="mt-6 flex-1 space-y-1.5 px-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* Logo - show full or icon only (hidden on mobile when closed) */}
+        {(isOpen || !isMobile) && (
+          <div className="px-3 py-4 shrink-0 overflow-hidden whitespace-nowrap">
+            {isOpen ? (
+              <h1 className="font-display text-sm font-black uppercase leading-none tracking-tight text-brandDeep">السجل</h1>
+            ) : (
+              <div className="w-6 h-6 bg-brand rounded-lg" />
+            )}
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="mt-2 flex-1 space-y-1.5 px-2 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={close} // close on mobile when link is clicked
+                onClick={isMobile ? close : undefined}
                 className={({ isActive }) =>
-                  `group flex items-center gap-3 rounded-r-lg px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
-                    isActive 
-                      ? "border-l-[4px] border-brand bg-brand/5 text-brand" 
-                      : "border-l-[4px] border-transparent text-appSubtext hover:bg-slate-200/50 hover:text-slate-800"
+                  `group flex items-center gap-3 rounded-lg px-3 py-3 text-xs font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
+                    isActive
+                      ? "bg-brand/10 text-brand border-r-2 border-brand"
+                      : "text-appSubtext hover:bg-slate-200/50 hover:text-slate-800 border-r-2 border-transparent"
+                  } ${
+                    isOpen ? "justify-start" : "justify-center"
                   }`
                 }
+                title={!isOpen ? item.label : undefined}
               >
-                <Icon size={18} className="transition-transform group-hover:scale-110" />
-                <span>{item.label}</span>
+                <Icon size={18} className="transition-transform group-hover:scale-110 flex-shrink-0" />
+                {isOpen && <span className="truncate">{item.label}</span>}
               </NavLink>
             );
           })}
         </nav>
 
-        <div className="mt-auto p-4 shrink-0">
-          <button className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-b from-brand to-brandDeep py-3 text-xs font-bold text-white shadow-panel hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-[0.98]">
-            <PlusCircle size={16} /> New Entry
+        {/* Add button - always shows icon on collapsed */}
+        <div className="p-2 shrink-0">
+          <button
+            className={`flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-brand to-brandDeep text-xs font-bold text-white shadow-panel hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-[0.98] ${
+              isOpen ? "w-full px-4 py-3" : "w-10 h-10"
+            }`}
+            title={!isOpen ? "Add new" : undefined}
+          >
+            <PlusCircle size={16} />
+            {isOpen && <span>إدخال جديد</span>}
           </button>
         </div>
-        
-        <div className="border-t border-appBorder px-4 py-4 space-y-1 shrink-0">
-          <button className="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors">
-            <Settings size={18} /> Settings
+
+        {/* Settings and Help */}
+        <div className={`border-t border-appBorder ${ isOpen ? "p-4 space-y-1" : "p-2 space-y-2" } shrink-0`}>
+          <button
+            className={`flex items-center gap-3 rounded-lg ${ isOpen ? "w-full px-4 py-2.5" : "w-10 h-10 justify-center" } text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors`}
+            title={!isOpen ? "Settings" : undefined}
+          >
+            <Settings size={18} />
+            {isOpen && <span>الإعدادات</span>}
           </button>
-          <button className="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors">
-            <LifeBuoy size={18} /> Support
+          <button
+            className={`flex items-center gap-3 rounded-lg ${ isOpen ? "w-full px-4 py-2.5" : "w-10 h-10 justify-center" } text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors`}
+            title={!isOpen ? "Help" : undefined}
+          >
+            <LifeBuoy size={18} />
+            {isOpen && <span>الدعم</span>}
           </button>
         </div>
+
+        {/* Mobile close button at bottom */}
+        {isMobile && isOpen && (
+          <div className="p-4 border-t border-appBorder">
+            <button
+              onClick={close}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors"
+            >
+              <X size={18} /> إغلاق
+            </button>
+          </div>
+        )}
       </aside>
+
+      {/* Mobile overlay click handler */}
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
+          onClick={close}
+          style={{ pointerEvents: 'auto' }}
+        />
+      )}
     </>
   );
 }
 
 export default Sidebar;
+
+
+

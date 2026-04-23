@@ -1,5 +1,5 @@
 import MainLayout from "../../../shared/layout/MainLayout";
-import ContractBrowser from "../../companiesManagment/ContractBrowser"
+import ContractBrowser from "../../companiesManagment/components/ContractBrowser"
 function CompaniesDirectoryPage() {
   return (
     <ContractBrowser />

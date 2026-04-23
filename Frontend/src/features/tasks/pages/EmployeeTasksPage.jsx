@@ -5,8 +5,8 @@ import {
   X, ChevronDown, GripVertical,
 } from 'lucide-react';
 import MainLayout from '../../../shared/layout/MainLayout';
-import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../components/shared/HrShared';
-import { HR_TASKS, HR_EMPLOYEES, KANBAN_STAGES } from '../../../data/hrMockData';
+import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
+import { HR_TASKS, HR_EMPLOYEES, KANBAN_STAGES } from '../../../shared/data/hrMockData';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function daysRemaining(deadline) {
