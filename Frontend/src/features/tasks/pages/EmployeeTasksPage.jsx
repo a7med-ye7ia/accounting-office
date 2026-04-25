@@ -6,7 +6,9 @@ import {
 } from 'lucide-react';
 import MainLayout from '../../../shared/layout/MainLayout';
 import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
-import { HR_TASKS, HR_EMPLOYEES, KANBAN_STAGES } from '../../../shared/data/hrMockData';
+import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
+import { fetchEmployees } from '../../../api/employees';
+import { fetchTasks, addTask, deleteTask } from '../../../api/tasks';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function daysRemaining(deadline) {
@@ -136,24 +138,54 @@ function EmployeeTasksPage() {
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(EMPTY_TASK);
+  const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    const t = setTimeout(() => { setTasks(HR_TASKS); setLoading(false); }, 1600);
-    return () => clearTimeout(t);
+
+    const loadData = async () => {
+      try {
+        const [tasksData, employeesData] = await Promise.all([fetchTasks(), fetchEmployees()]);
+        setTasks(tasksData);
+        setEmployees(employeesData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   const moveTask   = (id, stage) => setTasks(prev => prev.map(t => t.id === id ? { ...t, stage } : t));
-  const deleteTask = (id)        => setTasks(prev => prev.filter(t => t.id !== id));
+  const removeTask = async (id)        => {
+    try {
+      await deleteTask(id);
+      setTasks(prev => prev.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // ! optionally show a notification/error state here
+    }
+  }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim() || !form.assigneeName) return;
-    const emp = HR_EMPLOYEES.find(e => e.name === form.assigneeName);
-    setTasks(prev => [...prev, {
+
+    const emp = employees.find(e => e.name === form.assigneeName);
+
+    const newTask = {
       id: `t${Date.now()}`,
       ...form,
       assignee: emp?.avatar ?? form.assigneeName.slice(0, 2).toUpperCase(),
-    }]);
-    setShowForm(false);
+    };
+
+    try {
+      const savedTask = await addTask(newTask);
+      setTasks(prev => [...prev, savedTask]);
+      setShowForm(false);
+    } catch (error) {
+      console.error('Error saving task:', error);
+      // ! optionally show a notification/error state here
+    }
   };
 
   const tasksByStage = stage => tasks.filter(t => t.stage === stage);
@@ -205,7 +237,7 @@ function EmployeeTasksPage() {
               stage={stage}
               tasks={tasksByStage(stage)}
               onMove={moveTask}
-              onDelete={deleteTask}
+              onDelete={removeTask}
               loading={loading}
             />
           ))}
@@ -242,7 +274,7 @@ function EmployeeTasksPage() {
                 <select className={inputCls} value={form.assigneeName}
                   onChange={e => setForm(p => ({ ...p, assigneeName: e.target.value }))}>
                   <option value="">Select employee…</option>
-                  {HR_EMPLOYEES.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                  {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
                 </select>
               </div>
               <div>

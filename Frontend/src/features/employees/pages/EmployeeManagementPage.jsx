@@ -10,12 +10,18 @@ import MainLayout from '../../../shared/layout/MainLayout';
 import {
   Avatar, StatusBadge, Modal, SlideOver, TableSkeleton,
 } from '../../../shared/components/HrShared';
-import { HR_EMPLOYEES, HR_DEPT_NAMES } from '../../../shared/data/hrMockData';
+import { getDepartmentNames } from '../../../api/departments';
+import { fetchEmployees } from '../../../api/employees';
 
 const EMPTY_EMP = {
-  name: '', role: '', dept: HR_DEPT_NAMES[0] || '', email: '',
+  name: '', role: '', dept: '', email: '',
   phone: '', hireDate: '', status: 'نشط',
 };
+
+// const EMPTY_EMP = {
+//   name: '', role: '', dept: HR_DEPT_NAMES[0] || '', email: '',
+//   phone: '', hireDate: '', status: 'نشط',
+// };
 
 function inputCls() {
   return 'w-full ps-3 pe-3 py-2 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all';
@@ -24,6 +30,7 @@ function inputCls() {
 function EmployeeManagementPage() {
   const { t } = useTranslation();
   const [employees, setEmployees]   = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const [deptFilter, setDeptFilter] = useState('الكل');
@@ -36,8 +43,21 @@ function EmployeeManagementPage() {
   const [deleteId, setDeleteId]     = useState(null);
 
   useEffect(() => {
-    const t = setTimeout(() => { setEmployees(HR_EMPLOYEES); setLoading(false); }, 1400);
-    return () => clearTimeout(t);
+    const loadData = async () => {
+      try {
+        const [deptData, empData] = await Promise.all([getDepartmentNames(), fetchEmployees()]);
+        setDepartments(deptData);
+        setEmployees(empData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+
+    // const t = setTimeout(() => { setEmployees(HR_EMPLOYEES); setLoading(false); }, 1400);
+    // return () => clearTimeout(t);
   }, []);
 
   const filtered = employees.filter(e => {
@@ -110,7 +130,7 @@ function EmployeeManagementPage() {
             { label: 'إجمالي الموظفين', value: employees.length,     colorClass: 'bg-blue-50 text-brand' },
             { label: 'نشط',             value: activeCount,           colorClass: 'bg-emerald-50 text-emerald-600' },
             { label: 'في إجازة',        value: leaveCount,            colorClass: 'bg-amber-50 text-amber-600' },
-            { label: 'الأقسام',         value: HR_DEPT_NAMES.length,  colorClass: 'bg-purple-50 text-purple-600' },
+            { label: 'الأقسام',         value: departments.length,    colorClass: 'bg-purple-50 text-purple-600' },
           ].map(s => (
             <div key={s.label} className="bg-appSurface rounded-2xl border border-appBorder p-4 flex items-center gap-3">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${s.colorClass}`}>
@@ -146,7 +166,7 @@ function EmployeeManagementPage() {
               onChange={e => setDeptFilter(e.target.value)}
             >
               <option value="الكل">كل الأقسام</option>
-              {HR_DEPT_NAMES.map(d => <option key={d}>{d}</option>)}
+              {departments.map(d => <option key={d}>{d}</option>)}
             </select>
             <ChevronDown size={11} className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
@@ -380,7 +400,7 @@ function EmployeeManagementPage() {
                 <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">القسم</label>
                 <select className={inputCls()} value={form.dept}
                   onChange={e => setForm(p => ({ ...p, dept: e.target.value }))}>
-                  {HR_DEPT_NAMES.map(d => <option key={d}>{d}</option>)}
+                  {departments.map(d => <option key={d}>{d}</option>)}
                 </select>
               </div>
               <div>

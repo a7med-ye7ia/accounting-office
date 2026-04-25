@@ -7,7 +7,7 @@ import MainLayout from '../../../shared/layout/MainLayout';
 import {
   BudgetBar, Modal, StatusBadge, TableSkeleton,
 } from '../../../shared/components/HrShared';
-import { HR_DEPARTMENTS } from '../../../shared/data/hrMockData';
+import { fetchDepartments } from '../../../api/departments';
 
 const EMPTY_FORM = { name: '', head: '', budget: '', description: '' };
 
@@ -34,8 +34,21 @@ function DepartmentsPage() {
   const [deleteId, setDeleteId]   = useState(null);
 
   useEffect(() => {
-    const t = setTimeout(() => { setDepts(HR_DEPARTMENTS); setLoading(false); }, 1200);
-    return () => clearTimeout(t);
+    const loadDepartments = async () => {
+      try {
+        const data = await fetchDepartments();
+        setDepts(data);
+      } catch (error) {
+        console.error('Error loading departments:', error);
+        // ! optionally show a notification/error state here
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDepartments();
+    // const t = setTimeout(() => { setDepts(HR_DEPARTMENTS); setLoading(false); }, 1200);
+    // return () => clearTimeout(t);
   }, []);
 
   const openCreate = () => { setForm(EMPTY_FORM); setEditItem(null); setShowModal(true); };

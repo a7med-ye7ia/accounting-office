@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { mockCompanies } from "../../../shared/data/mockData";
+import { useState, useEffect, useCallback } from "react";
+import { fetchCompanies } from "../../../api/companies";
 import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
 import CompanyList from "./CompanyList";
@@ -23,6 +23,9 @@ export default function ContractBrowser() {
   const [extraContracts, setExtraContracts] = useState([]);
   const [removedIds, setRemovedIds] = useState([]);
   const [deletedContract, setDeletedContract] = useState(null);
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [companiesError, setCompaniesError] = useState(null);
 
   /* ======== NAVIGATION ======== */
   const navigateTo = (target) => {
@@ -52,6 +55,25 @@ export default function ContractBrowser() {
     else if (view === "pdfList") navigateTo("contractTypes");
     else if (view === "contractTypes") navigateTo("companies");
   };
+
+  useEffect(() => {
+    const loadCompanies = async () => {
+      setLoadingCompanies(true);
+      setCompaniesError(null);
+
+      try {
+        const data = await fetchCompanies();
+        setCompanies(data || []);
+      } catch (error) {
+        console.error("Error fetching companies:", error);
+        setCompaniesError("فشل تحميل الشركات. حاول مرة أخرى لاحقًا.");
+      } finally {
+        setLoadingCompanies(false);
+      }
+    };
+
+    loadCompanies();
+  }, []);
 
   /* ======== SELECTION HANDLERS ======== */
   const handleSelectCompany = (company) => {
@@ -174,10 +196,22 @@ export default function ContractBrowser() {
         {view !== "companies" && <Breadcrumb items={buildBreadcrumbs()} type={selectedContractType} />}
 
         {view === "companies" && (
-          <CompanyList
-            companies={mockCompanies}
-            onSelectCompany={handleSelectCompany}
-          />
+          <>
+            {loadingCompanies ? (
+              <div className="text-center py-20 text-slate-600">
+                جاري تحميل الشركات...
+              </div>
+            ) : companiesError ? (
+              <div className="text-center py-20 text-red-600">
+                {companiesError}
+              </div>
+            ) : (
+              <CompanyList
+                companies={companies}
+                onSelectCompany={handleSelectCompany}
+              />
+            )}
+          </>
         )}
 
         {view === "contractTypes" && selectedCompany && (
