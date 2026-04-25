@@ -30,10 +30,10 @@ function DeadlinePill({ deadline }) {
 }
 
 const STAGE_META = {
-  'Backlog':      { Icon: Circle,       color: 'text-appSubtext',   bg: 'bg-slate-100',   ring: 'ring-slate-300'   },
-  'In Progress':  { Icon: Loader2,      color: 'text-blue-500',     bg: 'bg-blue-100',    ring: 'ring-blue-300'    },
-  'Under Review': { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
-  'Completed':    { Icon: CheckCircle2, color: 'text-emerald-500',  bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
+  'قائمة الانتظار':  { Icon: Circle,       color: 'text-appSubtext',   bg: 'bg-slate-100',   ring: 'ring-slate-300'   },
+  'قيد التنفيذ':   { Icon: Loader2,      color: 'text-blue-500',     bg: 'bg-blue-100',    ring: 'ring-blue-300'    },
+  'تحت المراجعة':  { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
+  'مكتمل':        { Icon: CheckCircle2, color: 'text-emerald-500',  bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
 };
 
 // ─── Task Card ──────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ function KanbanColumn({ stage, tasks, onMove, onDelete, loading }) {
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 const EMPTY_TASK = {
-  title: '', assigneeName: '', priority: 'Medium', deadline: '', stage: 'Backlog',
+  title: '', assigneeName: '', priority: 'Medium', deadline: '', stage: 'قائمة الانتظار',
 };
 
 function EmployeeTasksPage() {
