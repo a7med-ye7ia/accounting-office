@@ -6,12 +6,27 @@ function useMockAsyncData(loader, initialState = []) {
 
   useEffect(() => {
     let mounted = true;
-    loader().then((result) => {
-      if (mounted) {
-        setData(result);
-        setIsLoading(false);
+
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        const result = await loader();
+        if (mounted) {
+          setData(result);
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error("Async data loader failed:", error);
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
-    });
+    }
+
+    loadData();
+
     return () => {
       mounted = false;
     };

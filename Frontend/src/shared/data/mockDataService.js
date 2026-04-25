@@ -1,41 +1,41 @@
-export const ledgerRowsSeed = [
-  { 
-    id: "LGR-EGP-0012", 
-    company: "شركة المدار اللوجستية", 
-    department: "الضرائب", 
-    amount: "1,245,000.00 ج.م", 
-    currency: "EGP", 
-    status: "قيد المراجعة", 
-    postedAt: "2026-04-10" 
-  },
-  { 
-    id: "LGR-SAR-0009", 
-    company: "شركة الوسم التجارية ذ.م.م", 
-    department: "التأمين", 
-    amount: "320,500.00 ر.س", 
-    currency: "SAR", 
-    status: "معلق", 
-    postedAt: "2026-04-09" 
-  },
-  { 
-    id: "LGR-EGP-0008", 
-    company: "النيل كوبري للإنشاءات", 
-    department: "الشؤون القانونية", 
-    amount: "89,300.00 ج.م", 
-    currency: "EGP", 
-    status: "تم التحقق", 
-    postedAt: "2026-04-08" 
-  },
-  { 
-    id: "LGR-SAR-0004", 
-    company: "مجموعة رياض موبيليتي", 
-    department: "الأرشيف", 
-    amount: "27,980.00 ر.س", 
-    currency: "SAR", 
-    status: "متأخر", 
-    postedAt: "2026-04-05" 
-  },
-];
+// export const ledgerRowsSeed = [
+//   { 
+//     id: "LGR-EGP-0012", 
+//     company: "شركة المدار اللوجستية", 
+//     department: "الضرائب", 
+//     amount: "1,245,000.00 ج.م", 
+//     currency: "EGP", 
+//     status: "قيد المراجعة", 
+//     postedAt: "2026-04-10" 
+//   },
+//   { 
+//     id: "LGR-SAR-0009", 
+//     company: "شركة الوسم التجارية ذ.م.م", 
+//     department: "التأمين", 
+//     amount: "320,500.00 ر.س", 
+//     currency: "SAR", 
+//     status: "معلق", 
+//     postedAt: "2026-04-09" 
+//   },
+//   { 
+//     id: "LGR-EGP-0008", 
+//     company: "النيل كوبري للإنشاءات", 
+//     department: "الشؤون القانونية", 
+//     amount: "89,300.00 ج.م", 
+//     currency: "EGP", 
+//     status: "تم التحقق", 
+//     postedAt: "2026-04-08" 
+//   },
+//   { 
+//     id: "LGR-SAR-0004", 
+//     company: "مجموعة رياض موبيليتي", 
+//     department: "الأرشيف", 
+//     amount: "27,980.00 ر.س", 
+//     currency: "SAR", 
+//     status: "متأخر", 
+//     postedAt: "2026-04-05" 
+//   },
+// ];
 export const arabicContractClausesSeed = [
   {
     id: "rent",

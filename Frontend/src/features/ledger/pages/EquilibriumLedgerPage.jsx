@@ -1,11 +1,11 @@
 import MainLayout from "../../../shared/layout/MainLayout";
 import useMockAsyncData from "../../../shared/hooks/useMockAsyncData";
-import { fetchLedgerRows } from "../../../shared/data/mockDataService";
+import { fetchLedger } from "../../../api/ledger";
 import useLedgerFilters from "../hooks/useLedgerFilters";
 import { getStatusTone } from "../services/statusTone";
 
 function EquilibriumLedgerPage() {
-  const { data, isLoading } = useMockAsyncData(fetchLedgerRows, []);
+  const { data, isLoading } = useMockAsyncData(fetchLedger, []);
   const { currencyFilter, setCurrencyFilter, sortDirection, setSortDirection, pageIndex, setPageIndex, filteredRows, paginatedRows, maxPage } =
     useLedgerFilters(data);
 
