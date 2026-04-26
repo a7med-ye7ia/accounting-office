@@ -118,6 +118,28 @@
     "previous": "Previous",
     "finish": "Finish"
   },
+  "ledger": {
+    "title": "Equilibrium Ledger",
+    "subtitle": "Ledger Intelligence",
+    "ledgerEntries": "Ledger Entries",
+    "egpRows": "EGP Rows",
+    "sarRows": "SAR Rows",
+    "overdue": "Overdue",
+    "multiCurrencyGrid": "Multi-Currency Ledger Grid",
+    "allCurrencies": "All Currencies",
+    "sort": "Sort",
+    "newest": "Newest",
+    "oldest": "Oldest",
+    "entryId": "Entry ID",
+    "company": "Company",
+    "department": "Department",
+    "amount": "Amount",
+    "currency": "Currency",
+    "status": "Status",
+    "loading": "Loading ledger rows...",
+    "page": "Page",
+    "of": "of"
+  },
   "sidebar": {
     "appName": "Architectural",
     "appNameSecond": "Ledger",
