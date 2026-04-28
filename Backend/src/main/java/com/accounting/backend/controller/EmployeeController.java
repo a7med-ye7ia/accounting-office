@@ -20,7 +20,7 @@ import com.accounting.backend.entity.Employee;
 @CrossOrigin(origins = "http://localhost:5173")
 public class EmployeeController {
   List<Employee> employees = new ArrayList<>(Arrays.asList(
-    new Employee("0", "Mo.Anwar",       "CEO",  "Every thing",  "0-0-0", "Great",     "PN",  "m@gmail.com",   "+1 555-0110" ),
+    new Employee("0", "Mo.Anwar",       "CEO",  "Every thing",  "0-0-0", "Great",     "Mo",  "m@gmail.com",   "+1 555-0110" ),
     new Employee("1", "أليكس كارتر",      "مهندس رئيسي",     "الهندسة",     "2021-03-15", "نشط",     "AC",  "alex@corp.io",    "+1 555-0101" ),
     new Employee("2", "سارة بنعلي",      "مدير تجربة المستخدم", "تصميم المنتج", "2020-07-01", "نشط",     "SB",  "sara@corp.io",    "+1 555-0102" ),
     new Employee("3", "جيمس أوكافور",     "مدير مالي تنفيذي",   "المالية",     "2019-01-20", "نشط",     "JO",  "james@corp.io",   "+1 555-0103" ),
@@ -50,5 +50,10 @@ public class EmployeeController {
   @DeleteMapping("/employees/{id}")
   public Boolean deleteEmployee(@PathVariable String id) {
     return employees.removeIf(e -> e.getId().equals(id));
+  }
+
+  @GetMapping("/employees/{id}")
+  public Employee getEmployeeById(@PathVariable String id) {
+    return employees.stream().filter(e -> e.getId().equals(id)).findFirst().orElse(null);
   }
 }

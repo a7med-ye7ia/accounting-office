@@ -27,6 +27,33 @@ export const addEmployee = async (employee) => {
   }
 };
 
+export const updateEmployee = async (id, employee) => {
+  try {
+    if (!employee.name?.trim() || !employee.email?.trim()) {
+      throw new Error('Name and email are required');
+    }
+    
+    const response = await apiClient.put(`/employees/${id}`, employee);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    if (error.response?.data) {
+      console.error('Backend error details:', error.response.data);
+    }
+    throw error;
+  }
+};
+
+export const getEmployeeById = async (id) => {
+  try {
+    const response = await apiClient.get(`/employees/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employee:', error);
+    throw error;
+  }
+};
+
 export const deleteEmployee = async (id) => {
   try {
     const response = await apiClient.delete(`/employees/${id}`);

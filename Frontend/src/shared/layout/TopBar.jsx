@@ -1,8 +1,34 @@
 import { Menu, Search, Bell, Inbox } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import useSidebar from "../hooks/useSidebar";
+import { fetchEmployees } from "../../api/employees";
 
 function TopBar() {
   const { toggle, isMobile } = useSidebar();
+  const navigate = useNavigate();
+  const [currentEmployee, setCurrentEmployee] = useState(null);
+
+  useEffect(() => {
+    const loadCurrentEmployee = async () => {
+      try {
+        const employeeId = localStorage.getItem('currentEmployeeId') || '0';
+        const employees = await fetchEmployees();
+        const employee = employees.find(e => e.id.toString() === employeeId.toString());
+        if (employee) {
+          setCurrentEmployee(employee);
+        }
+      } catch (error) {
+        console.error('Error loading current employee:', error);
+      }
+    };
+    loadCurrentEmployee();
+  }, []);
+
+  const handleProfileClick = () => {
+    const employeeId = localStorage.getItem('currentEmployeeId') || '0';
+    navigate(`/EmployeeProfile/${employeeId}`);
+  };
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-appBorder bg-appSurface px-4 lg:px-6">
@@ -42,12 +68,17 @@ function TopBar() {
           Add New
         </button>
         
-        <div className="flex items-center gap-2 pr-1 sm:pr-2">
-           <span className="text-xs font-semibold text-appText hidden md:block">Admin User</span>
-           <div className="h-8 w-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-bold text-xs shrink-0">
-             AD
+        <button 
+          onClick={handleProfileClick}
+          className="flex items-center gap-2 pr-1 sm:pr-2 rounded-lg hover:bg-slate-100/50 transition-colors px-2 py-1.5"
+        >
+           <span className="text-xs font-semibold text-appText hidden md:block">
+             {currentEmployee?.name || 'Loading...'}
+           </span>
+           <div className="h-8 w-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-bold text-xs shrink-0 hover:bg-brand/20 transition-colors">
+             {currentEmployee?.avatar || 'XX'}
            </div>
-        </div>
+        </button>
       </div>
     </header>
   );
