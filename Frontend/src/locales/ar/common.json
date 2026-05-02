@@ -118,6 +118,28 @@
     "previous": "السابق",
     "finish": "إنهاء"
   },
+  "ledger": {
+    "title": "السجل ",
+    "subtitle": "",
+    "ledgerEntries": "إدخالات السجل",
+    "egpRows": "صفوف الجنيه المصري",
+    "sarRows": "صفوف الريال السعودي",
+    "overdue": "متأخرة",
+    "multiCurrencyGrid": "شبكة السجل متعدد العملات",
+    "allCurrencies": "جميع العملات",
+    "sort": "ترتيب",
+    "newest": "الأحدث",
+    "oldest": "الأقدم",
+    "entryId": "معرّف الإدخال",
+    "company": "الشركة",
+    "department": "القسم",
+    "amount": "المبلغ",
+    "currency": "العملة",
+    "status": "الحالة",
+    "loading": "جاري تحميل صفوف السجل...",
+    "page": "صفحة",
+    "of": "من"
+  },
   "sidebar": {
     "appName": "المعمارية",
     "appNameSecond": "السجل",
