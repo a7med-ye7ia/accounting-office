@@ -9,7 +9,7 @@ import MainLayout from '../../../shared/layout/MainLayout';
 import {
   Avatar, StatusBadge, Modal,
 } from '../../../shared/components/HrShared';
-import { fetchEmployees, getEmployeeById, updateEmployee, deleteEmployee } from '../../../api/employees';
+import { fetchUsers, getUserById, updateUser, deleteUser } from '../../../api/users';
 
 function inputCls() {
   return 'w-full ps-3 pe-3 py-2 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all';
@@ -41,9 +41,9 @@ function EmployeeProfilePage() {
         // If id is provided in URL params, fetch that specific employee, otherwise fetch all and use the first one
         let current;
         if (id) {
-          current = await getEmployeeById(id);
+          current = await getUserById(id);
         } else {
-          const employees = await fetchEmployees();
+          const employees = await fetchUsers();
           current = employees[0];
         }
         
@@ -94,7 +94,7 @@ function EmployeeProfilePage() {
       }
 
       setSaving(true);
-      await updateEmployee(employee.id, formData);
+      await updateUser(employee.id, formData);
       
       setEmployee({ ...formData });
       setIsEditing(false);
@@ -112,7 +112,7 @@ function EmployeeProfilePage() {
   const handleDelete = async () => {
     try {
       setSaving(true);
-      await deleteEmployee(employee.id);
+      await deleteUser(employee.id);
       setShowDeleteModal(false);
       setSuccessMessage('تم حذف الموظف بنجاح');
       setTimeout(() => {
