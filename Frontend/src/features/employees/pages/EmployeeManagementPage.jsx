@@ -11,7 +11,7 @@ import {
   Avatar, StatusBadge, Modal, SlideOver, TableSkeleton,
 } from '../../../shared/components/HrShared';
 import { getDepartmentNames } from '../../../api/departments';
-import { fetchEmployees } from '../../../api/employees';
+import { fetchUsers } from '../../../api/users';
 
 const EMPTY_EMP = {
   name: '', role: '', dept: '', email: '',
@@ -45,7 +45,7 @@ function EmployeeManagementPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [deptData, empData] = await Promise.all([getDepartmentNames(), fetchEmployees()]);
+        const [deptData, empData] = await Promise.all([getDepartmentNames(), fetchUsers()]);
         setDepartments(deptData);
         setEmployees(empData);
       } catch (error) {
@@ -61,7 +61,7 @@ function EmployeeManagementPage() {
   }, []);
 
   const filtered = employees.filter(e => {
-    const matchName   = e.name.toLowerCase().includes(search.toLowerCase());
+    const matchName   = e.fullName.toLowerCase().includes(search.toLowerCase());
     const matchDept   = deptFilter === 'الكل' || e.dept === deptFilter;
     const matchStatus = statusFilter === 'الكل' || e.status === statusFilter;
     return matchName && matchDept && matchStatus;
@@ -80,7 +80,7 @@ function EmployeeManagementPage() {
 
   const openCreate = () => { setForm(EMPTY_EMP); setEditEmp(null); setShowForm(true); };
   const openEdit   = emp => {
-    setForm({ name: emp.name, role: emp.role, dept: emp.dept, email: emp.email,
+    setForm({ name: emp.fullName, role: emp.role, dept: emp.dept, email: emp.email,
               phone: emp.phone, hireDate: emp.hireDate, status: emp.status });
     setEditEmp(emp);
     setShowForm(true);

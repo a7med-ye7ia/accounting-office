@@ -7,6 +7,7 @@ import DashboardPage from "./features/dashboard/pages/DashboardPage";
 import DepartmentsPage from "./features/departments/pages/DepartmentsPage";
 import DocumentsPage from "./features/documents/pages/DocumentsPage";
 import EmployeeManagementPage from "./features/employees/pages/EmployeeManagementPage";
+import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage";
 import EquilibriumLedgerPage from "./features/ledger/pages/EquilibriumLedgerPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 
@@ -19,6 +20,7 @@ function App() {
       <Route path="/Documents" element={<DocumentsPage />} />
       <Route path="/CompanyProfile" element={<CompanyProfilePage />} />
       <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
+      <Route path="/EmployeeProfile/:id" element={<EmployeeProfilePage />} />
       <Route path="/EmployeeTasks" element={<EmployeeTasksPage />} />
       <Route path="/Departments" element={<DepartmentsPage />} />
       <Route path="/ContractAi" element={<ContractAiPage />} />

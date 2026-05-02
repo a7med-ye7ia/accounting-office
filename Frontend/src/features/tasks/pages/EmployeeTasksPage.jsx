@@ -7,7 +7,7 @@ import {
 import MainLayout from '../../../shared/layout/MainLayout';
 import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
-import { fetchEmployees } from '../../../api/employees';
+import { fetchUsers } from '../../../api/users';
 import { fetchTasks, addTask, deleteTask } from '../../../api/tasks';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ function EmployeeTasksPage() {
 
     const loadData = async () => {
       try {
-        const [tasksData, employeesData] = await Promise.all([fetchTasks(), fetchEmployees()]);
+        const [tasksData, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
         setTasks(tasksData);
         setEmployees(employeesData);
       } catch (error) {
