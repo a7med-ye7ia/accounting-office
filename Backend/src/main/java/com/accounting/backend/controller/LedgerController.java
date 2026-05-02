@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.accounting.backend.entity.Ledger;
 
 @RestController
-@RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:5173")
+@RequestMapping("/api")
 public class LedgerController {
   
   private List<Ledger> ledgerRows = new ArrayList<>(Arrays.asList(
