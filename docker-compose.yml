@@ -1,6 +1,20 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres
+    container_name: accounting-db
+    environment:
+      POSTGRES_DB: accounting_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - accounting-network
+
   backend:
     build:
       context: ./Backend
@@ -8,8 +22,13 @@ services:
     container_name: accounting-backend
     ports:
       - "8080:8080"
+    depends_on:
+      - db
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/accounting_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=1234
     healthcheck:
       test: ["CMD", "java", "-version"]
       interval: 30s
@@ -43,3 +62,6 @@ services:
 networks:
   accounting-network:
     driver: bridge
+
+volumes:
+  pgdata:

@@ -4,8 +4,12 @@ FROM eclipse-temurin:25-jdk-alpine AS builder
 
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml
+# Copy Maven wrapper, .mvn directory, and pom.xml
 COPY mvnw mvnw.cmd pom.xml ./
+COPY .mvn ./.mvn
+
+# Fix permissions for the wrapper script (مهم جداً لمستخدمي ويندوز)
+RUN chmod +x ./mvnw
 
 # Copy source code
 COPY src ./src
