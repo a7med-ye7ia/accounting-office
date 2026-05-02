@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+.next/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage/
+.test/
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+lerna-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+docs/
+
+# Other
+*.md
+.prettierignore
+.eslintignore
