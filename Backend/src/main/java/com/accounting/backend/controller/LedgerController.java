@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.accounting.backend.entity.Ledger;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "*")
 @RequestMapping("/api")
 public class LedgerController {
   
