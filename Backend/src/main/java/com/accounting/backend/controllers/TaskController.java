@@ -5,6 +5,7 @@ import com.accounting.backend.repositories.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,7 @@ public class TaskController {
 
     @PostMapping
     public Task createTask(@RequestBody Task task) {
+        task.setCreatedAt(LocalDateTime.now());
         return taskRepository.save(task);
     }
 
@@ -41,13 +43,12 @@ public class TaskController {
         task.setStatus(taskDetails.getStatus());
         task.setDueDate(taskDetails.getDueDate());
         task.setDepartment(taskDetails.getDepartment());
-        task.setCreatedAt(taskDetails.getCreatedAt());
-        task.setDeletedAt(taskDetails.getDeletedAt());
         return taskRepository.save(task);
     }
 
     @DeleteMapping("/{id}")
     public void deleteTask(@PathVariable Long id) {
+        // TODO : handle the delete logic (soft delete)
         taskRepository.deleteById(id);
     }
 }
