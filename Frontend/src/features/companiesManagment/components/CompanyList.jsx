@@ -1,4 +1,5 @@
 export default function CompanyList({ companies, onSelectCompany }) {
+  console.log("Rendering CompanyList with companies:", companies);
   return (
     <div className="animate-fadeIn">
       {/* Title */}

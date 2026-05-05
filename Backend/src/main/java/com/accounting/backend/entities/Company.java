@@ -2,6 +2,9 @@ package com.accounting.backend.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.accounting.backend.enums.CompanyType;
 import com.accounting.backend.enums.CompanyStatus;
 
@@ -39,6 +42,12 @@ public class Company {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    // @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
+    // private List<Contract> contracts = new ArrayList<>();
+
+    @Transient
+    private List<Contract> contracts;
+
     // Getters and setters
 
     public Long getId() { return id; }
@@ -68,4 +77,14 @@ public class Company {
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
 
+    public List<Contract> getContracts() { return contracts; }
+    public void setContracts(List<Contract> contracts) { this.contracts = contracts; }
+    @Override
+    public String toString() {
+        return "Company [id=" + id + ", name=" + name + ", companyType=" + companyType + ", commercialRegNo="
+                + commercialRegNo + ", taxId=" + taxId + ", status=" + status + ", createdAt=" + createdAt
+                + ", updatedAt=" + updatedAt + ", deletedAt=" + deletedAt + ", contracts=" + contracts + "]";
+    }
+
+    
 }

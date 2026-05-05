@@ -63,7 +63,45 @@ export default function ContractBrowser() {
 
       try {
         const data = await fetchCompanies();
-        setCompanies(data || []);
+        console.log("Companies data:", data);
+        // Transform backend company data to match frontend expectations
+        const transformedCompanies = data.map(company => ({
+          id: company.id,
+          icon: "🏢", // Static icon for all companies
+          name: company.name,
+          description: company.companyType, // Use companyType as description
+          establishmentContracts: company.contracts
+            .filter(c => c.type === 'ESTABLISHMENT')
+            .map(c => ({
+              id: c.id,
+              name: c.filePath || `Contract ${c.id}`, // Use filePath or fallback
+              type: 'establishment',
+              date: c.createdAt,
+              size: 'N/A', // Placeholder, can be calculated later
+              // For establishment contracts, include the structured data
+              company_name: c.company_name,
+              company_address: c.company_address,
+              company_type: c.company_type,
+              law_reference: c.law_reference,
+              company_capital: c.company_capital,
+              commercial_register_number: c.commercial_register_number,
+              approval_date: c.approval_date,
+              real_estate_registry_minutes_number: c.real_estate_registry_minutes_number,
+              company_duration: c.company_duration,
+              company_activity: c.company_activity,
+              articles: c.articles
+            })),
+          amendmentContracts: company.contracts
+            .filter(c => c.type === 'CREATING')
+            .map(c => ({
+              id: c.id,
+              name: c.filePath || `Contract ${c.id}`,
+              type: 'amendment',
+              date: c.createdAt,
+              size: 'N/A'
+            }))
+        }));
+        setCompanies(transformedCompanies || []);
       } catch (error) {
         console.error("Error fetching companies:", error);
         setCompaniesError("فشل تحميل الشركات. حاول مرة أخرى لاحقًا.");

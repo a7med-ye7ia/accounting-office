@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.accounting.backend.entities.Company;
+import com.accounting.backend.entities.Contract;
 import com.accounting.backend.repositories.CompanyRepository;
 
 @RestController
@@ -26,14 +27,38 @@ public class CompanyController {
     @Autowired
     private CompanyRepository companyRepository;
 
+    @Autowired
+    private ContractController contractController;
+
     @GetMapping
     public List<Company> getAllCompanies() {
-        return companyRepository.findAll();
+        List<Company> companies = companyRepository.findAll();
+        
+        List<Contract> contracts = contractController.getAllContracts();
+        for (Company company : companies) {
+            company.setContracts(contracts.stream()
+                .filter(contract -> contract.getCompany().getId().equals(company.getId()))
+                .toList());
+        }
+        
+        System.out.println("==================================");
+        for(Company company : companies) {
+            System.out.println(company);
+        }
+        System.out.println("==================================");
+        return companies;
     }
 
     @GetMapping("/{id}")
     public Optional<Company> getCompanyById(@PathVariable Long id) {
-        return companyRepository.findById(id);
+        Company company = companyRepository.findById(id).orElseThrow();
+        List<Contract> contracts = contractController.getAllContracts();
+        company.setContracts(contracts.stream()
+            .filter(contract -> contract.getCompany().getId().equals(company.getId()))
+            .toList());
+
+        System.out.println(company);
+        return Optional.of(company);
     }
 
     @PostMapping
