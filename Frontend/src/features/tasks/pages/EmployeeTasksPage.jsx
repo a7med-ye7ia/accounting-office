@@ -10,13 +10,30 @@ import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
 import { fetchTasks, addTask, deleteTask } from '../../../api/tasks';
 
+// ─── Status Mapping ────────────────────────────────────────────────────────
+const STATUS_TO_ARABIC = {
+  'PENDING': 'قائمة الانتظار',
+  'IN_PROGRESS': 'قيد التنفيذ',
+  'REVIEW': 'تحت المراجعة',
+  'COMPLETED': 'مكتمل',
+};
+
+const ARABIC_TO_STATUS = {
+  'قائمة الانتظار': 'PENDING',
+  'قيد التنفيذ': 'IN_PROGRESS',
+  'تحت المراجعة': 'REVIEW',
+  'مكتمل': 'COMPLETED',
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function daysRemaining(deadline) {
-  return Math.ceil((new Date(deadline) - new Date()) / 86400000);
+function daysRemaining(dueDate) {
+  if (!dueDate) return null;
+  return Math.ceil((new Date(dueDate) - new Date()) / 86400000);
 }
 
-function DeadlinePill({ deadline }) {
-  const days = daysRemaining(deadline);
+function DeadlinePill({ dueDate }) {
+  const days = daysRemaining(dueDate);
+  if (!days) return null;
   const cls =
     days < 0    ? 'bg-red-100 text-red-700'
     : days <= 2 ? 'bg-red-50 text-red-600'
@@ -32,16 +49,17 @@ function DeadlinePill({ deadline }) {
 }
 
 const STAGE_META = {
-  'قائمة الانتظار':  { Icon: Circle,       color: 'text-appSubtext',   bg: 'bg-slate-100',   ring: 'ring-slate-300'   },
-  'قيد التنفيذ':   { Icon: Loader2,      color: 'text-blue-500',     bg: 'bg-blue-100',    ring: 'ring-blue-300'    },
-  'تحت المراجعة':  { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
-  'مكتمل':        { Icon: CheckCircle2, color: 'text-emerald-500',  bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
+  'PENDING': { Icon: Circle,       color: 'text-appSubtext',   bg: 'bg-slate-100',   ring: 'ring-slate-300'   },
+  'IN_PROGRESS': { Icon: Loader2,      color: 'text-blue-500',     bg: 'bg-blue-100',    ring: 'ring-blue-300'    },
+  'REVIEW': { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
+  'COMPLETED': { Icon: CheckCircle2, color: 'text-emerald-500',  bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
 };
 
 // ─── Task Card ──────────────────────────────────────────────────────────────
 function TaskCard({ task, onMove, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const otherStages = KANBAN_STAGES.filter(s => s !== task.stage);
+  const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
+  const otherStages = KANBAN_STAGES.filter(s => s !== task.status);
 
   return (
     <div className="bg-appSurface rounded-xl border border-appBorder p-4 hover:shadow-panel hover:-translate-y-0.5 transition-all duration-150 cursor-grab active:cursor-grabbing group relative">
@@ -62,7 +80,7 @@ function TaskCard({ task, onMove, onDelete }) {
                   onClick={() => { onMove(task.id, s); setMenuOpen(false); }}
                   className="flex items-center gap-2 w-full px-3 py-2 text-xs text-appText hover:bg-appMuted transition-colors">
                   <ArrowRight size={11} className="text-appSubtext" />
-                  Move to {s}
+                  Move to {STATUS_TO_ARABIC[s]}
                 </button>
               ))}
               <div className="border-t border-appBorder mt-1 pt-1">
@@ -82,28 +100,28 @@ function TaskCard({ task, onMove, onDelete }) {
 
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
-        <PriorityBadge priority={task.priority} />
-        {task.deadline && <DeadlinePill deadline={task.deadline} />}
+        {task.dueDate && <DeadlinePill dueDate={task.dueDate} />}
       </div>
 
       {/* Footer */}
       <div className="flex items-center gap-2 pt-3 border-t border-appBorder">
-        <Avatar initials={task.assignee} size="sm" />
-        <p className="text-[11px] text-appSubtext truncate flex-1">{task.assigneeName}</p>
+        <Avatar initials={task.assignedTo?.name?.slice(0, 2).toUpperCase() || '?'} size="sm" />
+        <p className="text-[11px] text-appSubtext truncate flex-1">{task.assignedTo?.name || 'Unassigned'}</p>
       </div>
     </div>
   );
 }
 
 // ─── Kanban Column ──────────────────────────────────────────────────────────
-function KanbanColumn({ stage, tasks, onMove, onDelete, loading }) {
-  const { Icon, color, bg, ring } = STAGE_META[stage];
+function KanbanColumn({ status, tasks, onMove, onDelete, loading }) {
+  const { Icon, color, bg, ring } = STAGE_META[status];
+  const arabicLabel = STATUS_TO_ARABIC[status];
   return (
     <div className="flex flex-col gap-3 bg-appMuted rounded-2xl p-3 min-w-[250px] flex-1">
       {/* Column header */}
       <div className="flex items-center gap-2 px-1 pb-1">
         <Icon size={14} className={color} />
-        <span className="text-[11px] font-bold text-appSubtext uppercase tracking-[0.14em] flex-1">{stage}</span>
+        <span className="text-[11px] font-bold text-appSubtext uppercase tracking-[0.14em] flex-1">{arabicLabel}</span>
         <span className={`w-5 h-5 rounded-full ring-2 ${ring} ${bg} flex items-center justify-center text-[10px] font-bold text-appText`}>
           {tasks.length}
         </span>
@@ -130,7 +148,7 @@ function KanbanColumn({ stage, tasks, onMove, onDelete, loading }) {
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 const EMPTY_TASK = {
-  title: '', assigneeName: '', priority: 'Medium', deadline: '', stage: 'قائمة الانتظار',
+  title: '', assignedToId: '', dueDate: '', status: 'PENDING',
 };
 
 function EmployeeTasksPage() {
@@ -147,6 +165,8 @@ function EmployeeTasksPage() {
         const [tasksData, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
         setTasks(tasksData);
         setEmployees(employeesData);
+        console.log("debug loaded tasks ", tasksData);
+        console.log("debug loaded employees ", employeesData);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -156,7 +176,7 @@ function EmployeeTasksPage() {
     loadData();
   }, []);
 
-  const moveTask   = (id, stage) => setTasks(prev => prev.map(t => t.id === id ? { ...t, stage } : t));
+  const moveTask   = (id, status) => setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
   const removeTask = async (id)        => {
     try {
       await deleteTask(id);
@@ -168,14 +188,13 @@ function EmployeeTasksPage() {
   }
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.assigneeName) return;
-
-    const emp = employees.find(e => e.name === form.assigneeName);
+    if (!form.title.trim() || !form.assignedToId) return;
 
     const newTask = {
-      id: `t${Date.now()}`,
-      ...form,
-      assignee: emp?.avatar ?? form.assigneeName.slice(0, 2).toUpperCase(),
+      title: form.title,
+      status: form.status,
+      dueDate: form.dueDate || null,
+      assignedToId: parseInt(form.assignedToId),
     };
 
     try {
@@ -188,11 +207,11 @@ function EmployeeTasksPage() {
     }
   };
 
-  const tasksByStage = stage => tasks.filter(t => t.stage === stage);
+  const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
+  const tasksByStatus = status => tasks.filter(t => t.status === status);
 
-  const totalDone = tasks.filter(t => t.stage === 'Completed').length;
-  const highPrio  = tasks.filter(t => t.priority === 'High').length;
-  const overdue   = tasks.filter(t => daysRemaining(t.deadline) < 0 && t.stage !== 'Completed').length;
+  const totalDone = tasks.filter(t => t.status === 'COMPLETED').length;
+  const overdue   = tasks.filter(t => daysRemaining(t.dueDate) < 0 && t.status !== 'COMPLETED').length;
 
   const inputCls = 'w-full px-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all';
 
@@ -214,7 +233,6 @@ function EmployeeTasksPage() {
           {[
             { label: 'Total Tasks',   value: tasks.length,  Icon: ClipboardList, colorClass: 'bg-blue-50 text-brand' },
             { label: 'Completed',     value: totalDone,     Icon: CheckCircle2,  colorClass: 'bg-emerald-50 text-emerald-600' },
-            { label: 'High Priority', value: highPrio,      Icon: Flag,          colorClass: 'bg-red-50 text-danger' },
             { label: 'Overdue',       value: overdue,       Icon: AlertTriangle, colorClass: 'bg-amber-50 text-amber-600' },
           ].map(s => (
             <div key={s.label} className="bg-appSurface rounded-2xl border border-appBorder p-4 flex items-center gap-3">
@@ -231,11 +249,11 @@ function EmployeeTasksPage() {
 
         {/* Kanban Board */}
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '60vh' }}>
-          {KANBAN_STAGES.map(stage => (
+          {KANBAN_STAGES.map(status => (
             <KanbanColumn
-              key={stage}
-              stage={stage}
-              tasks={tasksByStage(stage)}
+              key={status}
+              status={status}
+              tasks={tasksByStatus(status)}
               onMove={moveTask}
               onDelete={removeTask}
               loading={loading}
@@ -270,34 +288,28 @@ function EmployeeTasksPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Assigned Employee</label>
-                <select className={inputCls} value={form.assigneeName}
-                  onChange={e => setForm(p => ({ ...p, assigneeName: e.target.value }))}>
+                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Assigned Employee *</label>
+                <select className={inputCls} value={form.assignedToId}
+                  onChange={e => setForm(p => ({ ...p, assignedToId: e.target.value }))}>
                   <option value="">Select employee…</option>
-                  {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Priority</label>
-                <select className={inputCls} value={form.priority}
-                  onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-                  <option>High</option><option>Medium</option><option>Low</option>
+                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Status</label>
+                <select className={inputCls} value={form.status}
+                  onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                  <option value="PENDING">قائمة الانتظار</option>
+                  <option value="IN_PROGRESS">قيد التنفيذ</option>
+                  <option value="REVIEW">تحت المراجعة</option>
+                  <option value="COMPLETED">مكتمل</option>
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Stage</label>
-                <select className={inputCls} value={form.stage}
-                  onChange={e => setForm(p => ({ ...p, stage: e.target.value }))}>
-                  {KANBAN_STAGES.map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Deadline</label>
-                <input type="date" className={inputCls} value={form.deadline}
-                  onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Due Date</label>
+              <input type="date" className={inputCls} value={form.dueDate}
+                onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} />
             </div>
           </div>
         </Modal>
