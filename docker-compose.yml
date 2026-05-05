@@ -1,20 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:17  # ثبتنا الإصدار هنا عشان نتجنب مشاكل إصدار 18
-    container_name: accounting-db
-    environment:
-      POSTGRES_DB: accounting_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 12345678
-    ports:
-      - "5433:5432"  # البورت الخارجي 5433 عشان ميتعارضش مع النسخة اللوكال
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - accounting-network
-
   backend:
     build:
       context: ./Backend
@@ -22,14 +8,13 @@ services:
     container_name: accounting-backend
     ports:
       - "8080:8080"
-    depends_on:
-      - db
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      # ملاحظة: الباك إند بيكلم الداتابيز داخلياً على بورت 5432
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/accounting_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=12345678
+      # ربط الباك إند بقاعدة بيانات Neon السحابية
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ep-orange-bonus-an80r1b5-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - SPRING_DATASOURCE_USERNAME=neondb_owner
+      - SPRING_DATASOURCE_PASSWORD=npg_jB9aKS3XcDYN
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
     healthcheck:
       test: ["CMD", "java", "-version"]
       interval: 30s
@@ -63,6 +48,3 @@ services:
 networks:
   accounting-network:
     driver: bridge
-
-volumes:
-  pgdata:
