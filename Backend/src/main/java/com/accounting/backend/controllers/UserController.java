@@ -29,6 +29,7 @@ public class UserController {
 
     @PostMapping
     public User createUser(@RequestBody User user) {
+        user.setCreatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }
 
@@ -42,15 +43,13 @@ public class UserController {
         user.setPassword(userDetails.getPassword());
         user.setStatus(userDetails.getStatus());
         user.setHireDate(userDetails.getHireDate());
-        // user.setCreatedAt(userDetails.getCreatedAt());
-        // user.setUpdatedAt(userDetails.getUpdatedAt());
         user.setUpdatedAt(LocalDateTime.now());
-        // user.setDeletedAt(userDetails.getDeletedAt());
         return userRepository.save(user);
     }
 
     @DeleteMapping("/{id}")
     public void deleteUser(@PathVariable Long id) {
+        // TODO : handle the delete logic (soft delete)
         userRepository.deleteById(id);
     }
 }

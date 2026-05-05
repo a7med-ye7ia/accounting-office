@@ -5,6 +5,7 @@ import com.accounting.backend.repositories.ContractRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,7 @@ public class ContractController {
 
     @PostMapping
     public Contract createContract(@RequestBody Contract contract) {
+        contract.setCreatedAt(LocalDateTime.now());
         return contractRepository.save(contract);
     }
 
@@ -39,14 +41,13 @@ public class ContractController {
         contract.setCreatedBy(contractDetails.getCreatedBy());
         contract.setFilePath(contractDetails.getFilePath());
         contract.setStatus(contractDetails.getStatus());
-        contract.setCreatedAt(contractDetails.getCreatedAt());
-        contract.setUpdatedAt(contractDetails.getUpdatedAt());
-        contract.setDeletedAt(contractDetails.getDeletedAt());
+        contract.setUpdatedAt(LocalDateTime.now());
         return contractRepository.save(contract);
     }
 
     @DeleteMapping("/{id}")
     public void deleteContract(@PathVariable Long id) {
+        // TODO : handle the delete logic (soft delete)
         contractRepository.deleteById(id);
     }
 }

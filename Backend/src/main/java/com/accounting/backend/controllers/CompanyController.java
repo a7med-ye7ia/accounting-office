@@ -5,6 +5,7 @@ import com.accounting.backend.repositories.CompanyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,7 @@ public class CompanyController {
 
     @PostMapping
     public Company createCompany(@RequestBody Company company) {
+        company.setCreatedAt(LocalDateTime.now());
         return companyRepository.save(company);
     }
 
@@ -39,14 +41,13 @@ public class CompanyController {
         company.setCommercialRegNo(companyDetails.getCommercialRegNo());
         company.setTaxId(companyDetails.getTaxId());
         company.setStatus(companyDetails.getStatus());
-        company.setCreatedAt(companyDetails.getCreatedAt());
-        company.setUpdatedAt(companyDetails.getUpdatedAt());
-        company.setDeletedAt(companyDetails.getDeletedAt());
+        company.setUpdatedAt(LocalDateTime.now());
         return companyRepository.save(company);
     }
 
     @DeleteMapping("/{id}")
     public void deleteCompany(@PathVariable Long id) {
+        // TODO : handle the delete logic (soft delete)
         companyRepository.deleteById(id);
     }
 }
