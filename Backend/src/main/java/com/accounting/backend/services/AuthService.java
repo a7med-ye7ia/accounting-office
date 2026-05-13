@@ -21,9 +21,9 @@ import java.util.Optional;
  * Handles login, register, and password operations.
  *
  * Token lifecycle:
- * - Login/Register: generate JWT → save to user.token → return to client
- * - Verify: check JWT signature + check it matches user.token in DB
- * - Logout: set user.token = null → token is destroyed
+ * - Login/Register: generate JWT → store in cache → return to client
+ * - Verify: check JWT signature + check it matches cached token
+ * - Logout: remove token from cache
  */
 @Service
 public class AuthService {
@@ -33,6 +33,9 @@ public class AuthService {
 
     @Autowired
     private JwtService jwtService;
+    
+    @Autowired
+    private TokenCacheService tokenCacheService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -72,10 +75,9 @@ public class AuthService {
 
         User savedUser = userRepository.save(newUser);
 
-        // Generate token and assign it to the user
+        // Generate token and store it in cache (not in DB)
         String token = jwtService.generateToken(savedUser.getId(), savedUser.getEmail());
-        savedUser.setToken(token);
-        userRepository.save(savedUser);
+        tokenCacheService.storeToken(savedUser.getId(), token);
 
         UserDto userDto = new UserDto(savedUser);
         return new AuthResponse(true, "Registration successful", userDto, token);
@@ -113,10 +115,9 @@ public class AuthService {
             return new AuthResponse(false, "Invalid email or password");
         }
 
-        // Generate JWT token and save it to the user
+        // Generate JWT token and store it in cache (not in DB)
         String token = jwtService.generateToken(user.getId(), user.getEmail());
-        user.setToken(token);
-        userRepository.save(user);
+        tokenCacheService.storeToken(user.getId(), token);
 
         UserDto userDto = new UserDto(user);
         return new AuthResponse(true, "Login successful", userDto, token);
@@ -125,10 +126,10 @@ public class AuthService {
     /**
      * Verify a JWT token.
      * Checks both JWT validity (signature + expiration) AND that
-     * the token matches what's stored on the user in the database.
+     * the token matches what's stored in the cache.
      *
      * @param token the raw JWT string (without "Bearer " prefix)
-     * @return true if the token is valid and currently assigned to the user
+     * @return true if the token is valid and currently cached
      */
     public boolean verifyToken(String token) {
         if (token == null || token.isBlank()) {
@@ -140,20 +141,18 @@ public class AuthService {
             return false;
         }
 
-        // 2. Check that this token matches the one stored on the user
+        // 2. Check that this token matches the one in cache
         try {
             Long userId = jwtService.extractUserId(token);
-            Optional<User> userOptional = userRepository.findById(userId);
-            return userOptional.isPresent() && token.equals(userOptional.get().getToken());
+            return tokenCacheService.isTokenValid(userId, token);
         } catch (Exception e) {
             return false;
         }
     }
 
     /**
-     * Logout: destroy the user's token
+     * Logout: remove the user's token from cache
      */
-    @Transactional
     public void logout(String token) {
         if (token == null || token.isBlank()) {
             return;
@@ -161,12 +160,7 @@ public class AuthService {
 
         try {
             Long userId = jwtService.extractUserId(token);
-            Optional<User> userOptional = userRepository.findById(userId);
-            if (userOptional.isPresent()) {
-                User user = userOptional.get();
-                user.setToken(null);
-                userRepository.save(user);
-            }
+            tokenCacheService.invalidateToken(userId);
         } catch (Exception e) {
             // Token is already invalid, nothing to clean up
         }
@@ -176,17 +170,17 @@ public class AuthService {
      * Get the authenticated user from a JWT token
      *
      * @param token the raw JWT string
-     * @return the User if token is valid and matches the stored token
+     * @return the User if token is valid and matches the cached token
      */
     public Optional<User> getUserFromToken(String token) {
         try {
             Long userId = jwtService.extractUserId(token);
-            Optional<User> userOptional = userRepository.findById(userId);
-            // Only return user if the token matches
-            if (userOptional.isPresent() && token.equals(userOptional.get().getToken())) {
-                return userOptional;
+            // Only return user if the token is cached and valid
+            if (!tokenCacheService.isTokenValid(userId, token)) {
+                return Optional.empty();
             }
-            return Optional.empty();
+            Optional<User> userOptional = userRepository.findById(userId);
+            return userOptional;
         } catch (Exception e) {
             return Optional.empty();
         }
