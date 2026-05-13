@@ -11,7 +11,7 @@ import { Avatar, StatusBadge, Modal, SlideOver, TableSkeleton } from "../../../s
 import { fetchDepartments } from "../../../api/departments";
 import { fetchBranches } from "../../../api/branches";
 import { fetchRoles } from "../../../api/roles";
-import { fetchUsers, addUser, updateUser } from "../../../api/users";
+import { fetchUsers, addUser, updateUser, deleteUser } from "../../../api/users";
 
 const UI_MAP = {
   
@@ -26,7 +26,7 @@ const UI_MAP = {
 };
 
 const EMPTY_EMP = {
-  name: "", roleId: "", departmentId: "", email: "", branchId: "", phone: "", hireDate: "", status: "نشط",
+  name: "", nationalId: "", roleId: "", departmentId: "", email: "", branchId: "", phone: "", hireDate: "", status: "نشط",
 };
 
 function inputCls() {
@@ -61,16 +61,24 @@ function EmployeeManagementPage() {
   };
 
   const getDisplayRole = (emp) => {
-    if (emp.roleName) return translate(emp.roleName);
-    if (emp.role && emp.role.name) return translate(emp.role.name); 
-    
-    const targetId = emp.roleId || (emp.role && emp.role.id);
-    if (targetId) {
-      const roleObj = roles.find(r => r.id == targetId);
-      if (roleObj) return translate(roleObj.name);
+    try {
+      if (emp.roleName) return translate(emp.roleName);
+      if (emp.role && emp.role.name) return translate(emp.role.name);
+
+      const targetId = emp.roleId || (emp.role && emp.role.id);
+      if (targetId) {
+        const roleObj = roles.find(r => r.id == targetId);
+        if (roleObj) return translate(roleObj.name);
+      }
+
+      // Debug: role not resolved
+      console.debug('[EmployeeManagement] could not resolve role for employee:', emp?.id || emp, 'roleId:', emp?.roleId, 'role:', emp?.role, 'roleName:', emp?.roleName);
+      console.debug('[EmployeeManagement] available roles:', roles);
+      return translate(emp.role) || "—";
+    } catch (err) {
+      console.error('[EmployeeManagement] error in getDisplayRole for emp:', emp, err);
+      return "—";
     }
-    
-    return translate(emp.role) || "—";
   };
 
   const getDisplayDept = (emp) => {
@@ -88,30 +96,29 @@ function EmployeeManagementPage() {
   };  
   // ----------------------------------------
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [deptData, empData, branchData, roleData] = await Promise.all([
-          fetchDepartments(),
-          fetchUsers(),
-          fetchBranches(),
-          fetchRoles(),
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [deptData, empData, branchData, roleData] = await Promise.all([
+        fetchDepartments(),
+        fetchUsers(),
+        fetchBranches(),
+        fetchRoles(),
+      ]);
+      console.debug('[EmployeeManagement] fetched data', { deptDataCount: deptData?.length, empDataCount: empData?.length, branchDataCount: branchData?.length, roleDataCount: roleData?.length });
+      console.debug('[EmployeeManagement] sample employee', empData && empData[0]);
+      setDepartments(deptData);
+      setEmployees(empData);
+      setBranches(branchData);
+      setRoles(roleData);
+    } catch (error) {
+      console.error('[EmployeeManagement] Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          
-        ]);
-        
-        setDepartments(deptData);
-        setEmployees(empData);
-        setBranches(branchData);
-        setRoles(roleData);
-        console.log("roles:", roleData);
-console.log("departments:", deptData);
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -127,6 +134,7 @@ console.log("departments:", deptData);
   const openEdit = (emp) => {
     setForm({
       name: emp.fullName,
+      nationalId: emp.nationalId || "",
       email: emp.email,
       phone: emp.phone,
       hireDate: emp.hireDate,
@@ -150,31 +158,44 @@ console.log("departments:", deptData);
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
-    const initials = form.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
     const userData = {
       fullName: form.name,
       email: form.email,
       phone: form.phone,
+      nationalId: form.nationalId ? form.nationalId : null,
       hireDate: form.hireDate,
-      password: "defaultPassword123",
       status: mapStatusToEnum(form.status),
-      departmentId: Number(form.departmentId),
-      branchId: Number(form.branchId),
-      roleId: Number(form.roleId),
+      departmentId: form.departmentId ? Number(form.departmentId) : null,
+      branchId: form.branchId ? Number(form.branchId) : null,
+      roleId: form.roleId ? Number(form.roleId) : null,
     };
+
+    // Do not send password on create; backend will apply default if needed
+
 
     try {
       if (editEmp) {
-        const updatedUserFromDB = await updateUser(editEmp.id, userData);
-        setEmployees((prev) => prev.map((e) => e.id === editEmp.id ? { ...e, ...updatedUserFromDB, avatar: initials } : e));
+        await updateUser(editEmp.id, userData);
       } else {
-        const newUserFromDB = await addUser(userData);
-        setEmployees((prev) => [...prev, { ...newUserFromDB, avatar: initials }]);
+        await addUser(userData);
       }
       setShowForm(false);
+      setEditEmp(null);
+      await loadData();
     } catch (error) {
       console.error("حدث خطأ أثناء حفظ البيانات:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteUser(deleteId);
+      setDeleteId(null);
+      await loadData();
+    } catch (error) {
+      console.error("حدث خطأ أثناء حذف الموظف:", error);
     }
   };
 
@@ -283,7 +304,7 @@ console.log("departments:", deptData);
               <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الاسم الكامل *</label><input className={inputCls()} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></div>
               <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">المسمى الوظيفي</label>
                 <select className={inputCls()} value={form.roleId} onChange={(e) => setForm((p) => ({ ...p, roleId: e.target.value }))}>
-                  <option value="" disabled>اختر المسمى</option>
+                  <option value="">اختر المسمى</option>
                   {roles.map((r) => (<option key={r.id} value={r.id}>{translate(r.name)}</option>))}
                 </select>
               </div>
@@ -291,19 +312,20 @@ console.log("departments:", deptData);
             <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">القسم</label>
                 <select className={inputCls()} value={form.departmentId} onChange={e => setForm(p => ({ ...p, departmentId: e.target.value }))}>
-                  <option value="" disabled>اختر القسم</option>
+                  <option value="">اختر القسم</option>
                   {departments.map(d => (<option key={d.id} value={d.id}>{translate(d.name)}</option>))}
                 </select>
               </div>
               <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الفرع</label>
                 <select className={inputCls()} value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}>
-                  <option value="" disabled>اختر الفرع</option>
+                  <option value="">اختر الفرع</option>
                   {branches.map(b => (<option key={b.id} value={b.id}>{translate(b.name)}</option>))}
                 </select>
               </div>
             </div>
             {/* باقي الحقول: ايميل، تليفون، تاريخ، حالة */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الرقم القومي</label><input className={inputCls()} value={form.nationalId} onChange={(e) => setForm((p) => ({ ...p, nationalId: e.target.value }))} placeholder="الرقم القومي" /></div>
               <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">البريد الإلكتروني</label><input type="email" className={inputCls()} value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} /></div>
               <div><label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">رقم الهاتف</label><input className={inputCls()} value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} /></div>
             </div>
@@ -315,6 +337,39 @@ console.log("departments:", deptData);
                 </select>
               </div>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <Modal
+          title="تأكيد الحذف"
+          onClose={() => setDeleteId(null)}
+          footer={
+            <>
+              <button
+                onClick={() => setDeleteId(null)}
+                className="ps-4 pe-4 py-2 text-sm font-medium text-appSubtext bg-white border border-appBorder rounded-xl hover:bg-appMuted transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleDelete}
+                className="ps-4 pe-4 py-2 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors"
+              >
+                حذف الموظف
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col items-center gap-3 py-4">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+              <AlertCircle size={24} className="text-red-500" />
+            </div>
+            <p className="text-sm text-appText text-center">
+              هل أنت متأكد من حذف هذا الموظف؟ لا يمكن التراجع عن هذا الإجراء.
+            </p>
           </div>
         </Modal>
       )}

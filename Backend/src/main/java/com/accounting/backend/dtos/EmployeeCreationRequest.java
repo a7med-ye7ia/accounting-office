@@ -13,6 +13,7 @@ public class EmployeeCreationRequest {
 
     private Long departmentId;
     private Long branchId;
+    private Long roleId;
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }  
@@ -32,5 +33,7 @@ public class EmployeeCreationRequest {
     public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
     public Long getBranchId() { return branchId; }
     public void setBranchId(Long branchId) { this.branchId = branchId; }
+    public Long getRoleId() { return roleId; }
+    public void setRoleId(Long roleId) { this.roleId = roleId; }
 
 }

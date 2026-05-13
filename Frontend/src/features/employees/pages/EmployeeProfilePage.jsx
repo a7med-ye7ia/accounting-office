@@ -236,6 +236,13 @@ function EmployeeProfilePage() {
 
                 <div>
                   <label className="flex items-center gap-2 text-appSubtext text-xs font-semibold mb-2">
+                    <MapPin size={14} /> الرقم القومي
+                  </label>
+                  <p className="text-appText text-sm font-medium">{employee.nationalId || '—'}</p>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-appSubtext text-xs font-semibold mb-2">
                     <Phone size={14} /> رقم الهاتف
                   </label>
                   <a href={`tel:${employee.phone}`}
@@ -329,6 +336,20 @@ function EmployeeProfilePage() {
                   value={formData.phone || ''}
                   onChange={e => handleInputChange('phone', e.target.value)}
                   placeholder="+966"
+                />
+              </div>
+
+              {/* National ID */}
+              <div>
+                <label className="block text-appSubtext text-xs font-semibold mb-2">
+                  الرقم القومي
+                </label>
+                <input
+                  type="text"
+                  className={inputCls()}
+                  value={formData.nationalId || ''}
+                  onChange={e => handleInputChange('nationalId', e.target.value)}
+                  placeholder="الرقم القومي"
                 />
               </div>
 
