@@ -34,6 +34,7 @@ import com.accounting.backend.repositories.EmployeeAssignmentRepository;
 import com.accounting.backend.repositories.RoleRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.repositories.UserRoleRepository;
+import com.accounting.backend.services.EmployeeProfileService;
 
 import jakarta.transaction.Transactional;
 
@@ -55,6 +56,9 @@ public class UserController {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private EmployeeProfileService employeeProfileService;
+
     @GetMapping
     @Transactional
     public List<Map<String, Object>> getAllUsers() {
@@ -71,6 +75,14 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long id) {
         return userRepository.findById(id)
                 .map(user -> ResponseEntity.ok(buildUserMap(user)))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/profile")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> getEmployeeProfile(@PathVariable Long id) {
+        return employeeProfileService.getProfile(id)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 

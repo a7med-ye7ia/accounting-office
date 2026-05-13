@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import CompaniesDirectoryPage from "./features/companies/pages/CompaniesDirectoryPage";
 import CompanyProfilePage from "./features/companies/pages/CompanyProfilePage";
 import ContractAiPage from "./features/contracts/pages/ContractAiPage";
@@ -11,6 +11,11 @@ import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage"
 import EquilibriumLedgerPage from "./features/ledger/pages/EquilibriumLedgerPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 
+function LegacyEmployeeProfileRedirect() {
+  const { id } = useParams();
+  return <Navigate replace to={`/profile/${id}`} />;
+}
+
 function App() {
   return (
     <Routes>
@@ -20,7 +25,8 @@ function App() {
       <Route path="/Documents" element={<DocumentsPage />} />
       <Route path="/CompanyProfile" element={<CompanyProfilePage />} />
       <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
-      <Route path="/EmployeeProfile/:id" element={<EmployeeProfilePage />} />
+      <Route path="/profile/:id" element={<EmployeeProfilePage />} />
+      <Route path="/EmployeeProfile/:id" element={<LegacyEmployeeProfileRedirect />} />
       <Route path="/EmployeeTasks" element={<EmployeeTasksPage />} />
       <Route path="/Departments" element={<DepartmentsPage />} />
       <Route path="/ContractAi" element={<ContractAiPage />} />

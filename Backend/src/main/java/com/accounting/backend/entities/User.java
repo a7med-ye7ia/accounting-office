@@ -3,6 +3,8 @@ package com.accounting.backend.entities;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -42,6 +44,18 @@ public class User {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<EmployeeAssignment> employeeAssignments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<UserRole> userRoles = new ArrayList<>();
+
+    @OneToMany(mappedBy = "assignedTo", fetch = FetchType.LAZY)
+    private List<Task> assignedTasks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "createdBy", fetch = FetchType.LAZY)
+    private List<Contract> contractsCreated = new ArrayList<>();
+
     // Getters and setters
 
     public Long getId() { return id; }
@@ -76,5 +90,17 @@ public class User {
 
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+
+    public List<EmployeeAssignment> getEmployeeAssignments() { return employeeAssignments; }
+    public void setEmployeeAssignments(List<EmployeeAssignment> employeeAssignments) { this.employeeAssignments = employeeAssignments; }
+
+    public List<UserRole> getUserRoles() { return userRoles; }
+    public void setUserRoles(List<UserRole> userRoles) { this.userRoles = userRoles; }
+
+    public List<Task> getAssignedTasks() { return assignedTasks; }
+    public void setAssignedTasks(List<Task> assignedTasks) { this.assignedTasks = assignedTasks; }
+
+    public List<Contract> getContractsCreated() { return contractsCreated; }
+    public void setContractsCreated(List<Contract> contractsCreated) { this.contractsCreated = contractsCreated; }
 
 }

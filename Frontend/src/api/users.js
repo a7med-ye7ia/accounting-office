@@ -20,6 +20,17 @@ export const getUserById = async (id) => {
   }
 };
 
+/** Comprehensive profile: native SQL aggregation on the backend (tasks, contracts, joins). */
+export const getEmployeeProfile = async (id) => {
+  try {
+    const response = await apiClient.get(`/users/${id}/profile`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employee profile:', error);
+    throw error;
+  }
+};
+
 export const addUser = async (user) => {
   try {
     const response = await apiClient.post('/users', user);

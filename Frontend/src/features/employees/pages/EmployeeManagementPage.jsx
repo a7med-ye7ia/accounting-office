@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import {
-  Users, Plus, Search, ChevronDown, Filter, Mail, Phone, Calendar, Building2,
-  CheckSquare, Square, Pencil, Trash2, AlertCircle, UserCheck,
+  Users, Plus, Search, ChevronDown, Building2, AlertCircle,
 } from "lucide-react";
 import MainLayout from "../../../shared/layout/MainLayout";
-import { Avatar, StatusBadge, Modal, SlideOver } from "../../../shared/components/HrShared";
+import { Modal } from "../../../shared/components/HrShared";
+import EmployeeTableRow from "../ui/EmployeeTableRow";
 
 // استيراد الـ APIs
 import { fetchDepartments } from "../../../api/departments";
@@ -34,7 +33,6 @@ function inputCls() {
 }
 
 function EmployeeManagementPage() {
-  const { t } = useTranslation();
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -58,6 +56,15 @@ function EmployeeManagementPage() {
     if (statusEn === "SUSPENDED") return "في إجازة";
     if (statusEn === "RESIGNED") return "منتهي الخدمة";
     return statusEn || "نشط";
+  };
+
+  /** Maps API enum to labels expected by {@link StatusBadge} in `HrShared`. */
+  const statusToBadgeLabel = (statusEn) => {
+    const s = typeof statusEn === "string" ? statusEn : "";
+    if (s === "ACTIVE") return "نشط";
+    if (s === "SUSPENDED") return "في إجازة";
+    if (s === "RESIGNED") return "منتهي الخدمة";
+    return "نشط";
   };
 
   const getDisplayRole = (emp) => {
@@ -268,39 +275,15 @@ function EmployeeManagementPage() {
                   ))
                 ) : (
                   filtered.map((emp) => (
-                    <tr key={emp.id} className="border-b border-slate-100 hover:bg-appMuted transition-colors">
-                      <td className="ps-6 pe-4 py-4"></td>
-                      <td className="ps-4 pe-4 py-4">
-                        <div className="flex items-center gap-3">
-                          {/* تصليح الأحرف الأولى للصورة */}
-                          <Avatar initials={emp.avatar || emp.fullName?.substring(0, 2).toUpperCase() || 'US'} />
-                          <div>
-                            <p className="font-semibold text-appText text-sm">{emp.fullName || emp.name}</p>
-                            <p className="text-[11px] text-appSubtext">{emp.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      {/* استخدام الدوال النظيفة لعرض القسم والمسمى */}
-                      <td className="ps-4 pe-4 py-4 text-appSubtext text-sm">
-                        {getDisplayRole(emp)}
-                      </td>
-                      <td className="ps-4 pe-4 py-4">
-                        <span className="inline-flex items-center ps-2.5 pe-2.5 py-0.5 rounded-full text-xs font-semibold bg-badgeBlueBg text-badgeBlueText">
-                          {getDisplayDept(emp)}
-                        </span>
-                      </td>
-                      <td className="ps-4 pe-4 py-4 text-appSubtext text-sm">{new Date(emp.hireDate).toLocaleDateString("en-GB")}</td>
-                      <td className="ps-4 pe-4 py-4">
-                        {/* استخدام دالة ترجمة الحالة */}
-                        <StatusBadge status={translateStatus(emp.status)} />
-                      </td>
-                      <td className="ps-4 pe-4 py-4">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-blue-50 transition-colors"><Pencil size={13} /></button>
-                          <button onClick={() => setDeleteId(emp.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-danger hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
-                        </div>
-                      </td>
-                    </tr>
+                    <EmployeeTableRow
+                      key={emp.id}
+                      emp={emp}
+                      roleLabel={getDisplayRole(emp)}
+                      deptLabel={getDisplayDept(emp)}
+                      statusForBadge={statusToBadgeLabel(emp.status)}
+                      onEdit={openEdit}
+                      onDelete={setDeleteId}
+                    />
                   ))
                 )}
               </tbody>
