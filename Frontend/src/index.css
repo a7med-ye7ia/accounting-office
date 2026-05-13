@@ -3,6 +3,175 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Canvas: slightly cooler than pure surface so cards “lift” */
+    --color-app-bg: 229 235 244;
+    --color-app-surface: 255 255 255;
+    --color-app-muted: 241 245 250;
+    --color-app-border: 203 213 225;
+    --color-app-text: 15 23 42;
+    --color-app-subtext: 71 85 105;
+    --color-brand: 43 91 181;
+    --color-brand-deep: 26 78 168;
+    --color-danger: 179 65 75;
+    --color-success: 47 133 90;
+    --color-badge-blue-bg: 219 234 254;
+    --color-badge-blue-text: 29 78 216;
+    --color-badge-purple-bg: 237 233 254;
+    --color-badge-purple-text: 91 33 182;
+    --color-badge-red-bg: 254 226 226;
+    --color-badge-red-text: 185 28 28;
+    --color-badge-gray-bg: 226 232 240;
+    --color-badge-gray-text: 51 65 85;
+  }
+
+  .dark {
+    color-scheme: dark;
+    /* Deep canvas + lifted panels (clear fg/bg separation) */
+    --color-app-bg: 8 12 22;
+    --color-app-surface: 30 41 59;
+    --color-app-muted: 41 53 71;
+    --color-app-border: 82 98 123;
+    --color-app-text: 248 250 252;
+    --color-app-subtext: 163 179 201;
+    --color-brand: 96 165 250;
+    --color-brand-deep: 59 130 246;
+    --color-danger: 248 113 113;
+    --color-success: 74 222 128;
+    --color-badge-blue-bg: 30 58 138;
+    --color-badge-blue-text: 191 219 254;
+    --color-badge-purple-bg: 76 29 149;
+    --color-badge-purple-text: 233 213 255;
+    --color-badge-red-bg: 127 29 29;
+    --color-badge-red-text: 254 202 202;
+    --color-badge-gray-bg: 51 65 85;
+    --color-badge-gray-text: 226 232 240;
+  }
+}
+
+@layer utilities {
+  /* Soft elevation — cards & panels */
+  .shadow-panel {
+    box-shadow:
+      0 1px 0 rgb(var(--color-app-border) / 0.65),
+      0 14px 40px -12px rgb(var(--color-app-text) / 0.09),
+      0 4px 12px -4px rgb(var(--color-app-text) / 0.05);
+  }
+  html.dark .shadow-panel {
+    box-shadow:
+      0 1px 0 rgb(var(--color-app-border) / 0.5),
+      0 0 0 1px rgb(var(--color-app-text) / 0.04),
+      0 24px 56px -16px rgb(0 0 0 / 0.55),
+      0 8px 20px -8px rgb(0 0 0 / 0.35);
+  }
+
+  /* Stronger lift — sidebars, modals, hero cards */
+  .shadow-raise {
+    box-shadow:
+      0 1px 0 rgb(var(--color-app-border) / 0.8),
+      0 22px 50px -18px rgb(var(--color-app-text) / 0.14),
+      0 10px 24px -10px rgb(var(--color-app-text) / 0.08);
+  }
+  html.dark .shadow-raise {
+    box-shadow:
+      0 1px 0 rgb(var(--color-app-border) / 0.45),
+      0 0 0 1px rgb(var(--color-brand) / 0.08),
+      0 28px 64px -20px rgb(0 0 0 / 0.65);
+  }
+
+  /* Interactive cards: deeper hover */
+  .shadow-raise-hover {
+    transition-property: box-shadow, transform, border-color;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+  .shadow-raise-hover:hover {
+    box-shadow:
+      0 1px 0 rgb(var(--color-app-border) / 0.9),
+      0 28px 60px -16px rgb(var(--color-app-text) / 0.16),
+      0 14px 28px -12px rgb(var(--color-brand) / 0.12);
+    transform: translateY(-2px);
+  }
+  html.dark .shadow-raise-hover:hover {
+    box-shadow:
+      0 1px 0 rgb(var(--color-app-border) / 0.55),
+      0 0 0 1px rgb(var(--color-brand) / 0.18),
+      0 32px 72px -18px rgb(0 0 0 / 0.75);
+    transform: translateY(-2px);
+  }
+
+  /* Main work area: recessed “dock” on the canvas */
+  .app-content-dock {
+    border-radius: 1.5rem;
+    border: 1px solid rgb(var(--color-app-border) / 0.85);
+    background: linear-gradient(
+      165deg,
+      rgb(var(--color-app-surface) / 0.92) 0%,
+      rgb(var(--color-app-muted) / 0.35) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 rgb(var(--color-app-text) / 0.04),
+      0 18px 48px -24px rgb(var(--color-app-text) / 0.12);
+  }
+  html.dark .app-content-dock {
+    background: linear-gradient(
+      165deg,
+      rgb(var(--color-app-surface) / 0.55) 0%,
+      rgb(var(--color-app-bg) / 0.95) 100%
+    );
+    border-color: rgb(var(--color-app-border) / 0.7);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--color-app-text) / 0.06),
+      0 0 0 1px rgb(0 0 0 / 0.35),
+      0 24px 56px -20px rgb(0 0 0 / 0.5);
+  }
+
+  .table-head-surface {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--color-app-muted)) 0%,
+      rgb(var(--color-app-surface)) 100%
+    );
+    border-bottom: 2px solid rgb(var(--color-app-border));
+  }
+
+  .table-row-interactive {
+    border-inline-start: 4px solid transparent;
+    transition: background-color 180ms ease-out, border-color 180ms ease-out;
+  }
+  .table-row-interactive:hover {
+    background-color: rgb(var(--color-brand) / 0.08);
+    border-inline-start-color: rgb(var(--color-brand));
+  }
+  html.dark .table-row-interactive:hover {
+    background-color: rgb(var(--color-brand) / 0.14);
+    border-inline-start-color: rgb(var(--color-brand));
+  }
+
+  /* Ambient wash behind the whole shell */
+  .app-shell {
+    background-color: rgb(var(--color-app-bg));
+    background-image: radial-gradient(
+      120% 70% at 50% -15%,
+      rgb(var(--color-brand) / 0.09),
+      transparent 52%
+    );
+  }
+  html.dark .app-shell {
+    background-image:
+      radial-gradient(ellipse 90% 55% at 85% 0%, rgb(var(--color-brand) / 0.14), transparent 50%),
+      radial-gradient(ellipse 70% 45% at 10% 100%, rgb(var(--color-brand-deep) / 0.08), transparent 45%);
+  }
+
+  .ui-transition {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    transition-duration: 200ms;
+  }
+}
+
 /* RTL Support */
 html {
   scroll-behavior: smooth;
@@ -20,8 +189,13 @@ html,
 body,
 #root {
   height: 100%;
+  min-height: 0;
   margin: 0;
   padding: 0;
+}
+
+#root {
+  overflow: hidden;
 }
 
 *,
@@ -32,11 +206,13 @@ body,
 
 body {
   min-width: 320px;
-  background-color: #f3f5f9;
-  color: #1f2937;
+  overflow: hidden;
+  background-color: rgb(var(--color-app-bg));
+  color: rgb(var(--color-app-text));
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   direction: rtl;
   text-align: right;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 html.font-arabic body {
@@ -157,10 +333,10 @@ html.font-arabic body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(var(--color-app-border));
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgb(var(--color-app-subtext) / 0.45);
 }
 

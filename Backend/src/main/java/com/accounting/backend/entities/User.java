@@ -8,6 +8,17 @@ import java.util.List;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties({
+    "hibernateLazyInitializer",
+    "handler",
+    "employeeAssignments",
+    "userRoles",
+    "assignedTasks",
+    "contractsCreated"
+})
 @Entity
 @Table(name = "users")
 public class User {
@@ -51,15 +62,19 @@ public class User {
     @Column(name = "token", length = 1024)
     private String token;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<EmployeeAssignment> employeeAssignments = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<UserRole> userRoles = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "assignedTo", fetch = FetchType.LAZY)
     private List<Task> assignedTasks = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "createdBy", fetch = FetchType.LAZY)
     private List<Contract> contractsCreated = new ArrayList<>();
 
@@ -105,6 +120,7 @@ public class User {
         this.nationalId = nationalId;
     }
 
+    @JsonIgnore
     public String getPassword() {
         return passwordHash;
     }
@@ -161,15 +177,19 @@ public class User {
         this.token = token;
     }
 
+    @JsonIgnore
     public List<EmployeeAssignment> getEmployeeAssignments() { return employeeAssignments; }
     public void setEmployeeAssignments(List<EmployeeAssignment> employeeAssignments) { this.employeeAssignments = employeeAssignments; }
 
+    @JsonIgnore
     public List<UserRole> getUserRoles() { return userRoles; }
     public void setUserRoles(List<UserRole> userRoles) { this.userRoles = userRoles; }
 
+    @JsonIgnore
     public List<Task> getAssignedTasks() { return assignedTasks; }
     public void setAssignedTasks(List<Task> assignedTasks) { this.assignedTasks = assignedTasks; }
 
+    @JsonIgnore
     public List<Contract> getContractsCreated() { return contractsCreated; }
     public void setContractsCreated(List<Contract> contractsCreated) { this.contractsCreated = contractsCreated; }
 
