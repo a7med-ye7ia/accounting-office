@@ -1,28 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ClipboardList, Plus, Flag, AlertTriangle,
-  CheckCircle2, Circle, Loader2, ArrowRight,
-  X, ChevronDown, GripVertical,
+  ClipboardList, Plus, AlertTriangle,
+  CheckCircle2, Circle, Loader2
 } from 'lucide-react';
 import MainLayout from '../../../shared/layout/MainLayout';
 import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
-import { fetchTasks, addTask, deleteTask } from '../../../api/tasks';
+import { fetchTasks, addTask, deleteTask, updateTask } from '../../../api/tasks';
+import { addCommentToTask } from '../../../api/comments';
 
 // ─── Status Mapping ────────────────────────────────────────────────────────
 const STATUS_TO_ARABIC = {
   'PENDING': 'قائمة الانتظار',
   'IN_PROGRESS': 'قيد التنفيذ',
-  'REVIEW': 'تحت المراجعة',
-  'COMPLETED': 'مكتمل',
+  'DONE': 'مكتمل',
 };
 
 const ARABIC_TO_STATUS = {
   'قائمة الانتظار': 'PENDING',
   'قيد التنفيذ': 'IN_PROGRESS',
-  'تحت المراجعة': 'REVIEW',
-  'مكتمل': 'COMPLETED',
+  'مكتمل': 'DONE',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -35,10 +33,10 @@ function DeadlinePill({ dueDate }) {
   const days = daysRemaining(dueDate);
   if (!days) return null;
   const cls =
-    days < 0    ? 'bg-red-100 text-red-700'
-    : days <= 2 ? 'bg-red-50 text-red-600'
-    : days <= 5 ? 'bg-amber-50 text-amber-600'
-    : 'bg-slate-100 text-appSubtext';
+    days < 0 ? 'bg-red-100 text-red-700'
+      : days <= 2 ? 'bg-red-50 text-red-600'
+        : days <= 5 ? 'bg-amber-50 text-amber-600'
+          : 'bg-slate-100 text-appSubtext';
   const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `${days}d left`;
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${cls}`}>
@@ -49,71 +47,101 @@ function DeadlinePill({ dueDate }) {
 }
 
 const STAGE_META = {
-  'PENDING': { Icon: Circle,       color: 'text-appSubtext',   bg: 'bg-slate-100',   ring: 'ring-slate-300'   },
-  'IN_PROGRESS': { Icon: Loader2,      color: 'text-blue-500',     bg: 'bg-blue-100',    ring: 'ring-blue-300'    },
-  'REVIEW': { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
-  'COMPLETED': { Icon: CheckCircle2, color: 'text-emerald-500',  bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
+  'PENDING': { Icon: Circle, color: 'text-appSubtext', bg: 'bg-slate-100', ring: 'ring-slate-300' },
+  'IN_PROGRESS': { Icon: Loader2, color: 'text-blue-500', bg: 'bg-blue-100', ring: 'ring-blue-300' },
+  // 'REVIEW': { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
+  'DONE': { Icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
 };
 
 // ─── Task Card ──────────────────────────────────────────────────────────────
-function TaskCard({ task, onMove, onDelete }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
+function TaskCard({ task, onMove, onDelete, onOpen }) {
+  // ! const [menuOpen, setMenuOpen] = useState(false);
+  const [showDesc, setShowDesc] = useState(false);
+
+  const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', /*'REVIEW',*/ 'DONE'];
   const otherStages = KANBAN_STAGES.filter(s => s !== task.status);
 
   return (
-    <div className="bg-appSurface rounded-xl border border-appBorder p-4 hover:shadow-panel hover:-translate-y-0.5 transition-all duration-150 cursor-grab active:cursor-grabbing group relative">
-      {/* Header row */}
-      <div className="flex items-start justify-between mb-2.5">
-        <GripVertical size={14} className="text-slate-300 group-hover:text-slate-400 mt-0.5 shrink-0" />
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen(v => !v)}
-            className="p-1 rounded-lg text-slate-300 hover:text-appSubtext hover:bg-appMuted opacity-0 group-hover:opacity-100 transition-all"
-          >
-            <ChevronDown size={13} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-7 z-20 bg-white rounded-xl shadow-panel border border-appBorder py-1 min-w-[150px]">
-              {otherStages.map(s => (
-                <button key={s}
-                  onClick={() => { onMove(task.id, s); setMenuOpen(false); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-xs text-appText hover:bg-appMuted transition-colors">
-                  <ArrowRight size={11} className="text-appSubtext" />
-                  Move to {STATUS_TO_ARABIC[s]}
-                </button>
-              ))}
-              <div className="border-t border-appBorder mt-1 pt-1">
-                <button
-                  onClick={() => { onDelete(task.id); setMenuOpen(false); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-xs text-danger hover:bg-red-50 transition-colors">
-                  <X size={11} /> Remove task
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div
+      onClick={() => onOpen(task)}
+      className="bg-appSurface rounded-xl border border-appBorder p-4 hover:shadow-panel hover:-translate-y-0.5 transition-all duration-150 cursor-grab active:cursor-grabbing group relative"
+    >
       {/* Title */}
       <p className="text-sm font-semibold text-appText mb-2.5 leading-snug pr-2">{task.title}</p>
+
+      {task.description && (
+        <div className="mb-2">
+          <button
+            onClick={() => setShowDesc(v => !v)}
+            className="text-[11px] text-blue-500 hover:underline"
+          >
+            {showDesc ? 'إخفاء الوصف' : 'عرض الوصف'}
+          </button>
+
+          {showDesc && (
+            <p className="text-xs text-appSubtext mt-1 leading-relaxed bg-appMuted p-2 rounded-lg">
+              {task.description}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         {task.dueDate && <DeadlinePill dueDate={task.dueDate} />}
       </div>
 
+      <div className="flex items-center gap-2 mt-3 mb-2">
+        {task.status === 'PENDING' && (
+          <button
+            onClick={() => onMove(task.id, 'IN_PROGRESS')}
+            className="flex items-center gap-1 px-2 py-1 text-[11px] bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition"
+          >
+            {/* <ArrowRight size={11} /> */}
+            بدءالعمل
+          </button>
+        )}
+
+        {task.status === 'IN_PROGRESS' && (
+          <>
+            <button
+              onClick={() => onMove(task.id, 'PENDING')}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] bg-slate-100 text-appSubtext rounded-lg hover:bg-slate-200 transition"
+            >
+              وضع في قائمة الانتظار
+            </button>
+
+            <button
+              onClick={() => onMove(task.id, 'DONE')}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition"
+            >
+              <CheckCircle2 size={11} />
+              تم الانتهاء
+            </button>
+          </>
+        )}
+
+        {task.status === 'DONE' && (
+          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium ${task.reviewed
+            ? 'bg-emerald-100 text-emerald-700'
+            : 'bg-amber-100 text-amber-700'
+            }`}>
+            {task.reviewed ? 'تمت المراجعة' : 'بانتظار المراجعة'}
+          </span>
+        )}
+      </div>
+
       {/* Footer */}
       <div className="flex items-center gap-2 pt-3 border-t border-appBorder">
-        <Avatar initials={task.assignedTo?.name?.slice(0, 2).toUpperCase() || '?'} size="sm" />
-        <p className="text-[11px] text-appSubtext truncate flex-1">{task.assignedTo?.name || 'Unassigned'}</p>
+        <Avatar initials={task.assignedToName?.slice(0, 2).toUpperCase() || '?'} size="sm" />
+        <p className="text-[11px] text-appSubtext truncate flex-1">{task.assignedToName || 'Unassigned'}</p>
       </div>
     </div>
   );
 }
 
 // ─── Kanban Column ──────────────────────────────────────────────────────────
-function KanbanColumn({ status, tasks, onMove, onDelete, loading }) {
+function KanbanColumn({ status, tasks, onMove, onDelete, loading, setSelectedTask }) {
   const { Icon, color, bg, ring } = STAGE_META[status];
   const arabicLabel = STATUS_TO_ARABIC[status];
   return (
@@ -139,7 +167,7 @@ function KanbanColumn({ status, tasks, onMove, onDelete, loading }) {
             </div>
           )
           : tasks.map(t => (
-            <TaskCard key={t.id} task={t} onMove={onMove} onDelete={onDelete} />
+            <TaskCard key={t.id} task={t} onMove={onMove} onDelete={onDelete} onOpen={setSelectedTask} />
           ))
       }
     </div>
@@ -148,15 +176,66 @@ function KanbanColumn({ status, tasks, onMove, onDelete, loading }) {
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 const EMPTY_TASK = {
-  title: '', assignedToId: '', dueDate: '', status: 'PENDING',
+  title: '', assignedToId: '', dueDate: '', status: 'PENDING', description: ''
 };
 
+function AddCommentBox({ task, setTasks }) {
+  const [text, setText] = useState('');
+
+  const handleAdd = () => {
+    if (!text.trim()) return;
+
+    const newComment = {
+      message: text,
+      createdById: 1, // ! hardcoded for now
+      taskId: task.id,
+    };
+
+    setTasks(prev =>
+      prev.map(t =>
+        t.id === task.id
+          ? { ...t, comments: [...(t.comments || []), newComment] }
+          : t
+      )
+    );
+
+    task.comments = [...(task.comments || []), newComment];
+
+    try {
+      addCommentToTask(newComment);
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      // ! optionally show a notification/error state here
+    }
+
+    setText('');
+  };
+
+  return (
+    <div className="mt-3 flex gap-2">
+      <input
+        className="flex-1 px-2 py-1 text-xs border rounded-lg"
+        placeholder="اكتب تعليق..."
+        value={text}
+        onChange={e => setText(e.target.value)}
+      />
+      <button
+        onClick={handleAdd}
+        className="px-3 py-1 text-xs bg-brand text-white rounded-lg"
+      >
+        ارسال
+      </button>
+    </div>
+  );
+}
+
 function EmployeeTasksPage() {
-  const [tasks, setTasks]       = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm]         = useState(EMPTY_TASK);
+  const [form, setForm] = useState(EMPTY_TASK);
   const [employees, setEmployees] = useState([]);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   useEffect(() => {
 
@@ -176,8 +255,23 @@ function EmployeeTasksPage() {
     loadData();
   }, []);
 
-  const moveTask   = (id, status) => setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-  const removeTask = async (id)        => {
+  const moveTask = async (id, newStatus) => {
+    const newTask = {
+      status: newStatus
+    };
+    try {
+      const res = await updateTask(id, newTask);
+      console.log("debug moveTask response ", res);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      // ! optionally show a notification/error state here
+      return;
+    }
+
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+  }
+
+  const removeTask = async (id) => {
     try {
       await deleteTask(id);
       setTasks(prev => prev.filter(t => t.id !== id));
@@ -190,11 +284,15 @@ function EmployeeTasksPage() {
   const handleSave = async () => {
     if (!form.title.trim() || !form.assignedToId) return;
 
+    console.log(form);
+
     const newTask = {
       title: form.title,
+      description: form.description,
       status: form.status,
       dueDate: form.dueDate || null,
       assignedToId: parseInt(form.assignedToId),
+      createdById: 1
     };
 
     try {
@@ -207,11 +305,11 @@ function EmployeeTasksPage() {
     }
   };
 
-  const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
+  const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', /*'REVIEW',*/ 'DONE'];
   const tasksByStatus = status => tasks.filter(t => t.status === status);
 
-  const totalDone = tasks.filter(t => t.status === 'COMPLETED').length;
-  const overdue   = tasks.filter(t => daysRemaining(t.dueDate) < 0 && t.status !== 'COMPLETED').length;
+  const totalDone = tasks.filter(t => t.status === 'DONE').length;
+  const overdue = tasks.filter(t => daysRemaining(t.dueDate) < 0 && t.status !== 'DONE').length;
 
   const inputCls = 'w-full px-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all';
 
@@ -220,20 +318,20 @@ function EmployeeTasksPage() {
       onClick={() => { setForm(EMPTY_TASK); setShowForm(true); }}
       className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-brandDeep active:scale-[0.98] transition-all"
     >
-      <Plus size={15} /> New Task
+      <Plus size={15} /> اضافة مهمة جديدة
     </button>
   );
 
   return (
-    <MainLayout title="Employee Tasks" subtitle="Personnel Workflow" actions={actions}>
+    <MainLayout title="مهام الموظين" subtitle="" actions={actions}>
       <div className="space-y-5">
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Total Tasks',   value: tasks.length,  Icon: ClipboardList, colorClass: 'bg-blue-50 text-brand' },
-            { label: 'Completed',     value: totalDone,     Icon: CheckCircle2,  colorClass: 'bg-emerald-50 text-emerald-600' },
-            { label: 'Overdue',       value: overdue,       Icon: AlertTriangle, colorClass: 'bg-amber-50 text-amber-600' },
+            { label: 'العدد الكلي للمهمات', value: tasks.length, Icon: ClipboardList, colorClass: 'bg-blue-50 text-brand' },
+            { label: 'عدد المهمات المكتملة', value: totalDone, Icon: CheckCircle2, colorClass: 'bg-emerald-50 text-emerald-600' },
+            { label: 'عدد المهمات المتأخرة', value: overdue, Icon: AlertTriangle, colorClass: 'bg-amber-50 text-amber-600' },
           ].map(s => (
             <div key={s.label} className="bg-appSurface rounded-2xl border border-appBorder p-4 flex items-center gap-3">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${s.colorClass}`}>
@@ -257,6 +355,7 @@ function EmployeeTasksPage() {
               onMove={moveTask}
               onDelete={removeTask}
               loading={loading}
+              setSelectedTask={setSelectedTask}
             />
           ))}
         </div>
@@ -265,52 +364,147 @@ function EmployeeTasksPage() {
       {/* New Task Modal */}
       {showForm && (
         <Modal
-          title="Create New Task"
+          title="اضافة مهمة جديدة"
           onClose={() => setShowForm(false)}
           footer={
             <>
               <button onClick={() => setShowForm(false)}
                 className="px-4 py-2 text-sm font-medium text-appSubtext bg-white border border-appBorder rounded-xl hover:bg-appMuted transition-colors">
-                Cancel
+                الغاء
               </button>
               <button onClick={handleSave}
                 className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep transition-colors">
-                Create Task
+                اضافة
               </button>
             </>
           }
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Task Title *</label>
-              <input className={inputCls} placeholder="Describe the task…" value={form.title}
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">عنوان المهمة</label>
+              <input className={inputCls} placeholder="اكتب عنوان للمهمة..." value={form.title}
                 onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Assigned Employee *</label>
-                <select className={inputCls} value={form.assignedToId}
-                  onChange={e => setForm(p => ({ ...p, assignedToId: e.target.value }))}>
-                  <option value="">Select employee…</option>
-                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Status</label>
-                <select className={inputCls} value={form.status}
-                  onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                  <option value="PENDING">قائمة الانتظار</option>
-                  <option value="IN_PROGRESS">قيد التنفيذ</option>
-                  <option value="REVIEW">تحت المراجعة</option>
-                  <option value="COMPLETED">مكتمل</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
+                وصف المهمة
+              </label>
+
+              <textarea
+                className={inputCls}
+                placeholder="اكتب وصف المهمة..."
+                value={form.description}
+                onChange={e =>
+                  setForm(p => ({ ...p, description: e.target.value }))
+                }
+                rows={3}
+              />
+            </div>
+            {/* <div className="grid grid-cols-2 gap-3"> */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الموظف المسؤل عن المهمة</label>
+              <select className={inputCls} value={form.assignedToId}
+                onChange={e => setForm(p => ({ ...p, assignedToId: e.target.value }))}>
+                <option value="">اختر موظف</option>
+                {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.fullName}</option>)}
+              </select>
             </div>
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">Due Date</label>
-              <input type="date" className={inputCls} value={form.dueDate}
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">اخر معاد للتسليم</label>
+              <input type="datetime-local" className={inputCls} value={form.dueDate}
                 onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} />
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Task Details Modal */}
+      {selectedTask && (
+        <Modal
+          title="تفاصيل المهمة"
+          onClose={() => setSelectedTask(null)}
+          footer={
+            <button
+              onClick={() => setSelectedTask(null)}
+              className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl"
+            >
+              اغلاق
+            </button>
+          }
+        >
+          <div className="space-y-4">
+
+            {/* Title */}
+            <div>
+              <p className="text-xs text-appSubtext">العنوان</p>
+              <p className="text-sm font-semibold text-appText">
+                {selectedTask.title}
+              </p>
+            </div>
+
+            {/* Description */}
+            <div>
+              <p className="text-xs text-appSubtext">الوصف</p>
+              <p className="text-sm text-appText bg-appMuted p-2 rounded-lg">
+                {selectedTask.description || 'لا يوجد وصف'}
+              </p>
+            </div>
+
+            {/* Assigned */}
+            <div>
+              <p className="text-xs text-appSubtext">الموظف</p>
+              <p className="text-sm text-appText">
+                {selectedTask.assignedToName || 'غير محدد'}
+              </p>
+            </div>
+
+            {/* Deadline */}
+            <div>
+              <p className="text-xs text-appSubtext">موعد التسليم</p>
+              <p className="text-sm text-appText">
+                {selectedTask.dueDate
+                  ? new Date(selectedTask.dueDate).toLocaleString()
+                  : 'غير محدد'}
+              </p>
+            </div>
+
+            {/* Comments Section */}
+            <div>
+              <p className="text-xs text-appSubtext mb-2">التعليقات</p>
+
+              {/* Comments list (temporary static) */}
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {(selectedTask.comments || []).length === 0 ? (
+                  <p className="text-xs text-appSubtext">لا توجد تعليقات</p>
+                ) : (
+                  selectedTask.comments.map((c, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-2 bg-appMuted p-2 rounded-lg"
+                    >
+                      {/* Avatar */}
+                      <div className="w-7 h-7 rounded-full bg-appPrimary text-white flex items-center justify-center text-xs font-semibold">
+                        {c.createdByName?.charAt(0) || "?"}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-appText">
+                          {c.createdByName || "Unknown"}
+                        </span>
+                        <span className="text-xs text-appSubtext">
+                          {c.message}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add comment */}
+              <AddCommentBox task={selectedTask} setTasks={setTasks} />
+            </div>
+
           </div>
         </Modal>
       )}
