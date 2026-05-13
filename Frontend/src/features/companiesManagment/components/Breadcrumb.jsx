@@ -2,9 +2,17 @@ import React from "react";
 
 export default function Breadcrumb({ items, type }) {
   const activeTextColor =
-    type === "amendment" ? "text-badgePurpleText" : "text-brand";
+    type === "amendment"
+      ? "text-amber-600"
+      : type === "other"
+        ? "text-emerald-600"
+        : "text-indigo-600";
   const hoverTextColor =
-    type === "amendment" ? "hover:text-badgePurpleText" : "hover:text-brand";
+    type === "amendment"
+      ? "hover:text-amber-500"
+      : type === "other"
+        ? "hover:text-emerald-500"
+        : "hover:text-indigo-500";
 
   return (
     <nav className="flex items-center gap-2 text-sm text-appSubtext mb-6 flex-wrap" dir="rtl">

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { fetchCompanies } from "../../../api/companies";
-import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
 import CompanyList from "./CompanyList";
 import ContractViewer from "./ContractViewer";
@@ -9,53 +9,53 @@ import PdfViewer from "./PdfViewer";
 import ChatModal from "./ChatModal";
 import UploadModal from "./UploadModal";
 import DeleteToast from "./DeleteToast";
+import { CreateAmendmentAiPageView } from "./CreateAmendmentAiModal";
+
+const BASE_PATH = "/ContractBrowser";
 
 export default function ContractBrowser() {
-  /* ---- Navigation State ---- */
-  const [view, setView] = useState("companies");
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [selectedContractType, setSelectedContractType] = useState(null);
-  const [selectedPdf, setSelectedPdf] = useState(null);
-  const [selectedArticle, setSelectedArticle] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { companyId, type, pdfId } = useParams();
 
-  /* ---- Upload & Delete State ---- */
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [extraContracts, setExtraContracts] = useState([]);
-  const [removedIds, setRemovedIds] = useState([]);
-  const [deletedContract, setDeletedContract] = useState(null);
+  /* ---- Navigation State from URL ---- */
+  const normalizedType =
+    type === "establishment" || type === "amendment" || type === "other"
+      ? type
+      : null;
+
+  const isAmendmentAiPage =
+    Boolean(companyId) &&
+    normalizedType === "amendment" &&
+    location.pathname.replace(/\/$/, "").endsWith("/Ai");
+
+  const view = !companyId
+    ? "companies"
+    : !normalizedType
+      ? "contractTypes"
+      : isAmendmentAiPage
+        ? "amendmentAi"
+        : !pdfId
+          ? "pdfList"
+          : "pdfViewer";
+
+  /* ---- Data State ---- */
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [companiesError, setCompaniesError] = useState(null);
 
-  /* ======== NAVIGATION ======== */
-  const navigateTo = (target) => {
-    switch (target) {
-      case "companies":
-        setView("companies");
-        setSelectedCompany(null);
-        setSelectedContractType(null);
-        setSelectedPdf(null);
-        break;
-      case "contractTypes":
-        setView("contractTypes");
-        setSelectedContractType(null);
-        setSelectedPdf(null);
-        break;
-      case "pdfList":
-        setView("pdfList");
-        setSelectedPdf(null);
-        break;
-      default:
-        break;
-    }
-  };
+  /* ---- Upload & Delete State ---- */
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadType, setUploadType] = useState(null);
+  const [uploadZoneOnly, setUploadZoneOnly] = useState(false);
+  const [extraContracts, setExtraContracts] = useState([]);
+  const [removedIds, setRemovedIds] = useState([]);
+  const [deletedContract, setDeletedContract] = useState(null);
 
-  const handleBack = () => {
-    if (view === "pdfViewer") navigateTo("pdfList");
-    else if (view === "pdfList") navigateTo("contractTypes");
-    else if (view === "contractTypes") navigateTo("companies");
-  };
+  /* ---- Article Chat State ---- */
+  const [selectedArticle, setSelectedArticle] = useState(null);
 
+  /* ---- Load Companies ---- */
   useEffect(() => {
     const loadCompanies = async () => {
       setLoadingCompanies(true);
@@ -64,21 +64,20 @@ export default function ContractBrowser() {
       try {
         const data = await fetchCompanies();
         console.log("Companies data:", data);
-        // Transform backend company data to match frontend expectations
-        const transformedCompanies = data.map(company => ({
+
+        const transformedCompanies = data.map((company) => ({
           id: company.id,
-          icon: "🏢", // Static icon for all companies
+          icon: "🏢",
           name: company.name,
-          description: company.companyType, // Use companyType as description
-          establishmentContracts: company.contracts
-            .filter(c => c.type === 'ESTABLISHMENT')
-            .map(c => ({
+          description: company.companyType,
+          establishmentContracts: (company.contracts || [])
+            .filter((c) => c.type === "ESTABLISHMENT")
+            .map((c) => ({
               id: c.id,
-              name: c.filePath || `Contract ${c.id}`, // Use filePath or fallback
-              type: 'establishment',
+              name: c.filePath || `Contract ${c.id}`,
+              type: "establishment",
               date: c.createdAt,
-              size: 'N/A', // Placeholder, can be calculated later
-              // For establishment contracts, include the structured data
+              size: "N/A",
               company_name: c.company_name,
               company_address: c.company_address,
               company_type: c.company_type,
@@ -86,21 +85,24 @@ export default function ContractBrowser() {
               company_capital: c.company_capital,
               commercial_register_number: c.commercial_register_number,
               approval_date: c.approval_date,
-              real_estate_registry_minutes_number: c.real_estate_registry_minutes_number,
+              real_estate_registry_minutes_number:
+                c.real_estate_registry_minutes_number,
               company_duration: c.company_duration,
               company_activity: c.company_activity,
-              articles: c.articles
+              articles: c.articles,
             })),
-          amendmentContracts: company.contracts
-            .filter(c => c.type === 'CREATING')
-            .map(c => ({
+          amendmentContracts: (company.contracts || [])
+            .filter((c) => c.type === "CREATING")
+            .map((c) => ({
               id: c.id,
               name: c.filePath || `Contract ${c.id}`,
-              type: 'amendment',
+              type: "amendment",
               date: c.createdAt,
-              size: 'N/A'
-            }))
+              size: "N/A",
+            })),
+          otherContracts: [],
         }));
+
         setCompanies(transformedCompanies || []);
       } catch (error) {
         console.error("Error fetching companies:", error);
@@ -113,20 +115,170 @@ export default function ContractBrowser() {
     loadCompanies();
   }, []);
 
-  /* ======== SELECTION HANDLERS ======== */
+  /* ---- Derived Data ---- */
+  const selectedCompany = useMemo(() => {
+    if (!companyId) return null;
+    return companies.find((company) => String(company.id) === String(companyId)) || null;
+  }, [companies, companyId]);
+
+  const getContractsForCompanyType = useCallback(
+    (company, contractType) => {
+      if (!company) return [];
+
+      const base =
+        contractType === "establishment"
+          ? company.establishmentContracts
+          : contractType === "other"
+            ? company.otherContracts || []
+            : company.amendmentContracts;
+
+      const extras = extraContracts.filter(
+        (c) => c.companyId === company.id && c.type === contractType
+      );
+
+      return [...base, ...extras].filter((c) => !removedIds.includes(c.id));
+    },
+    [extraContracts, removedIds]
+  );
+
+  const selectedContracts = useMemo(() => {
+    if (!selectedCompany || !normalizedType) return [];
+    return getContractsForCompanyType(selectedCompany, normalizedType);
+  }, [selectedCompany, normalizedType, getContractsForCompanyType]);
+
+  const selectedPdf = useMemo(() => {
+    if (!pdfId) return null;
+    return (
+      selectedContracts.find((c) => String(c.id) === String(pdfId)) || null
+    );
+  }, [selectedContracts, pdfId]);
+
+  const availableArticlesForAi = useMemo(() => {
+    if (!selectedCompany) return [];
+
+    return selectedCompany.establishmentContracts.flatMap((contract) =>
+      (contract.articles || []).map((article, index) => ({
+        id:
+          article.id ||
+          `${contract.id}-article-${index + 1}`,
+        title: article.title || `المادة ${article.id || index + 1}`,
+        subtitle: contract.name,
+        content: article.content || "",
+      }))
+    );
+  }, [selectedCompany]);
+
+  /* ---- Invalid Route Recovery ---- */
+  useEffect(() => {
+    if (!loadingCompanies && companyId && !selectedCompany) {
+      navigate(BASE_PATH, { replace: true });
+    }
+  }, [loadingCompanies, companyId, selectedCompany, navigate]);
+
+  useEffect(() => {
+    if (
+      !loadingCompanies &&
+      companyId &&
+      selectedCompany &&
+      type &&
+      !normalizedType
+    ) {
+      navigate(`${BASE_PATH}/company/${selectedCompany.id}`, {
+        replace: true,
+      });
+    }
+  }, [
+    loadingCompanies,
+    companyId,
+    selectedCompany,
+    type,
+    normalizedType,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (
+      !loadingCompanies &&
+      view === "pdfViewer" &&
+      pdfId &&
+      !selectedPdf &&
+      selectedCompany &&
+      normalizedType
+    ) {
+      navigate(
+        `${BASE_PATH}/company/${selectedCompany.id}/type/${normalizedType}`,
+        { replace: true }
+      );
+    }
+  }, [
+    loadingCompanies,
+    view,
+    pdfId,
+    selectedPdf,
+    selectedCompany,
+    normalizedType,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (loadingCompanies || !companyId) return;
+    if (
+      location.pathname.replace(/\/$/, "").endsWith("/Ai") &&
+      normalizedType !== "amendment"
+    ) {
+      navigate(
+        `${BASE_PATH}/company/${companyId}/type/${normalizedType || "establishment"}`,
+        { replace: true }
+      );
+    }
+  }, [loadingCompanies, companyId, location.pathname, normalizedType, navigate]);
+
+  useEffect(() => {
+    if (view === "companies") {
+      setShowUploadModal(false);
+      setUploadType(null);
+      setUploadZoneOnly(false);
+      setSelectedArticle(null);
+    }
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== "pdfViewer") {
+      setSelectedArticle(null);
+    }
+  }, [view]);
+
+  /* ======== NAVIGATION HELPERS ======== */
   const handleSelectCompany = (company) => {
-    setSelectedCompany(company);
-    setView("contractTypes");
+    navigate(`${BASE_PATH}/company/${company.id}`);
   };
 
-  const handleSelectType = (type) => {
-    setSelectedContractType(type);
-    setView("pdfList");
+  const handleSelectType = (contractType) => {
+    if (!selectedCompany) return;
+
+    if (contractType === "other") {
+      navigate(`${BASE_PATH}/company/${selectedCompany.id}/type/other`);
+      return;
+    }
+
+    const contracts = getContractsForCompanyType(selectedCompany, contractType);
+
+    if (contractType === "establishment" && contracts.length === 0) {
+      setUploadZoneOnly(false);
+      setUploadType(contractType);
+      setShowUploadModal(true);
+      return;
+    }
+
+    navigate(`${BASE_PATH}/company/${selectedCompany.id}/type/${contractType}`);
   };
 
   const handleSelectPdf = (pdf) => {
-    setSelectedPdf(pdf);
-    setView("pdfViewer");
+    if (!selectedCompany || !normalizedType) return;
+
+    navigate(
+      `${BASE_PATH}/company/${selectedCompany.id}/type/${normalizedType}/pdf/${pdf.id}`
+    );
   };
 
   const handleSelectArticle = (article) => {
@@ -137,11 +289,51 @@ export default function ContractBrowser() {
 
   /* ======== UPLOAD HANDLER ======== */
   const handleUpload = (newContract) => {
+    if (!selectedCompany) return;
+
     console.log("✅ Uploaded:", newContract.name, "| Type:", newContract.type);
+
     setExtraContracts((prev) => [
       { ...newContract, companyId: selectedCompany.id },
       ...prev,
     ]);
+
+    setUploadType(null);
+    setShowUploadModal(false);
+    setUploadZoneOnly(false);
+
+    navigate(
+      `${BASE_PATH}/company/${selectedCompany.id}/type/${newContract.type}`
+    );
+  };
+
+  const openUploadForType = (contractType) => {
+    setUploadZoneOnly(false);
+    setUploadType(contractType);
+    setShowUploadModal(true);
+  };
+
+  const openUploadZoneOnlyOther = () => {
+    setUploadZoneOnly(true);
+    setUploadType("other");
+    setShowUploadModal(true);
+  };
+
+  /* ======== AI AMENDMENT (full page route) ======== */
+  const handleCreateAiContract = () => {
+    if (!selectedCompany) return;
+    navigate(
+      `${BASE_PATH}/company/${selectedCompany.id}/type/amendment/Ai`
+    );
+  };
+
+  const handleGenerateAiAmendment = (payload) => {
+    console.log("🤖 AI amendment request:", payload);
+    if (selectedCompany) {
+      navigate(
+        `${BASE_PATH}/company/${selectedCompany.id}/type/amendment`
+      );
+    }
   };
 
   /* ======== EDIT HANDLER ======== */
@@ -177,42 +369,40 @@ export default function ContractBrowser() {
     });
   }, []);
 
-  /* ======== GET CONTRACTS (merge mock + uploaded, filter deleted) ======== */
-  const getContracts = () => {
-    if (!selectedCompany || !selectedContractType) return [];
-
-    const base =
-      selectedContractType === "establishment"
-        ? selectedCompany.establishmentContracts
-        : selectedCompany.amendmentContracts;
-
-    const extras = extraContracts.filter(
-      (c) =>
-        c.companyId === selectedCompany.id &&
-        c.type === selectedContractType
-    );
-
-    return [...base, ...extras].filter((c) => !removedIds.includes(c.id));
-  };
-
   /* ======== BREADCRUMBS ======== */
   const buildBreadcrumbs = () => {
     const items = [
-      { label: "🏠 الرئيسية", action: () => navigateTo("companies") },
+      { label: "🏠 الرئيسية", action: () => navigate(BASE_PATH) },
     ];
 
     if (selectedCompany && view !== "companies") {
       items.push({
         label: `🏢 ${selectedCompany.name}`,
-        action: () => navigateTo("contractTypes"),
+        action: () => navigate(`${BASE_PATH}/company/${selectedCompany.id}`),
       });
     }
 
-    if (selectedContractType && (view === "pdfList" || view === "pdfViewer")) {
+    if (
+      selectedCompany &&
+      normalizedType &&
+      (view === "pdfList" || view === "pdfViewer" || view === "amendmentAi")
+    ) {
       items.push({
-        label: selectedContractType === "establishment" ? "📋 عقود تأسيس" : "📝 عقود تعديل",
-        action: () => navigateTo("pdfList"),
+        label:
+          normalizedType === "establishment"
+            ? "📋 عقود تأسيس"
+            : normalizedType === "amendment"
+              ? "📝 عقود تعديل"
+              : "📁 أخرى",
+        action: () =>
+          navigate(
+            `${BASE_PATH}/company/${selectedCompany.id}/type/${normalizedType}`
+          ),
       });
+    }
+
+    if (view === "amendmentAi") {
+      items.push({ label: "✨ إنشاء تعديل بالذكاء الاصطناعي" });
     }
 
     if (selectedPdf && view === "pdfViewer") {
@@ -220,18 +410,17 @@ export default function ContractBrowser() {
     }
 
     return items;
-};
+  };
 
   /* ======== RENDER ======== */
   return (
-    <div
-      className="flex h-screen max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-appBg text-appText"
-      dir="rtl"
-    >
-      <Header showBack={view !== "companies"} onBack={handleBack} />
-
-      <main className="mx-auto max-w-7xl min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto scroll-smooth px-4 py-8 sm:px-6 lg:px-8">
-        {view !== "companies" && <Breadcrumb items={buildBreadcrumbs()} type={selectedContractType} />}
+    <div className="w-full" dir="rtl">
+      {view !== "companies" && (
+        <Breadcrumb
+          items={buildBreadcrumbs()}
+          type={normalizedType}
+        />
+      )}
 
         {view === "companies" && (
           <>
@@ -252,31 +441,47 @@ export default function ContractBrowser() {
           <ContractViewer
             company={selectedCompany}
             onSelectType={handleSelectType}
-            onUploadClick={() => setShowUploadModal(true)}
+            onUploadClick={openUploadZoneOnlyOther}
           />
         )}
 
-        {view === "pdfList" && selectedCompany && (
+        {view === "pdfList" && selectedCompany && normalizedType && (
           <PdfList
-            contracts={getContracts()}
-            contractType={selectedContractType}
+            contracts={selectedContracts}
+            contractType={normalizedType}
             company={selectedCompany}
             onSelectPdf={handleSelectPdf}
             onDelete={handleDelete}
             onEdit={handleEdit}
+            onUploadClick={() => openUploadForType(normalizedType)}
+            onCreateAiClick={handleCreateAiContract}
           />
         )}
 
-        {view === "pdfViewer" && selectedPdf && selectedCompany && (
-          <PdfViewer
-            pdf={selectedPdf}
+        {view === "pdfViewer" &&
+          selectedPdf &&
+          selectedCompany &&
+          normalizedType && (
+            <PdfViewer
+              pdf={selectedPdf}
+              company={selectedCompany}
+              onSelectArticle={handleSelectArticle}
+            />
+          )}
+
+        {view === "amendmentAi" && selectedCompany && (
+          <CreateAmendmentAiPageView
             company={selectedCompany}
-            onSelectArticle={handleSelectArticle}
+            availableArticles={availableArticlesForAi}
+            onBack={() =>
+              navigate(
+                `${BASE_PATH}/company/${selectedCompany.id}/type/amendment`
+              )
+            }
+            onSubmit={handleGenerateAiAmendment}
           />
         )}
-      </main>
 
-      {/* Chat Modal */}
       {selectedArticle && (
         <ChatModal
           article={selectedArticle}
@@ -284,15 +489,19 @@ export default function ContractBrowser() {
         />
       )}
 
-      {/* Upload Modal */}
       {showUploadModal && (
         <UploadModal
-          onClose={() => setShowUploadModal(false)}
+          onClose={() => {
+            setShowUploadModal(false);
+            setUploadType(null);
+            setUploadZoneOnly(false);
+          }}
           onUpload={handleUpload}
+          initialType={uploadType}
+          uploadZoneOnly={uploadZoneOnly}
         />
       )}
 
-      {/* Delete Toast */}
       {deletedContract && (
         <DeleteToast
           key={deletedContract.id}

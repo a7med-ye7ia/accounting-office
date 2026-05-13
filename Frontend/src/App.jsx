@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import CompaniesDirectoryPage from "./features/companies/pages/CompaniesDirectoryPage";
 import CompanyProfilePage from "./features/companies/pages/CompanyProfilePage";
 import ContractAiPage from "./features/contracts/pages/ContractAiPage";
+import ContractBrowserPage from "./features/contracts/pages/ContractBrowserPage";
 import EditContractAiPage from "./features/contracts/pages/EditContractAiPage";
 import DashboardPage from "./features/dashboard/pages/DashboardPage";
 import DepartmentsPage from "./features/departments/pages/DepartmentsPage";
@@ -32,6 +33,11 @@ function App() {
       <Route path="/ContractAi" element={<ContractAiPage />} />
       <Route path="/EditContractAi" element={<EditContractAiPage />} />
       <Route path="/EquilibriumLedger" element={<EquilibriumLedgerPage />} />
+      <Route path="/ContractBrowser" element={<ContractBrowserPage />} />
+      <Route path="/ContractBrowser/company/:companyId" element={<ContractBrowserPage />}/>
+      <Route path="/ContractBrowser/company/:companyId/type/:type/Ai" element={<ContractBrowserPage />}/>
+      <Route path="/ContractBrowser/company/:companyId/type/:type" element={<ContractBrowserPage />}/>
+      <Route path="/ContractBrowser/company/:companyId/type/:type/pdf/:pdfId" element={<ContractBrowserPage />}/>
     </Routes>
   );
 }
