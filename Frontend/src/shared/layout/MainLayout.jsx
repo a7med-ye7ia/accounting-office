@@ -1,39 +1,54 @@
-import useSidebar from "../hooks/useSidebar";
+import { Link } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
-function MainLayout({ title, subtitle, actions, children, hidePageHeader }) {
-  const { isOpen, isMobile } = useSidebar();
-
+function MainLayout({ title, subtitle, actions, children }) {
   return (
-    <div className="min-h-screen bg-appBg text-appText flex flex-row-reverse overflow-hidden w-full" dir="rtl">
-      {/* SIDEBAR - on the right, pushes content on desktop/tablet */}
+    <div
+      className="app-shell flex h-screen max-h-[100dvh] min-h-0 w-full flex-row gap-2 overflow-hidden bg-appBg px-2 text-appText sm:gap-4 sm:px-4 md:gap-6 md:px-7"
+      dir="rtl"
+    >
       <Sidebar />
-      
-      {/* MAIN CONTENT - takes remaining space */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full">
+
+      <div className="app-content-dock flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl md:rounded-3xl">
         <TopBar />
-        
-        <main className="p-4 sm:p-6 lg:p-8 flex-1 w-full max-w-full overflow-auto">
-          {!hidePageHeader && (
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                {subtitle && (
-                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-appSubtext mb-1">
-                    {subtitle}
-                  </p>
-                )}
-                <h1 className="font-display text-2xl sm:text-3xl lg:text-5xl font-extrabold leading-none text-appText" dir="ltr" style={{ textAlign: 'left' }}>
+
+        <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scroll-smooth">
+          <div className="mx-auto w-full max-w-[1720px] px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10 lg:px-10 lg:py-12">
+            <header className="mb-10 flex flex-col gap-4 sm:mb-12 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+              <div className="min-w-0 flex-1 text-start">
+                <nav
+                  className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-appSubtext"
+                  aria-label="مسار التنقل"
+                >
+                  <Link
+                    to="/Dashboard"
+                    className="font-medium ui-transition hover:text-brand"
+                  >
+                    لوحة التحكم
+                  </Link>
+                  {subtitle ? (
+                    <>
+                      <span className="text-appBorder" aria-hidden>
+                        /
+                      </span>
+                      <span>{subtitle}</span>
+                    </>
+                  ) : null}
+                </nav>
+                <h1
+                  className="font-display text-3xl font-extrabold leading-tight tracking-tight text-appText sm:text-4xl lg:text-5xl"
+                  dir="auto"
+                >
                   {title}
                 </h1>
               </div>
-              {actions && <div className="shrink-0">{actions}</div>}
-            </div>
-          )}
-          
-          {/* Main Context container */}
-          <div className="w-full">
-            {children}
+              {actions && (
+                <div className="flex shrink-0 flex-wrap items-center gap-3 sm:pb-0.5">{actions}</div>
+              )}
+            </header>
+
+            <div className="space-y-8 lg:space-y-10 animate-fadeIn">{children}</div>
           </div>
         </main>
       </div>

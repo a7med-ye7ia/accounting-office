@@ -1,9 +1,18 @@
+import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
 import {
-  LayoutDashboard, Building, FileText, Users,
-  ClipboardList, Building2, FileSignature, BookOpen,
-  X, Settings, LifeBuoy, PlusCircle, ChevronRight, ChevronLeft
+  LayoutDashboard,
+  Building,
+  FileText,
+  Users,
+  ClipboardList,
+  Building2,
+  FileSignature,
+  BookOpen,
+  X,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 
 const navItems = [
@@ -18,155 +27,170 @@ const navItems = [
 ];
 
 function Sidebar() {
-  const { isOpen, isMobile, isDesktop, isTablet, toggle, close } = useSidebar();
+  const { isOpen, isMobile, isTablet, toggle, close } = useSidebar();
 
-  // Desktop/Tablet: inline relative (pushes content)
-  // Mobile: fixed overlay (slides over content)
-  const sidebarWidth = isOpen ? 256 : 56; // 256px open, 56px collapsed
-  const mobileSidebarWidth = isOpen ? 256 : 0; // 256px open, 0px hidden on mobile
+  const isDrawer = isMobile || isTablet;
+  /** Desktop narrow rail: collapsed and not overlay drawer */
+  const isCollapsedRail = !isOpen && !isDrawer;
 
-  // Calculate actual width based on device
-  const width = isMobile ? mobileSidebarWidth : sidebarWidth;
+  useEffect(() => {
+    if (!isDrawer || !isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isDrawer, isOpen]);
 
   return (
-    <>
-      {/* Sidebar - adapts based on device */}
+    <div className={isDrawer ? "contents" : "relative flex h-full min-h-0 shrink-0 self-stretch"}>
+      {isDrawer && (
+        <div
+          role="presentation"
+          aria-hidden={!isOpen}
+          className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out dark:bg-black/50 ${
+            isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          onClick={close}
+        />
+      )}
+
       <aside
-        style={{
-          // Position: inline on desktop/tablet, fixed on mobile
-          position: isMobile ? 'fixed' : 'relative',
-          right: 0,
-          top: 0,
-          height: isMobile ? '100vh' : 'auto',
-          
-          // Width transitions
-          width: `${width}px`,
-          flexShrink: 0,
-          
-          // Transitions
-          transition: 'width 0.3s ease-in-out',
-          overflow: 'hidden',
-          
-          // Z-index: high on mobile (overlay), auto on desktop
-          zIndex: isMobile ? 50 : 'auto',
-          
-          // Styling
-          backgroundColor: '#f1f5f9', // appMuted
-          borderRight: '1px solid #e2e8f0', // appBorder
-        }}
-        className="flex flex-col"
+        id="app-sidebar"
+        className={`flex shrink-0 flex-col overflow-hidden rounded-3xl border border-appBorder bg-appSurface/85 shadow-raise backdrop-blur-2xl backdrop-saturate-150 ${
+          isDrawer
+            ? `fixed right-0 top-0 z-50 h-[100dvh] w-[min(18rem,calc(100vw-1rem))] max-w-[18rem] transition-transform duration-300 ease-out will-change-transform ${
+                isOpen ? "translate-x-0" : "translate-x-full"
+              }`
+            : `relative h-full min-h-0 max-h-full self-stretch transition-[width] duration-300 ease-out ${
+                isOpen ? "w-[280px]" : "w-[72px]"
+              }`
+        }`}
+        aria-hidden={isDrawer && !isOpen}
       >
-        {/* Toggle button at top */}
-        <div className="flex items-center justify-between h-16 px-3 shrink-0 border-b border-appBorder">
+        <div
+          className={`flex shrink-0 border-b border-appBorder ${
+            isCollapsedRail
+              ? "flex-col items-center gap-2 py-3 sm:py-3.5"
+              : "h-[3.75rem] items-center gap-2 px-3 sm:h-14 sm:px-4"
+          }`}
+        >
           <button
+            type="button"
             onClick={toggle}
-            className="p-2 rounded-lg text-appSubtext hover:bg-slate-200 hover:text-slate-800 transition-colors flex-shrink-0"
-            title={isOpen ? "Close sidebar" : "Open sidebar"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-transparent text-appSubtext ui-transition hover:border-appBorder hover:bg-appMuted hover:text-brand active:scale-95 sm:h-11 sm:w-11"
+            title={isOpen ? "طي القائمة" : "توسيع القائمة"}
           >
-            {isOpen ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            {isOpen ? <ChevronRight size={20} aria-hidden /> : <ChevronLeft size={20} aria-hidden />}
           </button>
-          {isOpen && !isMobile && (
-            <div className="text-end flex-1 min-w-0">
-              <h1 className="font-display text-lg font-black uppercase leading-none tracking-tight text-brandDeep truncate">المعمارية</h1>
+
+          {!isDrawer && isOpen && (
+            <div className="min-w-0 flex-1 overflow-hidden text-end">
+              <span className="font-display block truncate text-lg font-black tracking-tight text-brand">
+                المحاسبة
+              </span>
+              <span className="mt-0.5 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-appSubtext">
+                Accounting Office
+              </span>
+            </div>
+          )}
+
+          {!isDrawer && !isOpen && (
+            <div className="flex w-full shrink-0 justify-center overflow-hidden">
+              <span
+                className="font-display flex h-9 w-9 items-center justify-center rounded-xl border border-brand/25 bg-brand/10 text-xs font-black text-brand sm:h-10 sm:w-10"
+                aria-hidden
+              >
+                مح
+              </span>
+            </div>
+          )}
+
+          {isDrawer && isOpen && (
+            <div className="min-w-0 flex-1 overflow-hidden text-end">
+              <span className="font-display block truncate text-lg font-black tracking-tight text-brand">
+                المحاسبة
+              </span>
             </div>
           )}
         </div>
 
-        {/* Logo - show full or icon only (hidden on mobile when closed) */}
-        {(isOpen || !isMobile) && (
-          <div className="px-3 py-4 shrink-0 overflow-hidden whitespace-nowrap">
-            {isOpen ? (
-              <h1 className="font-display text-sm font-black uppercase leading-none tracking-tight text-brandDeep">السجل</h1>
-            ) : (
-              <div className="w-6 h-6 bg-brand rounded-lg" />
-            )}
-          </div>
-        )}
-
-        {/* Navigation */}
-        <nav className="mt-2 flex-1 space-y-1.5 px-2 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <nav
+          className={`mt-1 flex min-h-0 flex-1 flex-col justify-start overflow-hidden pb-3 pt-2 sm:pb-4 sm:pt-3 ${
+            isCollapsedRail
+              ? "items-center gap-2 px-0 sm:gap-2"
+              : "items-stretch gap-1.5 px-3 sm:gap-2 sm:px-4"
+          }`}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={isMobile ? close : undefined}
-                className={({ isActive }) =>
-                  `group flex items-center gap-3 rounded-lg px-3 py-3 text-xs font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
-                    isActive
-                      ? "bg-brand/10 text-brand border-r-2 border-brand"
-                      : "text-appSubtext hover:bg-slate-200/50 hover:text-slate-800 border-r-2 border-transparent"
-                  } ${
-                    isOpen ? "justify-start" : "justify-center"
-                  }`
-                }
-                title={!isOpen ? item.label : undefined}
+                onClick={isDrawer ? close : undefined}
+                title={isCollapsedRail ? item.label : undefined}
+                className={`flex shrink-0 outline-none ${isCollapsedRail ? "flex w-full justify-center p-0" : "block w-full"}`}
               >
-                <Icon size={18} className="transition-transform group-hover:scale-110 flex-shrink-0" />
-                {isOpen && <span className="truncate">{item.label}</span>}
+                {({ isActive }) =>
+                  isCollapsedRail ? (
+                    <span
+                      className={`group flex h-10 w-10 items-center justify-center rounded-xl ui-transition sm:h-11 sm:w-11 ${
+                        isActive
+                          ? "border border-brand/35 bg-brand/15 text-brand shadow-none"
+                          : "border border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
+                      }`}
+                    >
+                      <Icon
+                        size={17}
+                        className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      className={`group flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] ui-transition sm:gap-3 sm:px-3 sm:py-3.5 sm:text-xs ${
+                        isActive
+                          ? "border-brand/35 bg-brand/15 text-brand"
+                          : "border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
+                      } ${isOpen || isDrawer ? "justify-start" : "justify-center"}`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ui-transition sm:h-9 sm:w-9 ${
+                          isActive
+                            ? "border-brand/30 bg-brand/10 text-brand"
+                            : "border-appBorder/70 bg-appMuted/50 text-current group-hover:border-brand/25 group-hover:bg-brand/8"
+                        }`}
+                      >
+                        <Icon
+                          size={17}
+                          className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
+                        />
+                      </span>
+                      {(isOpen || isDrawer) && (
+                        <span className="min-w-0 flex-1 truncate text-start">{item.label}</span>
+                      )}
+                    </span>
+                  )
+                }
               </NavLink>
             );
           })}
         </nav>
 
-        {/* Add button - always shows icon on collapsed */}
-        <div className="p-2 shrink-0">
-          <button
-            className={`flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-brand to-brandDeep text-xs font-bold text-white shadow-panel hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-[0.98] ${
-              isOpen ? "w-full px-4 py-3" : "w-10 h-10"
-            }`}
-            title={!isOpen ? "Add new" : undefined}
-          >
-            <PlusCircle size={16} />
-            {isOpen && <span>إدخال جديد</span>}
-          </button>
-        </div>
-
-        {/* Settings and Help */}
-        <div className={`border-t border-appBorder ${ isOpen ? "p-4 space-y-1" : "p-2 space-y-2" } shrink-0`}>
-          <button
-            className={`flex items-center gap-3 rounded-lg ${ isOpen ? "w-full px-4 py-2.5" : "w-10 h-10 justify-center" } text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors`}
-            title={!isOpen ? "Settings" : undefined}
-          >
-            <Settings size={18} />
-            {isOpen && <span>الإعدادات</span>}
-          </button>
-          <button
-            className={`flex items-center gap-3 rounded-lg ${ isOpen ? "w-full px-4 py-2.5" : "w-10 h-10 justify-center" } text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors`}
-            title={!isOpen ? "Help" : undefined}
-          >
-            <LifeBuoy size={18} />
-            {isOpen && <span>الدعم</span>}
-          </button>
-        </div>
-
-        {/* Mobile close button at bottom */}
-        {isMobile && isOpen && (
-          <div className="p-4 border-t border-appBorder">
+        {isDrawer && isOpen && (
+          <div className="shrink-0 border-t border-appBorder p-3 sm:p-4">
             <button
+              type="button"
               onClick={close}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-[0.1em] text-appSubtext hover:bg-slate-200/50 hover:text-slate-700 transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-appBorder px-4 py-2.5 text-xs font-bold uppercase tracking-[0.08em] text-appSubtext ui-transition hover:bg-appMuted hover:text-appText sm:py-3"
             >
               <X size={18} /> إغلاق
             </button>
           </div>
         )}
       </aside>
-
-      {/* Mobile overlay click handler */}
-      {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
-          onClick={close}
-          style={{ pointerEvents: 'auto' }}
-        />
-      )}
-    </>
+    </div>
   );
 }
 
 export default Sidebar;
-
-
-

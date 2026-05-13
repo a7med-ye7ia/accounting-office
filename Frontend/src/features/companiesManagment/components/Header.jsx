@@ -4,14 +4,14 @@ export default function Header({ showBack, onBack }) {
   const navigate = useNavigate();
 
   return (
-    <header className="bg-white/80 backdrop-blur-lg border-b border-slate-200 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-        {/* Logo — click to go back to the main app */}
+    <header className="z-40 shrink-0 border-b border-appBorder bg-appSurface/80 shadow-panel backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
         <button
+          type="button"
           onClick={() => navigate("/Dashboard")}
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center gap-3 cursor-pointer group text-right ui-transition"
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:shadow-indigo-300 transition-shadow">
+          <div className="w-11 h-11 bg-gradient-to-br from-brand to-brandDeep rounded-2xl flex items-center justify-center shadow-panel ui-transition group-hover:opacity-95">
             <svg
               className="w-5 h-5 text-white"
               fill="none"
@@ -26,13 +26,26 @@ export default function Header({ showBack, onBack }) {
               />
             </svg>
           </div>
-          <div className="text-right">
-            <h1 className="text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
+          <div>
+            <h1 className="text-lg font-bold text-appText group-hover:text-brand ui-transition">
               نظام إدارة العقود
             </h1>
-            <p className="text-xs text-slate-500">Contract Management System</p>
+            <p className="text-xs text-appSubtext">Contract Management System</p>
           </div>
         </button>
+
+        {showBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-appText bg-appMuted hover:bg-appBorder/80 border border-appBorder px-4 py-2.5 rounded-xl ui-transition"
+          >
+            <svg className="w-4 h-4 text-appSubtext" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            رجوع
+          </button>
+        )}
       </div>
     </header>
   );

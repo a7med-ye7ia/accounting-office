@@ -1,6 +1,20 @@
 <!doctype html>
 <html lang="ar" dir="rtl" class="font-arabic">
   <head>
+    <script>
+      (function () {
+        try {
+          var k = "accounting-office-theme";
+          var t = localStorage.getItem(k);
+          var dark = false;
+          if (t === "dark") dark = true;
+          else if (t === "light") dark = false;
+          else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)
+            dark = true;
+          document.documentElement.classList.toggle("dark", dark);
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

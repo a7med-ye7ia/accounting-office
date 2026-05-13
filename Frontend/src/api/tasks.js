@@ -29,3 +29,13 @@ export const deleteTask = async (id) => {
     throw error;
   }
 };
+
+export const updateTask = async (id, newTask) => {
+  try {
+    const response = await apiClient.put(`/tasks/${id}`, newTask);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating task: ', error);
+    throw error;
+  }
+};

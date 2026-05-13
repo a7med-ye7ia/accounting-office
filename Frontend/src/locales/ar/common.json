@@ -13,7 +13,7 @@
     "newEntry": "إدخال جديد"
   },
   "dashboard": {
-    "title": "لوحة تحكم العمليات",
+    "title": "لوحة تحكم ",
     "subtitle": "مصفوفة النظرة العامة",
     "totalCompanies": "إجمالي الشركات",
     "activeContracts": "العقود النشطة",
@@ -141,7 +141,7 @@
     "of": "من"
   },
   "sidebar": {
-    "appName": "المعمارية",
+    "appName": "",
     "appNameSecond": "السجل",
     "appSubtitle": "إدارة المحاسبة"
   }

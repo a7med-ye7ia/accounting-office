@@ -23,13 +23,13 @@ function EditContractAiPage() {
   return (
     <MainLayout title="Edit Contract AI" subtitle="Contract Management / Edit">
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-        <section className="rounded-2xl bg-appSurface p-6">
+        <section className="rounded-2xl border border-appBorder bg-appSurface p-6 shadow-panel">
           <h3 className="font-display text-2xl font-bold">Commercial Lease Agreement - Unit 402</h3>
           <p className="mt-2 text-sm text-appSubtext">Version 2.4 Draft</p>
           <div className="mt-6 space-y-3">
             {isLoading ? <div className="rounded-xl bg-appMuted p-4 text-sm text-appSubtext">Loading contract clauses...</div> : null}
             {clauses.map((clause) => (
-              <button key={clause.id} onClick={() => setSelectedClauseId(clause.id)} className={`w-full rounded-xl p-4 text-right transition ${selectedClauseId === clause.id ? "bg-badgeBlueBg" : "bg-appMuted hover:bg-slate-200"}`} dir="rtl">
+              <button key={clause.id} onClick={() => setSelectedClauseId(clause.id)} className={`w-full rounded-xl p-4 text-right transition ${selectedClauseId === clause.id ? "bg-badgeBlueBg" : "bg-appMuted hover:bg-appMuted/80"}`} dir="rtl">
                 <p className="font-semibold text-appText">{clause.title}</p>
                 <p className="mt-1 text-sm text-appSubtext">{clause.body}</p>
               </button>
@@ -41,7 +41,7 @@ function EditContractAiPage() {
             <p className="mt-2 font-arabic leading-8 text-appText">{selectedClause?.body}</p>
           </div>
         </section>
-        <aside className="rounded-2xl bg-appSurface p-6">
+        <aside className="rounded-2xl border border-appBorder bg-appSurface p-6 shadow-panel">
           <h4 className="text-sm font-bold uppercase tracking-wider text-appSubtext">LLM Amendment Workspace</h4>
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="اكتب طلب التعديل القانوني المطلوب هنا" dir="rtl" className="mt-4 h-32 w-full rounded-xl bg-appMuted p-3 font-arabic text-sm outline-none ring-brand focus:ring-2" />
           <div className="mt-4 grid gap-2">

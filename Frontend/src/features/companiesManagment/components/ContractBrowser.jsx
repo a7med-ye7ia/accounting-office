@@ -425,13 +425,9 @@ export default function ContractBrowser() {
         {view === "companies" && (
           <>
             {loadingCompanies ? (
-              <div className="text-center py-20 text-slate-600">
-                جاري تحميل الشركات...
-              </div>
+              <div className="text-center py-20 text-appSubtext">جاري تحميل الشركات...</div>
             ) : companiesError ? (
-              <div className="text-center py-20 text-red-600">
-                {companiesError}
-              </div>
+              <div className="text-center py-20 text-danger font-medium">{companiesError}</div>
             ) : (
               <CompanyList
                 companies={companies}

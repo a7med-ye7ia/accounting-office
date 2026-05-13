@@ -4,12 +4,10 @@ export default function DeleteToast({ contract, onUndo, onExpire }) {
   const [isVisible, setIsVisible] = useState(false);
   const [timeLeft, setTimeLeft] = useState(5);
 
-  // Animate in
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
   }, []);
 
-  // Countdown timer
   useEffect(() => {
     if (timeLeft <= 0) {
       setIsVisible(false);
@@ -29,28 +27,26 @@ export default function DeleteToast({ contract, onUndo, onExpire }) {
     setTimeout(() => onUndo(contract), 300);
   };
 
+  const undoClass =
+    contract.type === "establishment"
+      ? "bg-brand hover:bg-brandDeep"
+      : "bg-badgePurpleText hover:bg-brandDeep";
+
+  const barClass =
+    contract.type === "establishment" ? "bg-gradient-to-l from-brand to-brandDeep" : "bg-gradient-to-l from-badgePurpleText to-brand";
+
   return (
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50
-                  transition-all duration-300
-                  ${isVisible
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-4 pointer-events-none"
-                  }`}
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 ui-transition ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+      }`}
       dir="rtl"
     >
-      <div className="bg-white-900 text-slate-900 rounded-2xl shadow-2xl px-6 py-4 min-w-[380px]">
-        {/* Content */}
+      <div className="bg-appSurface text-appText rounded-2xl border border-appBorder shadow-panel px-6 py-4 min-w-[380px] max-w-[calc(100vw-2rem)]">
         <div className="flex items-center justify-between gap-4 mb-3">
           <div className="flex items-center gap-3">
-            {/* Trash Icon */}
-            <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-4 h-4 text-red-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+            <div className="w-8 h-8 bg-badgeRedBg rounded-lg flex items-center justify-center flex-shrink-0 border border-appBorder">
+              <svg className="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -60,54 +56,30 @@ export default function DeleteToast({ contract, onUndo, onExpire }) {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium">تم حذف العقد بنجاح</p>
-              <p className="text-xs text-slate-400 mt-0.5">"{contract.name}"</p>
+              <p className="text-sm font-medium text-appText">تم حذف العقد بنجاح</p>
+              <p className="text-xs text-appSubtext mt-0.5 truncate max-w-[200px]">"{contract.name}"</p>
             </div>
           </div>
 
-          {/* Undo Button */}
           <button
+            type="button"
             onClick={handleUndo}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl
-                       ${contract.type == "establishment" ? "bg-indigo-500 hover:bg-indigo-400" : "bg-amber-500 hover:bg-amber-400"}
-                       text-white text-sm font-medium
-                       transition-all duration-200 cursor-pointer
-                       hover:scale-105`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-medium ui-transition hover:scale-105 cursor-pointer shadow-panel ${undoClass}`}
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
             تراجع
           </button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full 
-              ${contract.type == "establishment" ? "bg-gradient-to-l from-indigo-500 to-indigo-400" : "bg-gradient-to-l from-amber-500 to-amber-400" }
-               rounded-full animate-shrink`}
-          />
+        <div className="w-full h-1 bg-appBorder rounded-full overflow-hidden">
+          <div className={`h-full rounded-full animate-shrink ${barClass}`} />
         </div>
 
-        {/* Timer */}
         <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-slate-500">
-            سيتم الحذف نهائياً خلال
-          </span>
-          <span className="text-[10px] text-slate-400 font-mono">
-            {timeLeft} ثوانٍ
-          </span>
+          <span className="text-[10px] text-appSubtext">سيتم الحذف نهائياً خلال</span>
+          <span className="text-[10px] text-appSubtext font-mono tabular-nums">{timeLeft} ثوانٍ</span>
         </div>
       </div>
     </div>

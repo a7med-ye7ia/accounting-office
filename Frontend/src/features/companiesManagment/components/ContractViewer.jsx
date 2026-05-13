@@ -14,7 +14,7 @@ export default function ContractViewer({ company, onSelectType, onUploadClick })
       key: "establishment",
       label: "عقود تأسيس",
       icon: "📋",
-      color: "indigo",
+      accent: "blue",
       count: company.establishmentContracts.length,
       countLabel: contractCountLabel(company.establishmentContracts.length),
       description: "عقود التأسيس الأصلية للشركة",
@@ -23,7 +23,7 @@ export default function ContractViewer({ company, onSelectType, onUploadClick })
       key: "amendment",
       label: "عقود تعديل",
       icon: "📝",
-      color: "amber",
+      accent: "purple",
       count: company.amendmentContracts.length,
       countLabel: contractCountLabel(company.amendmentContracts.length),
       description: "عقود التعديل والتحديثات",
@@ -59,13 +59,11 @@ export default function ContractViewer({ company, onSelectType, onUploadClick })
               ${type.color === "indigo" ? "hover:border-indigo-400" :
                 type.color === "amber" ? "hover:border-amber-400" : "hover:border-emerald-400"}`}
           >
-            <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">
+            <div className="text-6xl mb-4 group-hover:scale-110 ui-transition duration-200 ease-out">
               {type.icon}
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">
-              {type.label}
-            </h3>
-            <p className="text-sm text-slate-500 mb-4">{type.description}</p>
+            <h3 className="text-xl font-bold text-appText mb-2">{type.label}</h3>
+            <p className="text-sm text-appSubtext mb-5 leading-relaxed">{type.description}</p>
             <div
               className={`inline-block px-4 py-2 rounded-full text-sm font-semibold
               ${type.color === "indigo" ? "bg-indigo-100 text-indigo-700" :
