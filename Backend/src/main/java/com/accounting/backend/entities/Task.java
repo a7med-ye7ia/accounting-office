@@ -2,6 +2,9 @@ package com.accounting.backend.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.accounting.backend.enums.TaskStatus;
 
 @Entity
@@ -26,7 +29,7 @@ public class Task {
     private User createdBy;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(columnDefinition = "varchar(50)")
     private TaskStatus status = TaskStatus.PENDING;
 
     @Column(name = "due_date")
@@ -41,6 +44,10 @@ public class Task {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // ! change the fetch type from eager to lazy to avoid loading all comments when fetching a task
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<TaskComment> comments = new ArrayList<>();
 
     // Getters and setters
 
@@ -74,4 +81,6 @@ public class Task {
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
 
+    public List<TaskComment> getComments() { return comments; }
+    public void setComments(List<TaskComment> comments) { this.comments = comments; }
 }

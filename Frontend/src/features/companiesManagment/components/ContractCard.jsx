@@ -3,43 +3,35 @@ import { useState } from "react";
 export default function ContractCard({ contract, onDelete, onEdit }) {
   const [showOverlay, setShowOverlay] = useState(false);
 
-  const typeColor = contract.type === "establishment" ? "indigo" : "amber";
-  const typeLabel = contract.type === "establishment" ? "تأسيس" : "تعديل";
+  const isEstablishment = contract.type === "establishment";
+  const typeLabel = isEstablishment ? "تأسيس" : "تعديل";
+
+  const badgeClass = isEstablishment
+    ? "bg-badgeBlueBg text-badgeBlueText border border-appBorder"
+    : "bg-badgePurpleBg text-badgePurpleText border border-appBorder";
+  const pdfWrapClass = isEstablishment ? "bg-badgeBlueBg/80" : "bg-badgePurpleBg/80";
+  const pdfIconClass = isEstablishment ? "text-badgeBlueText" : "text-badgePurpleText";
 
   return (
     <div
-      className="group relative bg-white rounded-2xl shadow-md
-                 border border-slate-200 overflow-hidden
-                 transition-all duration-300
-                 hover:shadow-xl hover:scale-[1.02] hover:border-indigo-200"
+      className="group relative rounded-2xl border border-appBorder bg-appSurface shadow-panel overflow-hidden ui-transition hover:border-brand/25"
       onMouseEnter={() => setShowOverlay(true)}
       onMouseLeave={() => setShowOverlay(false)}
     >
-      {/* Card Content */}
-      <div className="p-5">
-        {/* Top Row */}
+      <div className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <span
-            className={`text-xs font-semibold px-3 py-1 rounded-full ${typeColor === "indigo"
-                ? "bg-indigo-100 text-indigo-700"
-                : "bg-amber-100 text-amber-700"
-              }`}
-          >
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeClass}`}>
             {typeLabel}
           </span>
-          <span className="text-xs text-slate-400">{contract.date}</span>
+          <span className="text-xs text-appSubtext">{contract.date}</span>
         </div>
 
-        {/* PDF Icon */}
         <div className="flex justify-center mb-4">
           <div
-            className={`w-16 h-20 rounded-xl flex flex-col items-center justify-center
-              ${typeColor === "indigo" ? "bg-indigo-50" : "bg-amber-50"}
-              transition-transform duration-300 group-hover:scale-105`}
+            className={`w-16 h-20 rounded-xl flex flex-col items-center justify-center ${pdfWrapClass} ui-transition group-hover:scale-105 duration-200 ease-out`}
           >
             <svg
-              className={`w-8 h-8 mb-1 ${typeColor === "indigo" ? "text-indigo-500" : "text-amber-500"
-                }`}
+              className={`w-8 h-8 mb-1 ${pdfIconClass}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -51,59 +43,41 @@ export default function ContractCard({ contract, onDelete, onEdit }) {
                 d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
               />
             </svg>
-            <span
-              className={`text-[10px] font-bold ${typeColor === "indigo" ? "text-indigo-400" : "text-amber-400"
-                }`}
-            >
-              PDF
-            </span>
+            <span className={`text-[10px] font-bold ${pdfIconClass}`}>PDF</span>
           </div>
         </div>
 
-        {/* File Name */}
-        <h4 className="text-sm font-semibold text-slate-800 text-center mb-1 line-clamp-2">
+        <h4 className="text-sm font-semibold text-appText text-center mb-1 line-clamp-2 leading-snug">
           {contract.name}
         </h4>
         {contract.size && (
-          <p className="text-xs text-slate-400 text-center">{contract.size}</p>
+          <p className="text-xs text-appSubtext text-center">{contract.size}</p>
         )}
       </div>
-      {/* ====== Hover Overlay ====== */}
+
       <div
-        className={`absolute inset-0 bg-black/20 backdrop-blur-[1px]
-              flex items-center justify-center gap-3
-              transition-all duration-300
-              ${showOverlay ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`absolute inset-0 bg-appText/25 backdrop-blur-[2px] flex items-center justify-center gap-3 ui-transition ${
+          showOverlay ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
       >
-        {/* Edit Button (The Eye Icon) */}
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onEdit(contract);
           }}
-          className={`w-11 h-11 rounded-xl bg-white/90 
-               flex items-center justify-center
-               transition-all duration-200 cursor-pointer
-               hover:scale-110 hover:shadow-lg
-               ${showOverlay ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}
-               ${typeColor === "indigo" ? "hover:bg-indigo-500" : "hover:bg-amber-500"}
-               group/btn`}
-          style={{ transitionDelay: "0ms" }}
+          className={`w-11 h-11 rounded-xl bg-appSurface/95 border border-appBorder flex items-center justify-center ui-transition hover:scale-110 hover:bg-brand hover:border-brand shadow-panel group/btn ${
+            showOverlay ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+          }`}
           title="تعديل"
         >
           <svg
-            className={`w-5 h-5 transition-colors group-hover/btn:text-white
-                 ${typeColor === "indigo" ? "text-indigo-600" : "text-amber-600"}`}
+            className="w-5 h-5 text-brand group-hover/btn:text-white ui-transition"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -114,21 +88,19 @@ export default function ContractCard({ contract, onDelete, onEdit }) {
         </button>
 
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(contract);
           }}
-          className={`w-11 h-11 rounded-xl bg-white/90 hover:bg-red-500
-               flex items-center justify-center
-               transition-all duration-200 cursor-pointer
-               hover:scale-110 hover:shadow-lg
-               ${showOverlay ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}
-               group/btn`}
-          style={{ transitionDelay: "100ms" }}
+          className={`w-11 h-11 rounded-xl bg-appSurface/95 border border-appBorder flex items-center justify-center ui-transition hover:scale-110 hover:bg-danger hover:border-danger shadow-panel group/btn ${
+            showOverlay ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+          }`}
+          style={{ transitionDelay: "80ms" }}
           title="حذف"
         >
           <svg
-            className="w-5 h-5 text-red-600 group-hover/btn:text-white transition-colors"
+            className="w-5 h-5 text-danger group-hover/btn:text-white ui-transition"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

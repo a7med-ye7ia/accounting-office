@@ -1,57 +1,61 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 const SidebarContext = createContext(null);
 
-export function SidebarProvider({ children }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(true);
-  const [isTablet, setIsTablet] = useState(false);
+function getDevice() {
+  if (typeof window === "undefined") return "desktop";
+  if (window.innerWidth < 768) return "mobile";
+  if (window.innerWidth < 1024) return "tablet";
+  return "desktop";
+}
 
-  // Detect screen size changes
+export function SidebarProvider({ children }) {
+  const location = useLocation();
+  const [device, setDevice] = useState(() => getDevice());
+  const [isOpen, setIsOpen] = useState(() => getDevice() === "desktop");
+
   useEffect(() => {
     const handleResize = () => {
-      const isTabletScreen = window.innerWidth < 1024 && window.innerWidth >= 768;
-      setIsTablet(isTabletScreen);
-      // Default tablet to closed
-      if (isTabletScreen && desktopOpen) {
-        setDesktopOpen(false);
+      const next = getDevice();
+      setDevice(next);
+      if (next === "mobile" || next === "tablet") {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
       }
     };
-
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const openMobile = useCallback(() => setMobileOpen(true), []);
-  const closeMobile = useCallback(() => setMobileOpen(false), []);
-  const toggleMobile = useCallback(() => setMobileOpen(v => !v), []);
+  const isDrawer = device === "mobile" || device === "tablet";
 
-  const openDesktop = useCallback(() => setDesktopOpen(true), []);
-  const closeDesktop = useCallback(() => setDesktopOpen(false), []);
-  const toggleDesktop = useCallback(() => setDesktopOpen(v => !v), []);
+  useEffect(() => {
+    if (isDrawer) setIsOpen(false);
+  }, [location.pathname, isDrawer]);
 
-  return (
-    <SidebarContext.Provider
-      value={{
-        mobileOpen,
-        openMobile,
-        closeMobile,
-        toggleMobile,
-        desktopOpen,
-        openDesktop,
-        closeDesktop,
-        toggleDesktop,
-        isTablet,
-      }}
-    >
-      {children}
-    </SidebarContext.Provider>
-  );
+  const toggle = useCallback(() => setIsOpen((v) => !v), []);
+  const open = useCallback(() => setIsOpen(true), []);
+  const close = useCallback(() => setIsOpen(false), []);
+
+  const value = {
+    isOpen,
+    isMobile: device === "mobile",
+    isTablet: device === "tablet",
+    isDesktop: device === "desktop",
+    device,
+    toggle,
+    open,
+    close,
+  };
+
+  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }
 
 export function useSidebar() {
   const ctx = useContext(SidebarContext);
-  if (!ctx) throw new Error('useSidebar must be used inside SidebarProvider');
+  if (!ctx) throw new Error("useSidebar must be used inside SidebarProvider");
   return ctx;
 }

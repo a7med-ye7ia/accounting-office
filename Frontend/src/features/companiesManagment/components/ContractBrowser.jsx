@@ -225,24 +225,20 @@ export default function ContractBrowser() {
   /* ======== RENDER ======== */
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-indigo-50"
+      className="flex h-screen max-h-[100dvh] min-h-0 flex-col overflow-hidden bg-appBg text-appText"
       dir="rtl"
     >
       <Header showBack={view !== "companies"} onBack={handleBack} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto max-w-7xl min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto scroll-smooth px-4 py-8 sm:px-6 lg:px-8">
         {view !== "companies" && <Breadcrumb items={buildBreadcrumbs()} type={selectedContractType} />}
 
         {view === "companies" && (
           <>
             {loadingCompanies ? (
-              <div className="text-center py-20 text-slate-600">
-                جاري تحميل الشركات...
-              </div>
+              <div className="text-center py-20 text-appSubtext">جاري تحميل الشركات...</div>
             ) : companiesError ? (
-              <div className="text-center py-20 text-red-600">
-                {companiesError}
-              </div>
+              <div className="text-center py-20 text-danger font-medium">{companiesError}</div>
             ) : (
               <CompanyList
                 companies={companies}

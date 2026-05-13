@@ -1,92 +1,173 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from "react";
+import { Building2, Plus, Users, Pencil, Trash2, AlertCircle, MapPin, Loader2 } from "lucide-react";
+import MainLayout from "../../../shared/layout/MainLayout";
+import { Modal, TableSkeleton, PageStatCard } from "../../../shared/components/HrShared";
 import {
-  Building2, Plus, Users, Pencil, Trash2,
-  AlertCircle, TrendingUp,
-} from 'lucide-react';
-import MainLayout from '../../../shared/layout/MainLayout';
-import {
-  BudgetBar, Modal, StatusBadge, TableSkeleton,
-} from '../../../shared/components/HrShared';
-import { fetchDepartments } from '../../../api/departments';
+  fetchDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+} from "../../../api/departments";
+import { fetchUsers } from "../../../api/users";
+import { fetchBranches } from "../../../api/branches";
+import { getApiErrorMessage } from "../../../utils/apiError";
 
-const EMPTY_FORM = { name: '', head: '', budget: '', description: '' };
+const EMPTY_FORM = { name: "", branchId: "" };
 
-function StatCard({ icon: Icon, label, value, colorClass }) {
-  return (
-    <div className="bg-appSurface rounded-2xl border border-appBorder p-5 flex items-center gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClass}`}>
-        <Icon size={20} />
-      </div>
-      <div>
-        <p className="text-2xl font-extrabold font-display text-appText">{value}</p>
-        <p className="text-xs text-appSubtext mt-0.5">{label}</p>
-      </div>
-    </div>
-  );
+function fieldClass(invalid) {
+  return [
+    "w-full rounded-2xl border bg-appMuted/80 px-3 py-2.5 text-sm font-medium text-appText shadow-inner",
+    "placeholder:text-appSubtext/70 ui-transition",
+    "hover:border-brand/25 hover:bg-appSurface/90",
+    "focus:border-brand focus:bg-appSurface focus:outline-none focus:ring-2 focus:ring-brand/25",
+    invalid ? "border-danger/60 ring-1 ring-danger/20" : "border-appBorder",
+  ].join(" ");
+}
+
+/** @param {Array<{ departmentId?: number }>} users */
+function countEmployeesByDepartment(users) {
+  const map = new Map();
+  for (const u of users) {
+    const id = u.departmentId;
+    if (id == null) continue;
+    map.set(id, (map.get(id) || 0) + 1);
+  }
+  return map;
 }
 
 function DepartmentsPage() {
-  const [depts, setDepts]         = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [depts, setDepts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [editItem, setEditItem]   = useState(null);
-  const [form, setForm]           = useState(EMPTY_FORM);
-  const [deleteId, setDeleteId]   = useState(null);
+  const [editItem, setEditItem] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [deleteId, setDeleteId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [banner, setBanner] = useState(null);
 
-  useEffect(() => {
-    const loadDepartments = async () => {
-      try {
-        const data = await fetchDepartments();
-        setDepts(data);
-      } catch (error) {
-        console.error('Error loading departments:', error);
-        // ! optionally show a notification/error state here
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDepartments();
-    // const t = setTimeout(() => { setDepts(HR_DEPARTMENTS); setLoading(false); }, 1200);
-    // return () => clearTimeout(t);
+  const loadAll = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
+    try {
+      const [deptData, userData, branchData] = await Promise.all([
+        fetchDepartments(),
+        fetchUsers(),
+        fetchBranches(),
+      ]);
+      setDepts(Array.isArray(deptData) ? deptData : []);
+      setUsers(Array.isArray(userData) ? userData : []);
+      setBranches(Array.isArray(branchData) ? branchData : []);
+    } catch (e) {
+      setLoadError(getApiErrorMessage(e, "تعذر تحميل الأقسام."));
+      setDepts([]);
+      setUsers([]);
+      setBranches([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const openCreate = () => { setForm(EMPTY_FORM); setEditItem(null); setShowModal(true); };
-  const openEdit   = d  => {
-    setForm({ name: d.name, head: d.head, budget: String(d.budget), description: '' });
-    setEditItem(d);
+  React.useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  const counts = useMemo(() => countEmployeesByDepartment(users), [users]);
+
+  const totalStaffInDepts = useMemo(() => {
+    let n = 0;
+    counts.forEach((v) => {
+      n += v;
+    });
+    return n;
+  }, [counts]);
+
+  const deptsWithStaff = useMemo(
+    () => depts.filter((d) => (counts.get(d.id) || 0) > 0).length,
+    [depts, counts],
+  );
+
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setEditItem(null);
+    setFieldErrors({});
+    setFormError(null);
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (!form.name.trim()) return;
-    if (editItem) {
-      setDepts(prev => prev.map(d =>
-        d.id === editItem.id
-          ? { ...d, name: form.name, head: form.head, budget: Number(form.budget) || d.budget }
-          : d
-      ));
-    } else {
-      setDepts(prev => [...prev, {
-        id: Date.now(), name: form.name, head: form.head,
-        budget: Number(form.budget) || 0, used: 0, staff: 0, status: 'Active',
-      }]);
+  const openEdit = (d) => {
+    setForm({
+      name: d.name || "",
+      branchId: d.branch?.id != null ? String(d.branch.id) : "",
+    });
+    setEditItem(d);
+    setFieldErrors({});
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const validate = () => {
+    const err = {};
+    if (!form.name.trim()) err.name = true;
+    if (!form.branchId) err.branchId = true;
+    setFieldErrors(err);
+    return Object.keys(err).length === 0;
+  };
+
+  const handleSave = async () => {
+    setFormError(null);
+    if (!validate()) {
+      setFormError("يرجى تعبئة الحقول المطلوبة.");
+      return;
     }
-    setShowModal(false);
+    setSubmitting(true);
+    try {
+      const payload = { name: form.name.trim(), branchId: Number(form.branchId) };
+      if (editItem) {
+        await updateDepartment(editItem.id, payload);
+        setBanner({ type: "success", text: "تم تحديث القسم بنجاح." });
+      } else {
+        await createDepartment(payload);
+        setBanner({ type: "success", text: "تم إنشاء القسم بنجاح." });
+      }
+      setShowModal(false);
+      await loadAll();
+    } catch (e) {
+      setFormError(getApiErrorMessage(e, "تعذر حفظ القسم."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDelete = () => {
-    setDepts(prev => prev.filter(d => d.id !== deleteId));
-    setDeleteId(null);
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleteSubmitting(true);
+    try {
+      await deleteDepartment(deleteId);
+      setBanner({ type: "success", text: "تم حذف القسم." });
+      setDeleteId(null);
+      await loadAll();
+    } catch (e) {
+      setBanner({
+        type: "error",
+        text: getApiErrorMessage(e, "تعذر حذف القسم. قد يكون مرتبطًا بموظفين أو بيانات أخرى."),
+      });
+      setDeleteId(null);
+    } finally {
+      setDeleteSubmitting(false);
+    }
   };
-
-  const totalStaff  = depts.reduce((a, d) => a + d.staff, 0);
-  const activeDepts = depts.filter(d => d.status === 'Active').length;
 
   const actions = (
     <button
+      type="button"
       onClick={openCreate}
-      className="inline-flex items-center gap-2 pe-4 ps-4 py-2.5 bg-brand text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-brandDeep active:scale-[0.98] transition-all"
+      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-b from-brand to-brandDeep px-4 py-2.5 text-sm font-bold text-white shadow-panel ui-transition hover:brightness-110 active:scale-[0.98]"
     >
       <Plus size={15} /> قسم جديد
     </button>
@@ -95,185 +176,289 @@ function DepartmentsPage() {
   return (
     <MainLayout title="الأقسام" subtitle="التنظيم الداخلي" actions={actions}>
       <div className="space-y-6">
+        {banner && (
+          <div
+            role="status"
+            className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-panel ui-transition ${
+              banner.type === "success"
+                ? "border-success/35 bg-success/10 text-appText"
+                : "border-danger/35 bg-badgeRedBg/30 text-appText"
+            }`}
+          >
+            {banner.type === "success" ? (
+              <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-success/20 text-success">
+                ✓
+              </span>
+            ) : (
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold leading-snug">{banner.text}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBanner(null)}
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-appSubtext ui-transition hover:bg-appMuted hover:text-appText"
+            >
+              إغلاق
+            </button>
+          </div>
+        )}
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard icon={Building2}  label="إجمالي الأقسام" value={loading ? '—' : depts.length}  colorClass="bg-blue-50 text-brand" />
-          <StatCard icon={Users}       label="إجمالي الموظفين"       value={loading ? '—' : totalStaff}    colorClass="bg-emerald-50 text-emerald-600" />
-          <StatCard icon={TrendingUp}  label="الوحدات النشطة"      value={loading ? '—' : activeDepts}   colorClass="bg-amber-50 text-amber-600" />
+        {loadError && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/30 bg-badgeRedBg/25 px-4 py-3 text-sm text-appText shadow-inner">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 shrink-0 text-danger" />
+              <span>{loadError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadAll()}
+              className="rounded-xl border border-appBorder bg-appSurface px-3 py-1.5 text-xs font-bold text-appText ui-transition hover:border-brand/40 hover:text-brand"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <PageStatCard
+            icon={Building2}
+            label="إجمالي الأقسام"
+            value={depts.length}
+            colorClass="bg-badgeBlueBg text-badgeBlueText"
+            loading={loading}
+          />
+          <PageStatCard
+            icon={Users}
+            label="الموظفون ضمن أقسام"
+            value={totalStaffInDepts}
+            colorClass="bg-badgePurpleBg text-badgePurpleText"
+            loading={loading}
+          />
+          <PageStatCard
+            icon={MapPin}
+            label="أقسام بها موظفون"
+            value={deptsWithStaff}
+            colorClass="bg-success/15 text-success"
+            loading={loading}
+          />
         </div>
 
-        {/* Table Card */}
-        <div className="bg-appSurface rounded-2xl border border-appBorder overflow-hidden">
-          <div className="flex items-center justify-between pe-6 ps-6 py-4 border-b border-appBorder">
-            <h2 className="font-semibold text-appText">جميع الأقسام</h2>
-            <span className="inline-flex items-center pe-2.5 ps-2.5 py-0.5 rounded-full text-xs font-semibold bg-badgeBlueBg text-badgeBlueText">
+        <div className="overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-raise">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-appBorder px-6 py-5 sm:px-8">
+            <div>
+              <h2 className="font-semibold text-appText">جميع الأقسام</h2>
+              <p className="mt-0.5 text-xs text-appSubtext">
+                البيانات مرتبطة بالفرع وفق نموذج الـ API الحالي (لا يعرض تاريخ الإنشاء من الخادم).
+              </p>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-badgeBlueBg px-2.5 py-0.5 text-xs font-semibold text-badgeBlueText">
               {depts.length} إجمالي
             </span>
           </div>
 
-          {/* Empty State */}
-          {!loading && depts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center pe-6 ps-6">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                <Building2 size={28} className="text-slate-400" />
+          {!loading && depts.length === 0 && !loadError && (
+            <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-appBorder bg-appMuted">
+                <Building2 size={28} className="text-appSubtext" />
               </div>
-              <h3 className="font-semibold text-appText text-sm">لا توجد أقسام حتى الآن</h3>
-              <p className="text-xs text-appSubtext mt-1 max-w-xs">
-                ابدأ بإنشاء قسمك الأول لتنظيم قوتك العاملة.
+              <h3 className="text-sm font-semibold text-appText">لا توجد أقسام حتى الآن</h3>
+              <p className="mt-1 max-w-xs text-xs text-appSubtext">
+                أنشئ قسمًا واربطه بفرع ليظهر في تعيينات الموظفين.
               </p>
-              <button onClick={openCreate}
-                className="mt-5 inline-flex items-center gap-2 pe-4 ps-4 py-2 bg-brand text-white text-sm font-semibold rounded-xl hover:bg-brandDeep transition-colors">
+              <button
+                type="button"
+                onClick={openCreate}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-panel ui-transition hover:bg-brandDeep"
+              >
                 <Plus size={14} /> إنشاء قسم
               </button>
             </div>
           )}
 
-          {/* Data Table */}
           {(loading || depts.length > 0) && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-appBorder">
-                    {['القسم', 'رئيس القسم', 'عدد الموظفين', 'استخدام الميزانية', 'الحالة', 'الإجراءات'].map(h => (
-                      <th key={h} className="pe-6 ps-6 py-3 text-end text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext whitespace-nowrap">
+                <thead className="sticky top-0 z-20 table-head-surface backdrop-blur-md">
+                  <tr>
+                    {["القسم", "الفرع", "عدد الموظفين", "الإجراءات"].map((h) => (
+                      <th
+                        key={h}
+                        className="px-6 py-4 text-start text-[10px] font-extrabold uppercase tracking-[0.16em] text-appSubtext sm:py-5"
+                      >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-
-                {loading
-                  ? <TableSkeleton rows={5} cols={6} />
-                  : (
-                    <tbody>
-                      {depts.map(d => (
-                        <tr key={d.id} className="border-b border-slate-100 hover:bg-appMuted transition-colors">
-                          <td className="pe-6 ps-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                <Building2 size={14} className="text-brand" />
-                              </div>
-                              <span className="font-semibold text-appText">{d.name}</span>
+                {loading ? (
+                  <TableSkeleton rows={5} cols={4} />
+                ) : (
+                  <tbody className="divide-y divide-appBorder/80">
+                    {depts.map((d, idx) => (
+                      <tr
+                        key={d.id}
+                        className={`table-row-interactive ${idx % 2 === 0 ? "bg-appSurface" : "bg-appMuted/25"}`}
+                      >
+                        <td className="px-6 py-4 text-start">
+                          <div className="flex items-center justify-start gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-appBorder bg-badgeBlueBg">
+                              <Building2 size={14} className="text-badgeBlueText" />
                             </div>
-                          </td>
-                          <td className="pe-6 ps-6 py-4 text-appSubtext">{d.head}</td>
-                          <td className="pe-6 ps-6 py-4">
-                            <div className="flex items-center gap-1.5">
-                              <Users size={13} className="text-slate-400" />
-                              <span className="font-medium text-appText">{d.staff}</span>
-                            </div>
-                          </td>
-                          <td className="pe-6 ps-6 py-4">
-                            <BudgetBar used={d.used} total={d.budget} />
-                          </td>
-                          <td className="pe-6 ps-6 py-4">
-                            <StatusBadge status={d.status} />
-                          </td>
-                          <td className="pe-6 ps-6 py-4">
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => openEdit(d)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-blue-50 transition-colors">
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => setDeleteId(d.id)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-danger hover:bg-red-50 transition-colors">
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  )
-                }
+                            <span className="font-semibold text-appText" dir="auto">
+                              {d.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-start text-appSubtext" dir="auto">
+                          {d.branch?.name || "—"}
+                        </td>
+                        <td className="px-6 py-4 text-start">
+                          <div className="flex items-center justify-start gap-1.5">
+                            <Users size={13} className="shrink-0 text-appSubtext" />
+                            <span className="font-medium text-appText">{counts.get(d.id) ?? 0}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-start">
+                          <div className="flex items-center justify-start gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(d)}
+                              className="rounded-xl p-2 text-appSubtext ui-transition hover:bg-badgeBlueBg/50 hover:text-brand"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteId(d.id)}
+                              className="rounded-xl p-2 text-appSubtext ui-transition hover:bg-badgeRedBg/50 hover:text-danger"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                )}
               </table>
             </div>
           )}
         </div>
       </div>
 
-      {/* Create / Edit Modal */}
       {showModal && (
         <Modal
-          title={editItem ? 'تعديل القسم' : 'إنشاء قسم'}
-          onClose={() => setShowModal(false)}
+          title={editItem ? "تعديل القسم" : "إنشاء قسم"}
+          subtitle="الاسم والفرع مطلوبان لمطابقة نموذج الـ API (Department + Branch)."
+          onClose={() => {
+            if (!submitting) setShowModal(false);
+          }}
+          size="lg"
+          bodyScroll
+          busy={submitting}
           footer={
             <>
-              <button onClick={() => setShowModal(false)}
-                className="pe-4 ps-4 py-2 text-sm font-medium text-appSubtext bg-white border border-appBorder rounded-xl hover:bg-appMuted transition-colors">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setShowModal(false)}
+                className="rounded-xl border border-appBorder bg-appMuted px-4 py-2 text-sm font-medium text-appText ui-transition hover:bg-appBorder/40 disabled:opacity-50"
+              >
                 إلغاء
               </button>
-              <button onClick={handleSave}
-                className="pe-4 ps-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep transition-colors">
-                {editItem ? 'حفظ التغييرات' : 'إنشاء القسم'}
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleSave}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2 text-sm font-semibold text-white shadow-panel ui-transition hover:bg-brandDeep disabled:opacity-60"
+              >
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {editItem ? "حفظ التغييرات" : "إنشاء القسم"}
               </button>
             </>
           }
         >
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {formError && (
+              <div className="rounded-xl border border-danger/30 bg-badgeRedBg/25 px-3 py-2 text-xs font-medium text-appText">
+                {formError}
+              </div>
+            )}
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext">
                 اسم القسم *
               </label>
-              <input className="w-full pe-3 ps-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
-                placeholder="مثال: الهندسة" value={form.name}
-                onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+              <input
+                className={fieldClass(!!fieldErrors.name)}
+                placeholder="مثال: المحاسبة"
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              />
             </div>
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
-                رئيس القسم
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext">
+                الفرع *
               </label>
-              <input className="w-full pe-3 ps-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
-                placeholder="الاسم الكامل" value={form.head}
-                onChange={e => setForm(p => ({ ...p, head: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
-                الميزانية السنوية (دولار أمريكي)
-              </label>
-              <input type="number" className="w-full pe-3 ps-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
-                placeholder="مثال: 500000" value={form.budget}
-                onChange={e => setForm(p => ({ ...p, budget: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
-                الوصف
-              </label>
-              <textarea rows={3} className="w-full pe-3 ps-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all resize-none"
-                placeholder="ملاحظات اختيارية…" value={form.description}
-                onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+              <select
+                className={fieldClass(!!fieldErrors.branchId)}
+                value={form.branchId}
+                onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}
+              >
+                <option value="">اختر الفرع</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+              {branches.length === 0 && (
+                <p className="mt-1.5 text-xs text-appSubtext">لا توجد فروع من الخادم — أنشئ فرعًا أولًا.</p>
+              )}
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Delete Confirmation */}
-      {deleteId && (
+      {deleteId != null && (
         <Modal
           title="حذف القسم"
-          onClose={() => setDeleteId(null)}
+          subtitle="قد يفشل الحذف إذا كان القسم مستخدمًا في تعيينات."
+          onClose={() => {
+            if (!deleteSubmitting) setDeleteId(null);
+          }}
+          busy={deleteSubmitting}
           footer={
             <>
-              <button onClick={() => setDeleteId(null)}
-                className="pe-4 ps-4 py-2 text-sm font-medium text-appSubtext bg-white border border-appBorder rounded-xl hover:bg-appMuted transition-colors">
+              <button
+                type="button"
+                disabled={deleteSubmitting}
+                onClick={() => setDeleteId(null)}
+                className="rounded-xl border border-appBorder bg-appMuted px-4 py-2 text-sm font-medium text-appText ui-transition hover:bg-appBorder/40 disabled:opacity-50"
+              >
                 إلغاء
               </button>
-              <button onClick={handleDelete}
-                className="pe-4 ps-4 py-2 text-sm font-semibold text-white bg-danger rounded-xl hover:bg-red-700 transition-colors">
+              <button
+                type="button"
+                disabled={deleteSubmitting}
+                onClick={handleDelete}
+                className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-semibold text-white shadow-panel ui-transition hover:opacity-90 disabled:opacity-60"
+              >
+                {deleteSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 حذف
               </button>
             </>
           }
         >
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-appBorder bg-badgeRedBg">
               <AlertCircle size={18} className="text-danger" />
             </div>
             <div>
               <p className="text-sm font-medium text-appText">هل تريد حذف هذا القسم؟</p>
-              <p className="text-xs text-appSubtext mt-1">
-                لا يمكن التراجع عن هذا الإجراء. سيتم حذف جميع البيانات المرتبطة بشكل دائم.
+              <p className="mt-1 text-xs leading-relaxed text-appSubtext">
+                لا يمكن التراجع عن الإجراء بعد نجاح الحذف على الخادم.
               </p>
             </div>
           </div>
