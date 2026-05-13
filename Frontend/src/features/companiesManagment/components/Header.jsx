@@ -33,31 +33,6 @@ export default function Header({ showBack, onBack }) {
             <p className="text-xs text-slate-500">Contract Management System</p>
           </div>
         </button>
-
-        {/* Back Button */}
-        {showBack && (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600
-                       bg-slate-100 hover:bg-indigo-50 px-4 py-2 rounded-lg
-                       transition-all duration-200 cursor-pointer"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            رجوع
-          </button>
-        )}
       </div>
     </header>
   );

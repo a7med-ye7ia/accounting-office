@@ -8,7 +8,7 @@ import {
 
 const navItems = [
   { label: "لوحة التحكم", path: "/Dashboard", icon: LayoutDashboard },
-  { label: "الشركات", path: "/CompaniesDirectory", icon: Building },
+  { label: "الشركات", path: "/ContractBrowser", icon: Building },
   { label: "المستندات", path: "/Documents", icon: FileText },
   { label: "الموظفون", path: "/EmployeeManagement", icon: Users },
   { label: "مهام الموظفين", path: "/EmployeeTasks", icon: ClipboardList },
