@@ -5,7 +5,7 @@ import {
   CheckSquare, Square, Pencil, Trash2, AlertCircle, UserCheck,
 } from "lucide-react";
 import MainLayout from "../../../shared/layout/MainLayout";
-import { Avatar, StatusBadge, Modal, SlideOver, TableSkeleton } from "../../../shared/components/HrShared";
+import { Avatar, StatusBadge, Modal, SlideOver } from "../../../shared/components/HrShared";
 
 // استيراد الـ APIs
 import { fetchDepartments } from "../../../api/departments";
@@ -247,14 +247,27 @@ function EmployeeManagementPage() {
               <thead>
                 <tr className="border-b border-appBorder">
                   <th className="ps-6 pe-4 py-3 w-10"></th>
-                  {["الموظف", "المسمى الوظيفي", "القسم", "تاريخ التعيين", "الحالة", "الإجراءات"].map((h) => (
+                  {["الموظف", "المسمي الوظيفي", "القسم", "تاريخ التعيين", "الحالة", "الإجراءات"].map((h) => (
                     <th key={h} className="ps-4 pe-4 py-3 text-start text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
-              {loading ? <TableSkeleton rows={6} cols={7} /> : (
-                <tbody>
-                  {filtered.map((emp) => (
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, rowIdx) => (
+                    <tr key={`skeleton-${rowIdx}`} className="border-b border-slate-100">
+                      {Array.from({ length: 7 }).map((_, colIdx) => (
+                        <td key={`skeleton-${rowIdx}-${colIdx}`} className="px-4 py-3.5">
+                          <div
+                            className="h-3.5 rounded bg-slate-200 animate-pulse"
+                            style={{ width: colIdx === 0 ? "2rem" : colIdx === 6 ? "4rem" : `${55 + colIdx * 12}%` }}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : (
+                  filtered.map((emp) => (
                     <tr key={emp.id} className="border-b border-slate-100 hover:bg-appMuted transition-colors">
                       <td className="ps-6 pe-4 py-4"></td>
                       <td className="ps-4 pe-4 py-4">
@@ -288,9 +301,9 @@ function EmployeeManagementPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              )}
+                  ))
+                )}
+              </tbody>
             </table>
           </div>
         </div>
