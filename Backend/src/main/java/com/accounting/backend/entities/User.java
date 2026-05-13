@@ -3,6 +3,8 @@ package com.accounting.backend.entities;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -22,7 +24,7 @@ public class User {
 
     private String phone;
 
-    @Column(name = "national_id", unique = true)
+    @Column(name = "national_id", unique = true, nullable = true)
     private String nationalId;
 
     @Column(name = "password", nullable = false)
@@ -45,8 +47,21 @@ public class User {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+
     @Column(name = "token", length = 1024)
     private String token;
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<EmployeeAssignment> employeeAssignments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<UserRole> userRoles = new ArrayList<>();
+
+    @OneToMany(mappedBy = "assignedTo", fetch = FetchType.LAZY)
+    private List<Task> assignedTasks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "createdBy", fetch = FetchType.LAZY)
+    private List<Contract> contractsCreated = new ArrayList<>();
 
     // Getters and setters
 
@@ -145,5 +160,17 @@ public class User {
     public void setToken(String token) {
         this.token = token;
     }
+
+    public List<EmployeeAssignment> getEmployeeAssignments() { return employeeAssignments; }
+    public void setEmployeeAssignments(List<EmployeeAssignment> employeeAssignments) { this.employeeAssignments = employeeAssignments; }
+
+    public List<UserRole> getUserRoles() { return userRoles; }
+    public void setUserRoles(List<UserRole> userRoles) { this.userRoles = userRoles; }
+
+    public List<Task> getAssignedTasks() { return assignedTasks; }
+    public void setAssignedTasks(List<Task> assignedTasks) { this.assignedTasks = assignedTasks; }
+
+    public List<Contract> getContractsCreated() { return contractsCreated; }
+    public void setContractsCreated(List<Contract> contractsCreated) { this.contractsCreated = contractsCreated; }
 
 }

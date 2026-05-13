@@ -10,6 +10,7 @@ export const fetchDepartments = async () => {
   }
 };
 
+
 export const getDepartmentNames = async () => {
   try {
     const response = await apiClient.get('/departments');

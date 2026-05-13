@@ -45,7 +45,7 @@ function TopBar() {
         
         <div className="flex items-center gap-2 pr-1 sm:pr-2">
            <span className="text-xs font-semibold text-appText hidden md:block">Admin User</span>
-           <Link to="/EmployeeProfile/1" className="h-8 w-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-bold text-xs shrink-0">
+           <Link to="/profile/1" className="h-8 w-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-bold text-xs shrink-0">
              AD
            </Link>
         </div>
