@@ -6,18 +6,21 @@ import i18n from "./i18n/config.js";
 import App from "./App.jsx";
 import { SidebarProvider } from "./context/SidebarContext.jsx";
 import { LanguageProvider } from "./context/LanguageContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import "./index.css";
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <I18nextProvider i18n={i18n}>
-      <LanguageProvider>
-        <BrowserRouter>
-          <SidebarProvider>
-            <App />
-          </SidebarProvider>
-        </BrowserRouter>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <BrowserRouter>
+            <SidebarProvider>
+              <App />
+            </SidebarProvider>
+          </BrowserRouter>
+        </LanguageProvider>
+      </ThemeProvider>
     </I18nextProvider>
   </StrictMode>,
 )

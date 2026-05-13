@@ -33,10 +33,13 @@ function DeadlinePill({ dueDate }) {
   const days = daysRemaining(dueDate);
   if (!days) return null;
   const cls =
-    days < 0 ? 'bg-red-100 text-red-700'
-      : days <= 2 ? 'bg-red-50 text-red-600'
-        : days <= 5 ? 'bg-amber-50 text-amber-600'
-          : 'bg-slate-100 text-appSubtext';
+    days < 0
+      ? "bg-badgeRedBg text-badgeRedText border border-appBorder"
+      : days <= 2
+        ? "bg-badgeRedBg/80 text-danger border border-appBorder"
+        : days <= 5
+          ? "bg-badgePurpleBg text-badgePurpleText border border-appBorder"
+          : "bg-badgeGrayBg text-badgeGrayText border border-appBorder";
   const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `${days}d left`;
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${cls}`}>
@@ -47,10 +50,9 @@ function DeadlinePill({ dueDate }) {
 }
 
 const STAGE_META = {
-  'PENDING': { Icon: Circle, color: 'text-appSubtext', bg: 'bg-slate-100', ring: 'ring-slate-300' },
-  'IN_PROGRESS': { Icon: Loader2, color: 'text-blue-500', bg: 'bg-blue-100', ring: 'ring-blue-300' },
-  // 'REVIEW': { Icon: ArrowRight,   color: 'text-amber-500',    bg: 'bg-amber-100',   ring: 'ring-amber-300'   },
-  'DONE': { Icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-100', ring: 'ring-emerald-300' },
+  PENDING: { Icon: Circle, color: "text-appSubtext", bg: "bg-badgeGrayBg", ring: "ring-appBorder" },
+  IN_PROGRESS: { Icon: Loader2, color: "text-badgeBlueText", bg: "bg-badgeBlueBg", ring: "ring-brand/30" },
+  DONE: { Icon: CheckCircle2, color: "text-success", bg: "bg-success/15", ring: "ring-success/40" },
 };
 
 // ─── Task Card ──────────────────────────────────────────────────────────────
@@ -64,7 +66,7 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
   return (
     <div
       onClick={() => onOpen(task)}
-      className="bg-appSurface rounded-xl border border-appBorder p-4 hover:shadow-panel hover:-translate-y-0.5 transition-all duration-150 cursor-grab active:cursor-grabbing group relative"
+      className="bg-appSurface rounded-2xl border border-appBorder shadow-panel p-4 hover:border-brand/20 hover:-translate-y-0.5 ui-transition cursor-grab active:cursor-grabbing group relative"
     >
       {/* Title */}
       <p className="text-sm font-semibold text-appText mb-2.5 leading-snug pr-2">{task.title}</p>
@@ -73,7 +75,7 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         <div className="mb-2">
           <button
             onClick={() => setShowDesc(v => !v)}
-            className="text-[11px] text-blue-500 hover:underline"
+            className="text-[11px] text-brand hover:underline ui-transition"
           >
             {showDesc ? 'إخفاء الوصف' : 'عرض الوصف'}
           </button>
@@ -95,7 +97,7 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         {task.status === 'PENDING' && (
           <button
             onClick={() => onMove(task.id, 'IN_PROGRESS')}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] bg-badgeBlueBg text-badgeBlueText rounded-lg border border-appBorder hover:bg-badgeBlueBg/80 ui-transition"
           >
             {/* <ArrowRight size={11} /> */}
             بدءالعمل
@@ -106,14 +108,14 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
           <>
             <button
               onClick={() => onMove(task.id, 'PENDING')}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] bg-slate-100 text-appSubtext rounded-lg hover:bg-slate-200 transition"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] bg-appMuted text-appSubtext rounded-lg border border-appBorder hover:bg-appBorder/40 ui-transition"
             >
               وضع في قائمة الانتظار
             </button>
 
             <button
               onClick={() => onMove(task.id, 'DONE')}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] bg-success/15 text-success rounded-lg border border-appBorder hover:bg-success/25 ui-transition"
             >
               <CheckCircle2 size={11} />
               تم الانتهاء
@@ -122,10 +124,9 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         )}
 
         {task.status === 'DONE' && (
-          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium ${task.reviewed
-            ? 'bg-emerald-100 text-emerald-700'
-            : 'bg-amber-100 text-amber-700'
-            }`}>
+          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium border border-appBorder ${
+            task.reviewed ? "bg-success/15 text-success" : "bg-badgePurpleBg text-badgePurpleText"
+          }`}>
             {task.reviewed ? 'تمت المراجعة' : 'بانتظار المراجعة'}
           </span>
         )}
@@ -145,7 +146,7 @@ function KanbanColumn({ status, tasks, onMove, onDelete, loading, setSelectedTas
   const { Icon, color, bg, ring } = STAGE_META[status];
   const arabicLabel = STATUS_TO_ARABIC[status];
   return (
-    <div className="flex flex-col gap-3 bg-appMuted rounded-2xl p-3 min-w-[250px] flex-1">
+    <div className="flex flex-col gap-4 bg-appMuted/60 rounded-2xl border border-appBorder p-4 min-w-[250px] flex-1 shadow-inner">
       {/* Column header */}
       <div className="flex items-center gap-2 px-1 pb-1">
         <Icon size={14} className={color} />
@@ -160,8 +161,8 @@ function KanbanColumn({ status, tasks, onMove, onDelete, loading, setSelectedTas
         : tasks.length === 0
           ? (
             <div className="flex flex-col items-center justify-center py-10 text-center text-appSubtext">
-              <div className="w-10 h-10 bg-slate-200/80 rounded-xl flex items-center justify-center mb-2">
-                <ClipboardList size={16} className="text-slate-400" />
+              <div className="w-10 h-10 bg-appBorder/50 rounded-xl flex items-center justify-center mb-2 border border-appBorder">
+                <ClipboardList size={16} className="text-appSubtext" />
               </div>
               <p className="text-xs">No tasks here</p>
             </div>
@@ -311,12 +312,12 @@ function EmployeeTasksPage() {
   const totalDone = tasks.filter(t => t.status === 'DONE').length;
   const overdue = tasks.filter(t => daysRemaining(t.dueDate) < 0 && t.status !== 'DONE').length;
 
-  const inputCls = 'w-full px-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all';
+  const inputCls = 'w-full px-3 py-2.5 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-appSubtext/80 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand ui-transition';
 
   const actions = (
     <button
       onClick={() => { setForm(EMPTY_TASK); setShowForm(true); }}
-      className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-brandDeep active:scale-[0.98] transition-all"
+      className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-sm font-semibold rounded-xl shadow-panel hover:bg-brandDeep active:scale-[0.98] ui-transition"
     >
       <Plus size={15} /> اضافة مهمة جديدة
     </button>
@@ -329,9 +330,9 @@ function EmployeeTasksPage() {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'العدد الكلي للمهمات', value: tasks.length, Icon: ClipboardList, colorClass: 'bg-blue-50 text-brand' },
-            { label: 'عدد المهمات المكتملة', value: totalDone, Icon: CheckCircle2, colorClass: 'bg-emerald-50 text-emerald-600' },
-            { label: 'عدد المهمات المتأخرة', value: overdue, Icon: AlertTriangle, colorClass: 'bg-amber-50 text-amber-600' },
+            { label: 'العدد الكلي للمهمات', value: tasks.length, Icon: ClipboardList, colorClass: 'bg-badgeBlueBg text-badgeBlueText' },
+            { label: 'عدد المهمات المكتملة', value: totalDone, Icon: CheckCircle2, colorClass: 'bg-success/15 text-success' },
+            { label: 'عدد المهمات المتأخرة', value: overdue, Icon: AlertTriangle, colorClass: 'bg-badgeRedBg text-badgeRedText' },
           ].map(s => (
             <div key={s.label} className="bg-appSurface rounded-2xl border border-appBorder p-4 flex items-center gap-3">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${s.colorClass}`}>
@@ -369,11 +370,11 @@ function EmployeeTasksPage() {
           footer={
             <>
               <button onClick={() => setShowForm(false)}
-                className="px-4 py-2 text-sm font-medium text-appSubtext bg-white border border-appBorder rounded-xl hover:bg-appMuted transition-colors">
+                className="px-4 py-2 text-sm font-medium text-appText bg-appMuted border border-appBorder rounded-xl hover:bg-appBorder/30 ui-transition">
                 الغاء
               </button>
               <button onClick={handleSave}
-                className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep transition-colors">
+                className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel">
                 اضافة
               </button>
             </>
@@ -426,7 +427,7 @@ function EmployeeTasksPage() {
           footer={
             <button
               onClick={() => setSelectedTask(null)}
-              className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl"
+              className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel"
             >
               اغلاق
             </button>
@@ -483,7 +484,7 @@ function EmployeeTasksPage() {
                       className="flex items-start gap-2 bg-appMuted p-2 rounded-lg"
                     >
                       {/* Avatar */}
-                      <div className="w-7 h-7 rounded-full bg-appPrimary text-white flex items-center justify-center text-xs font-semibold">
+                      <div className="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-xs font-semibold">
                         {c.createdByName?.charAt(0) || "?"}
                       </div>
 

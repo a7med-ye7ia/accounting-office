@@ -21,7 +21,8 @@ export function LanguageProvider({ children }) {
 
     document.documentElement.lang = lang;
     document.documentElement.dir = dir;
-    document.documentElement.className = fontFamily;
+    document.documentElement.classList.remove("font-arabic", "font-sans");
+    document.documentElement.classList.add(fontFamily);
 
     localStorage.setItem('i18nextLng', lang);
   }, [i18n.language]);

@@ -20,15 +20,15 @@ function EquilibriumLedgerPage() {
 
   return (
     <MainLayout title={t('ledger.title')} subtitle={t('ledger.subtitle')}>
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.ledgerEntries')}</p><p className="mt-2 text-3xl font-extrabold">{kpi.totalEntries}</p></div>
-        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.egpRows')}</p><p className="mt-2 text-3xl font-extrabold text-brand">{kpi.totalEgp}</p></div>
-        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.sarRows')}</p><p className="mt-2 text-3xl font-extrabold text-brand">{kpi.totalSar}</p></div>
-        <div className="rounded-2xl bg-appSurface p-5"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.overdue')}</p><p className="mt-2 text-3xl font-extrabold text-danger">{kpi.overdue}</p></div>
+      <div className="grid gap-6 md:grid-cols-4">
+        <div className="rounded-2xl border border-appBorder bg-appSurface p-5 shadow-panel"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.ledgerEntries')}</p><p className="mt-2 text-3xl font-extrabold">{kpi.totalEntries}</p></div>
+        <div className="rounded-2xl border border-appBorder bg-appSurface p-5 shadow-panel"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.egpRows')}</p><p className="mt-2 text-3xl font-extrabold text-brand">{kpi.totalEgp}</p></div>
+        <div className="rounded-2xl border border-appBorder bg-appSurface p-5 shadow-panel"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.sarRows')}</p><p className="mt-2 text-3xl font-extrabold text-brand">{kpi.totalSar}</p></div>
+        <div className="rounded-2xl border border-appBorder bg-appSurface p-5 shadow-panel"><p className="text-xs uppercase tracking-wider text-appSubtext">{t('ledger.overdue')}</p><p className="mt-2 text-3xl font-extrabold text-danger">{kpi.overdue}</p></div>
       </div>
-      <section className="mt-6 rounded-2xl bg-appSurface">
+      <section className="mt-6 rounded-2xl border border-appBorder bg-appSurface shadow-panel">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5">
-          <h3 className="text-xl font-bold">{t('ledger.multiCurrencyGrid')}</h3>
+          <h3 className="text-xl font-bold text-appText">{t('ledger.multiCurrencyGrid')}</h3>
           <div className="flex items-center gap-2">
             <select value={currencyFilter} onChange={(event) => { setCurrencyFilter(event.target.value); setPageIndex(0); }} className="rounded-lg bg-appMuted px-3 py-2 text-sm">
               <option value="ALL">{t('ledger.allCurrencies')}</option>
@@ -41,7 +41,7 @@ function EquilibriumLedgerPage() {
           </div>
         </div>
         <div className="hidden md:block">
-          <div className="grid grid-cols-6 bg-appMuted px-5 py-3 text-xs font-bold uppercase tracking-wider text-appSubtext">
+          <div className="grid grid-cols-6 bg-appMuted px-5 py-3 text-xs font-bold uppercase tracking-wider text-appSubtext border-b border-appBorder sticky top-0 z-10 backdrop-blur-sm">
             <p>{t('ledger.entryId')}</p><p>{t('ledger.company')}</p><p>{t('ledger.department')}</p><p className="text-right">{t('ledger.amount')}</p><p>{t('ledger.currency')}</p><p>{t('ledger.status')}</p>
           </div>
           {isLoading ? (

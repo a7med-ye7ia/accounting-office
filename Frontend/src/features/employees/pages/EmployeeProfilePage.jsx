@@ -27,7 +27,7 @@ const UI_MAP = {
 };
 
 function inputCls() {
-  return 'w-full ps-3 pe-3 py-2 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all';
+  return 'w-full ps-3 pe-3 py-2 bg-appMuted border border-appBorder rounded-xl text-sm text-appText placeholder:text-appSubtext/80 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand ui-transition';
 }
 
 function selectCls() {
@@ -258,7 +258,7 @@ function EmployeeProfilePage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 ps-4 pe-4 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2 ps-4 pe-4 py-2.5 bg-success text-white text-sm font-semibold rounded-xl shadow-panel hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ui-transition"
           >
             <Save size={15} /> {saving ? 'جاري الحفظ...' : 'حفظ'}
           </button>
@@ -266,7 +266,7 @@ function EmployeeProfilePage() {
             type="button"
             onClick={handleCancel}
             disabled={saving}
-            className="inline-flex items-center gap-2 ps-4 pe-4 py-2.5 bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl shadow-sm hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2 ps-4 pe-4 py-2.5 bg-appMuted text-appText text-sm font-semibold rounded-xl border border-appBorder shadow-panel hover:bg-appBorder/30 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ui-transition"
           >
             <X size={15} /> إلغاء
           </button>
@@ -280,9 +280,9 @@ function EmployeeProfilePage() {
       <div className="space-y-6 max-w-4xl">
 
         {successMessage && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
-            <CheckCircle size={20} className="text-emerald-600" />
-            <p className="text-emerald-700 font-semibold text-sm">{successMessage}</p>
+          <div className="bg-success/10 border border-appBorder rounded-2xl p-4 flex items-center gap-3">
+            <CheckCircle size={20} className="text-success" />
+            <p className="text-success font-semibold text-sm">{successMessage}</p>
           </div>
         )}
 
@@ -526,7 +526,7 @@ function EmployeeProfilePage() {
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
                 disabled={saving}
-                className="ps-4 pe-4 py-2 text-appText font-semibold rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="ps-4 pe-4 py-2 text-appText font-semibold rounded-lg hover:bg-appMuted disabled:opacity-50 disabled:cursor-not-allowed ui-transition"
               >
                 إلغاء
               </button>
