@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { mockArticles } from "../../../shared/data/mockData";
+import { generateResponse } from "../../../api/ollamaClient.js";
 
 // ─────────────────────────────────────────────────────────
 // helpers
@@ -242,28 +243,21 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
     onChangeSection(index, { afterText: "" });
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: `أنت محرر وثائق قانونية متخصص في عقود الشركات. فيما يلي نص المادة الأصلية:\n\n${section.beforeText}\n\nتعليمات التعديل:\n${section.prompt}\n\nقدّم النص المعدل فقط دون أي مقدمات أو شرح إضافي.`,
-            },
-          ],
-        }),
-      });
+      
+      console.log("Generating AI response with prompt:", section.prompt);
+      const data = await generateResponse(section.prompt, section.beforeText);
+      console.log("Received AI response:", data);
 
-      const data = await response.json();
-      const afterText =
-        data.content
-          ?.filter((b) => b.type === "text")
-          .map((b) => b.text)
-          .join("") || "لم يتم الحصول على رد من النموذج.";
+      const cleanData = data.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
+      // ! use this or delete
+      // const afterText =
+      //   data.content
+      //     ?.filter((b) => b.type === "text")
+      //     .map((b) => b.text)
+      //     .join("") || "لم يتم الحصول على رد من النموذج.";
+
+      const afterText = cleanData || "لم يتم الحصول على رد من النموذج.";
       onChangeSection(index, { afterText });
     } catch (err) {
       console.error("AI request error:", err);
