@@ -7,17 +7,23 @@ import com.accounting.backend.dtos.UserDto;
 import com.accounting.backend.entities.User;
 import com.accounting.backend.enums.UserStatus;
 import com.accounting.backend.repositories.UserRepository;
+import com.accounting.backend.security.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Authentication Service
- * Handles login, register, and password operations
+ * Handles login, register, and password operations.
+ *
+ * Token lifecycle:
+ * - Login/Register: generate JWT → save to user.token → return to client
+ * - Verify: check JWT signature + check it matches user.token in DB
+ * - Logout: set user.token = null → token is destroyed
  */
 @Service
 public class AuthService {
@@ -25,11 +31,15 @@ public class AuthService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private JwtService jwtService;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
      * Register a new user
      */
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         // Validate input
         if (request.getEmail() == null || request.getEmail().isBlank()) {
@@ -43,9 +53,7 @@ public class AuthService {
         }
 
         // Check if email already exists
-        java.util.Optional<User> existingUser = userRepository.findAll().stream()
-                .filter(u -> u.getEmail().equalsIgnoreCase(request.getEmail()))
-                .findFirst();
+        Optional<User> existingUser = userRepository.findByEmailIgnoreCase(request.getEmail());
 
         if (existingUser.isPresent()) {
             return new AuthResponse(false, "Email already registered");
@@ -64,7 +72,10 @@ public class AuthService {
 
         User savedUser = userRepository.save(newUser);
 
-        String token = generateToken(savedUser);
+        // Generate token and assign it to the user
+        String token = jwtService.generateToken(savedUser.getId(), savedUser.getEmail());
+        savedUser.setToken(token);
+        userRepository.save(savedUser);
 
         UserDto userDto = new UserDto(savedUser);
         return new AuthResponse(true, "Registration successful", userDto, token);
@@ -73,6 +84,7 @@ public class AuthService {
     /**
      * Login user with email and password
      */
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         // Validate input
         if (request.getEmail() == null || request.getEmail().isBlank()) {
@@ -83,9 +95,7 @@ public class AuthService {
         }
 
         // Find user by email
-        Optional<User> userOptional = userRepository.findAll().stream()
-                .filter(u -> u.getEmail().equalsIgnoreCase(request.getEmail()))
-                .findFirst();
+        Optional<User> userOptional = userRepository.findByEmailIgnoreCase(request.getEmail());
 
         if (userOptional.isEmpty()) {
             return new AuthResponse(false, "Invalid email or password");
@@ -103,40 +113,89 @@ public class AuthService {
             return new AuthResponse(false, "Invalid email or password");
         }
 
-        // Generate token
-        String token = generateToken(user);
+        // Generate JWT token and save it to the user
+        String token = jwtService.generateToken(user.getId(), user.getEmail());
+        user.setToken(token);
+        userRepository.save(user);
 
         UserDto userDto = new UserDto(user);
         return new AuthResponse(true, "Login successful", userDto, token);
     }
 
     /**
-     * Verify token (basic implementation)
+     * Verify a JWT token.
+     * Checks both JWT validity (signature + expiration) AND that
+     * the token matches what's stored on the user in the database.
+     *
+     * @param token the raw JWT string (without "Bearer " prefix)
+     * @return true if the token is valid and currently assigned to the user
      */
     public boolean verifyToken(String token) {
         if (token == null || token.isBlank()) {
             return false;
         }
-        // In production, use JWT for proper token verification
-        // This is a placeholder for basic token validation
-        return token.length() > 20;
+
+        // 1. Check JWT signature and expiration
+        if (!jwtService.isTokenValid(token)) {
+            return false;
+        }
+
+        // 2. Check that this token matches the one stored on the user
+        try {
+            Long userId = jwtService.extractUserId(token);
+            Optional<User> userOptional = userRepository.findById(userId);
+            return userOptional.isPresent() && token.equals(userOptional.get().getToken());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
-     * Generate a simple token (in production, use JWT)
+     * Logout: destroy the user's token
      */
-    private String generateToken(User user) {
-        // In production, use JWT (JSON Web Token)
-        // For now, using a simple UUID-based token
-        return "Bearer_" + UUID.randomUUID().toString() + "_" + user.getId();
+    @Transactional
+    public void logout(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+
+        try {
+            Long userId = jwtService.extractUserId(token);
+            Optional<User> userOptional = userRepository.findById(userId);
+            if (userOptional.isPresent()) {
+                User user = userOptional.get();
+                user.setToken(null);
+                userRepository.save(user);
+            }
+        } catch (Exception e) {
+            // Token is already invalid, nothing to clean up
+        }
+    }
+
+    /**
+     * Get the authenticated user from a JWT token
+     *
+     * @param token the raw JWT string
+     * @return the User if token is valid and matches the stored token
+     */
+    public Optional<User> getUserFromToken(String token) {
+        try {
+            Long userId = jwtService.extractUserId(token);
+            Optional<User> userOptional = userRepository.findById(userId);
+            // Only return user if the token matches
+            if (userOptional.isPresent() && token.equals(userOptional.get().getToken())) {
+                return userOptional;
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     /**
      * Get user by email
      */
     public Optional<User> getUserByEmail(String email) {
-        return userRepository.findAll().stream()
-                .filter(u -> u.getEmail().equalsIgnoreCase(email))
-                .findFirst();
+        return userRepository.findByEmailIgnoreCase(email);
     }
 }

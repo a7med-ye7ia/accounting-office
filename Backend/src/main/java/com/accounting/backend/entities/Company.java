@@ -2,7 +2,6 @@ package com.accounting.backend.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 import com.accounting.backend.enums.CompanyType;
@@ -42,7 +41,8 @@ public class Company {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
+    // @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval =
+    // true)
     // private List<Contract> contracts = new ArrayList<>();
 
     @Transient
@@ -50,35 +50,86 @@ public class Company {
 
     // Getters and setters
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public CompanyType getCompanyType() { return companyType; }
-    public void setCompanyType(CompanyType companyType) { this.companyType = companyType; }
+    public String getName() {
+        return name;
+    }
 
-    public String getCommercialRegNo() { return commercialRegNo; }
-    public void setCommercialRegNo(String commercialRegNo) { this.commercialRegNo = commercialRegNo; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public String getTaxId() { return taxId; }
-    public void setTaxId(String taxId) { this.taxId = taxId; }
+    public CompanyType getCompanyType() {
+        return companyType;
+    }
 
-    public CompanyStatus getStatus() { return status; }
-    public void setStatus(CompanyStatus status) { this.status = status; }
+    public void setCompanyType(CompanyType companyType) {
+        this.companyType = companyType;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getCommercialRegNo() {
+        return commercialRegNo;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setCommercialRegNo(String commercialRegNo) {
+        this.commercialRegNo = commercialRegNo;
+    }
 
-    public LocalDateTime getDeletedAt() { return deletedAt; }
-    public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public String getTaxId() {
+        return taxId;
+    }
 
-    public List<Contract> getContracts() { return contracts; }
-    public void setContracts(List<Contract> contracts) { this.contracts = contracts; }
+    public void setTaxId(String taxId) {
+        this.taxId = taxId;
+    }
+
+    public CompanyStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(CompanyStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public List<Contract> getContracts() {
+        return contracts;
+    }
+
+    public void setContracts(List<Contract> contracts) {
+        this.contracts = contracts;
+    }
+
     @Override
     public String toString() {
         return "Company [id=" + id + ", name=" + name + ", companyType=" + companyType + ", commercialRegNo="
@@ -86,5 +137,4 @@ public class Company {
                 + ", updatedAt=" + updatedAt + ", deletedAt=" + deletedAt + ", contracts=" + contracts + "]";
     }
 
-    
 }

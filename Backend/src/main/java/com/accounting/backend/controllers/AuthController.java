@@ -19,9 +19,9 @@ import java.util.Optional;
  *
  * Endpoints:
  * POST /api/auth/register - Register new user
- * POST /api/auth/login    - Login user
- * GET  /api/auth/me       - Get current user info
- * POST /api/auth/logout   - Logout user
+ * POST /api/auth/login - Login user
+ * GET /api/auth/me - Get current user info
+ * POST /api/auth/logout - Logout user
  */
 @RestController
 @CrossOrigin(origins = "*")
@@ -37,11 +37,11 @@ public class AuthController {
      *
      * Request body:
      * {
-     *   "fullName": "John Doe",
-     *   "email": "john@example.com",
-     *   "password": "SecurePass123!",
-     *   "phone": "0123456789",
-     *   "nationalId": "12345678"
+     * "fullName": "John Doe",
+     * "email": "john@example.com",
+     * "password": "SecurePass123!",
+     * "phone": "0123456789",
+     * "nationalId": "12345678"
      * }
      *
      * Response: 200 OK | 400 Bad Request
@@ -62,11 +62,11 @@ public class AuthController {
      *
      * Request body:
      * {
-     *   "email": "john@example.com",
-     *   "password": "SecurePass123!"
+     * "email": "john@example.com",
+     * "password": "SecurePass123!"
      * }
      *
-     * Response: 200 OK | 401 Unauthorized
+     * Response: 200 OK with JWT token | 401 Unauthorized
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
@@ -90,22 +90,25 @@ public class AuthController {
     public ResponseEntity<AuthResponse> getCurrentUser(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer_")) {
+        String token = extractToken(authHeader);
+        if (token == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new AuthResponse(false, "Missing or invalid token"));
         }
-
-        String token = authHeader.substring(7);
 
         if (!authService.verifyToken(token)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new AuthResponse(false, "Invalid or expired token"));
         }
 
-        // In a real application, extract user ID from JWT token
-        // For now, this is a placeholder
-        AuthResponse response = new AuthResponse(true, "Current user retrieved");
-        return ResponseEntity.ok(response);
+        Optional<User> userOptional = authService.getUserFromToken(token);
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "User not found"));
+        }
+
+        UserDto userDto = new UserDto(userOptional.get());
+        return ResponseEntity.ok(new AuthResponse(true, "Current user retrieved", userDto, token));
     }
 
     /**
@@ -120,9 +123,24 @@ public class AuthController {
     public ResponseEntity<AuthResponse> logout(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
-        // In a real application, invalidate the token in the database or token blacklist
-        // For now, just return success
-        AuthResponse response = new AuthResponse(true, "Logout successful");
-        return ResponseEntity.ok(response);
+        String token = extractToken(authHeader);
+        if (token != null) {
+            authService.logout(token);
+        }
+
+        return ResponseEntity.ok(new AuthResponse(true, "Logout successful"));
+    }
+
+    /**
+     * Extract the raw JWT token from the Authorization header.
+     *
+     * @param authHeader the full Authorization header value (e.g. "Bearer eyJhbG...")
+     * @return the raw token string, or null if the header is missing/malformed
+     */
+    private String extractToken(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7).trim();
+        }
+        return null;
     }
 }
