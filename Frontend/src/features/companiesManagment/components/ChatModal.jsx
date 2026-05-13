@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { MODAL_LAYER_CLASS } from "../../../shared/components/HrShared.jsx";
 
 export default function ChatModal({ article, onClose }) {
   const [message, setMessage] = useState("");
@@ -8,6 +10,14 @@ export default function ChatModal({ article, onClose }) {
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
+  }, []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   useEffect(() => {
@@ -44,16 +54,17 @@ export default function ChatModal({ article, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ui-transition ${
-        isVisible ? "bg-appText/50 opacity-100" : "bg-transparent opacity-0 pointer-events-none"
+      className={`${MODAL_LAYER_CLASS} ui-transition ${
+        isVisible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       onClick={handleClose}
+      role="presentation"
     >
       <div
-        className={`rounded-3xl border border-appBorder bg-appSurface shadow-panel w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden ui-transition ${
-          isVisible ? "scale-100 translate-y-0" : "scale-95 translate-y-8"
+        className={`relative isolate flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-panel ui-transition ${
+          isVisible ? "translate-y-0 scale-100" : "translate-y-8 scale-95"
         }`}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
@@ -172,6 +183,7 @@ export default function ChatModal({ article, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

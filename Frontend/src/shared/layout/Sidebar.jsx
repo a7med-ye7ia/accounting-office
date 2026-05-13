@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
 import {
@@ -28,30 +29,52 @@ const navItems = [
 function Sidebar() {
   const { isOpen, isMobile, isTablet, toggle, close } = useSidebar();
 
-  /** Drawer overlay for small + medium viewports; fixed rail on large desktop */
   const isDrawer = isMobile || isTablet;
+  /** Desktop narrow rail: collapsed and not overlay drawer */
+  const isCollapsedRail = !isOpen && !isDrawer;
 
-  const desktopWidth = isOpen ? 280 : 72;
-  const drawerWidthOpen = 288;
-  const width = isDrawer ? (isOpen ? drawerWidthOpen : 0) : desktopWidth;
+  useEffect(() => {
+    if (!isDrawer || !isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isDrawer, isOpen]);
 
   return (
-    <div className="relative flex h-full min-h-0 shrink-0 self-stretch">
+    <div className={isDrawer ? "contents" : "relative flex h-full min-h-0 shrink-0 self-stretch"}>
+      {isDrawer && (
+        <div
+          role="presentation"
+          aria-hidden={!isOpen}
+          className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out dark:bg-black/50 ${
+            isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          onClick={close}
+        />
+      )}
+
       <aside
-        style={{
-          position: isDrawer ? "fixed" : "relative",
-          right: 0,
-          top: 0,
-          width: `${width}px`,
-          flexShrink: 0,
-          transition: "width 0.28s cubic-bezier(0.4, 0, 0.2, 1)",
-          zIndex: isDrawer ? 50 : "auto",
-        }}
+        id="app-sidebar"
         className={`flex shrink-0 flex-col overflow-hidden rounded-3xl border border-appBorder bg-appSurface/85 shadow-raise backdrop-blur-2xl backdrop-saturate-150 ${
-          isDrawer ? "h-[100dvh] max-h-[100dvh]" : "h-full min-h-0 max-h-full self-stretch"
+          isDrawer
+            ? `fixed right-0 top-0 z-50 h-[100dvh] w-[min(18rem,calc(100vw-1rem))] max-w-[18rem] transition-transform duration-300 ease-out will-change-transform ${
+                isOpen ? "translate-x-0" : "translate-x-full"
+              }`
+            : `relative h-full min-h-0 max-h-full self-stretch transition-[width] duration-300 ease-out ${
+                isOpen ? "w-[280px]" : "w-[72px]"
+              }`
         }`}
+        aria-hidden={isDrawer && !isOpen}
       >
-        <div className="flex h-[3.75rem] shrink-0 items-center gap-2 border-b border-appBorder px-3 sm:h-14 sm:px-4">
+        <div
+          className={`flex shrink-0 border-b border-appBorder ${
+            isCollapsedRail
+              ? "flex-col items-center gap-2 py-3 sm:py-3.5"
+              : "h-[3.75rem] items-center gap-2 px-3 sm:h-14 sm:px-4"
+          }`}
+        >
           <button
             type="button"
             onClick={toggle}
@@ -62,7 +85,7 @@ function Sidebar() {
           </button>
 
           {!isDrawer && isOpen && (
-            <div className="min-w-0 flex-1 text-end">
+            <div className="min-w-0 flex-1 overflow-hidden text-end">
               <span className="font-display block truncate text-lg font-black tracking-tight text-brand">
                 المحاسبة
               </span>
@@ -73,9 +96,9 @@ function Sidebar() {
           )}
 
           {!isDrawer && !isOpen && (
-            <div className="flex min-w-0 flex-1 justify-center">
+            <div className="flex w-full shrink-0 justify-center overflow-hidden">
               <span
-                className="font-display flex h-10 w-10 items-center justify-center rounded-2xl border border-brand/25 bg-brand/10 text-sm font-black text-brand"
+                className="font-display flex h-9 w-9 items-center justify-center rounded-xl border border-brand/25 bg-brand/10 text-xs font-black text-brand sm:h-10 sm:w-10"
                 aria-hidden
               >
                 مح
@@ -84,7 +107,7 @@ function Sidebar() {
           )}
 
           {isDrawer && isOpen && (
-            <div className="min-w-0 flex-1 text-end">
+            <div className="min-w-0 flex-1 overflow-hidden text-end">
               <span className="font-display block truncate text-lg font-black tracking-tight text-brand">
                 المحاسبة
               </span>
@@ -92,7 +115,13 @@ function Sidebar() {
           )}
         </div>
 
-        <nav className="mt-1 flex min-h-0 flex-1 flex-col justify-start gap-1.5 overflow-hidden px-3 pb-3 pt-2 sm:gap-2 sm:px-4 sm:pb-4 sm:pt-3">
+        <nav
+          className={`mt-1 flex min-h-0 flex-1 flex-col justify-start overflow-hidden pb-3 pt-2 sm:pb-4 sm:pt-3 ${
+            isCollapsedRail
+              ? "items-center gap-2 px-0 sm:gap-2"
+              : "items-stretch gap-1.5 px-3 sm:gap-2 sm:px-4"
+          }`}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -100,22 +129,16 @@ function Sidebar() {
                 key={item.path}
                 to={item.path}
                 onClick={isDrawer ? close : undefined}
-                title={!isOpen && !isDrawer ? item.label : undefined}
-                className="block w-full shrink-0 outline-none"
+                title={isCollapsedRail ? item.label : undefined}
+                className={`flex shrink-0 outline-none ${isCollapsedRail ? "flex w-full justify-center p-0" : "block w-full"}`}
               >
-                {({ isActive }) => (
-                  <span
-                    className={`group flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] ui-transition sm:gap-3 sm:px-3 sm:py-3.5 sm:text-xs ${
-                      isActive
-                        ? "border-brand/35 bg-brand/15 text-brand"
-                        : "border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
-                    } ${isOpen || isDrawer ? "justify-start" : "justify-center"}`}
-                  >
+                {({ isActive }) =>
+                  isCollapsedRail ? (
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ui-transition sm:h-9 sm:w-9 ${
+                      className={`group flex h-10 w-10 items-center justify-center rounded-xl ui-transition sm:h-11 sm:w-11 ${
                         isActive
-                          ? "border-brand/30 bg-brand/10 text-brand"
-                          : "border-appBorder/70 bg-appMuted/50 text-current group-hover:border-brand/25 group-hover:bg-brand/8"
+                          ? "border border-brand/35 bg-brand/15 text-brand shadow-none"
+                          : "border border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
                       }`}
                     >
                       <Icon
@@ -123,11 +146,32 @@ function Sidebar() {
                         className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
                       />
                     </span>
-                    {(isOpen || isDrawer) && (
-                      <span className="min-w-0 flex-1 truncate text-start">{item.label}</span>
-                    )}
-                  </span>
-                )}
+                  ) : (
+                    <span
+                      className={`group flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] ui-transition sm:gap-3 sm:px-3 sm:py-3.5 sm:text-xs ${
+                        isActive
+                          ? "border-brand/35 bg-brand/15 text-brand"
+                          : "border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
+                      } ${isOpen || isDrawer ? "justify-start" : "justify-center"}`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ui-transition sm:h-9 sm:w-9 ${
+                          isActive
+                            ? "border-brand/30 bg-brand/10 text-brand"
+                            : "border-appBorder/70 bg-appMuted/50 text-current group-hover:border-brand/25 group-hover:bg-brand/8"
+                        }`}
+                      >
+                        <Icon
+                          size={17}
+                          className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
+                        />
+                      </span>
+                      {(isOpen || isDrawer) && (
+                        <span className="min-w-0 flex-1 truncate text-start">{item.label}</span>
+                      )}
+                    </span>
+                  )
+                }
               </NavLink>
             );
           })}
@@ -145,15 +189,6 @@ function Sidebar() {
           </div>
         )}
       </aside>
-
-      {isDrawer && isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-appText/50 backdrop-blur-md ui-transition"
-          onClick={close}
-          style={{ pointerEvents: "auto" }}
-          aria-hidden
-        />
-      )}
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { MODAL_LAYER_CLASS } from "../../../shared/components/HrShared.jsx";
 
 export default function UploadModal({ onClose, onUpload }) {
   const [file, setFile] = useState(null);
@@ -10,6 +12,14 @@ export default function UploadModal({ onClose, onUpload }) {
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
+  }, []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   useEffect(() => {
@@ -78,16 +88,17 @@ export default function UploadModal({ onClose, onUpload }) {
             ? "border-appBorder bg-appMuted hover:border-badgePurpleText"
             : "border-appBorder bg-appMuted hover:border-brand/40";
 
-  return (
+  return createPortal(
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ui-transition ${
-        isVisible ? "bg-appText/40 backdrop-blur-sm" : "bg-transparent pointer-events-none"
+      className={`${MODAL_LAYER_CLASS} ui-transition ${
+        isVisible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       onClick={handleClose}
+      role="presentation"
     >
       <div
-        className={`rounded-2xl border border-appBorder bg-appSurface shadow-panel w-full max-w-lg overflow-hidden ui-transition ${
-          isVisible ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-4"
+        className={`relative isolate w-full max-w-lg overflow-hidden rounded-2xl border border-appBorder bg-appSurface shadow-panel ui-transition ${
+          isVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-95 opacity-0"
         }`}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
@@ -243,6 +254,7 @@ export default function UploadModal({ onClose, onUpload }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

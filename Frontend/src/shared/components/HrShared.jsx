@@ -1,7 +1,16 @@
 // Shared HR UI primitives — used across Departments, Employees, and Tasks pages
 
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+
+/**
+ * Full-viewport modal shell (centered flex + dim + blur). Portaled to `document.body`
+ * so it is not clipped by `overflow-hidden` layout ancestors. z-[100] sits above
+ * Sidebar drawer (z-50) and TopBar (z-30).
+ */
+export const MODAL_LAYER_CLASS =
+  "fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-6";
 
 const AVATAR_STYLES = [
   "bg-brand text-white",
@@ -182,14 +191,23 @@ export function Modal({
   bodyScroll = false,
 }) {
   const maxW = MODAL_MAX[size] || MODAL_MAX.md;
-  return (
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-appText/35 backdrop-blur-md ui-transition"
+      className={`${MODAL_LAYER_CLASS} ui-transition`}
       onClick={busy ? undefined : onClose}
       role="presentation"
     >
       <div
-        className={`bg-appSurface rounded-3xl border border-appBorder shadow-raise w-full ${maxW} overflow-hidden ui-transition max-h-[min(92dvh,900px)] flex flex-col`}
+        className={`relative isolate flex max-h-[min(92dvh,900px)] w-full flex-col overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-raise ui-transition ${maxW}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -223,36 +241,45 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 export function SlideOver({ title, subtitle, onClose, children }) {
-  return (
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return createPortal(
     <>
       <div
-        className="fixed inset-0 bg-appText/30 backdrop-blur-sm z-40 ui-transition"
+        className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm ui-transition"
         onClick={onClose}
+        role="presentation"
       />
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-appBorder bg-appSurface shadow-raise ui-transition">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-appBorder shrink-0">
+      <div className="fixed right-0 top-0 z-[101] flex h-full w-full max-w-md flex-col overflow-hidden border-l border-appBorder bg-appSurface shadow-raise ui-transition">
+        <div className="flex shrink-0 items-start justify-between border-b border-appBorder px-6 py-5">
           <div>
             <h2 className="text-base font-semibold text-appText">{title}</h2>
-            {subtitle && (
-              <p className="text-xs text-appSubtext mt-0.5">{subtitle}</p>
-            )}
+            {subtitle && <p className="mt-0.5 text-xs text-appSubtext">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-appSubtext hover:bg-appMuted hover:text-appText ui-transition mt-0.5"
+            className="mt-0.5 rounded-xl p-1.5 text-appSubtext ui-transition hover:bg-appMuted hover:text-appText"
           >
             <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
