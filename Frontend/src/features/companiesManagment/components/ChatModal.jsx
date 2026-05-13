@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { MODAL_LAYER_CLASS } from "../../../shared/components/HrShared.jsx";
+import { generateResponse } from "../../../api/ollamaClient.js";
 
 export default function ChatModal({ article, onClose }) {
   const [message, setMessage] = useState("");
@@ -29,22 +30,37 @@ export default function ChatModal({ article, onClose }) {
     setTimeout(onClose, 300);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim()) return;
 
-    setMessages((prev) => [...prev, { role: "user", text: message }]);
+    const userMsg = message.trim();
 
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: `بناءً على المادة (${article.title}) التي تنص على "${article.content.substring(0, 50)}..."، فإن استفسارك يتطلب تحليلاً دقيقاً. جاري معالجة طلبك عبر المحرك الذكي... (هذه واجهة تجريبية).`,
-        },
-      ]);
-    }, 1200);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: userMsg }
+    ]);
 
     setMessage("");
+
+    try {
+      
+      console.log("Generating AI response with prompt:", userMsg);
+      const aiResponse = await generateResponse(userMsg, article.content);
+      console.log("Received AI response:", aiResponse);
+
+
+    const cleanText = aiResponse
+      .replace(/<think>[\s\S]*?<\/think>/g, "")
+      .trim();
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: cleanText }
+      ]);
+
+    } catch (error) {
+      console.error("Error generating AI response:", error);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -56,16 +72,14 @@ export default function ChatModal({ article, onClose }) {
 
   return createPortal(
     <div
-      className={`${MODAL_LAYER_CLASS} ui-transition ${
-        isVisible ? "opacity-100" : "pointer-events-none opacity-0"
-      }`}
+      className={`${MODAL_LAYER_CLASS} ui-transition ${isVisible ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
       onClick={handleClose}
       role="presentation"
     >
       <div
-        className={`relative isolate flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-panel ui-transition ${
-          isVisible ? "translate-y-0 scale-100" : "translate-y-8 scale-95"
-        }`}
+        className={`relative isolate flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-panel ui-transition ${isVisible ? "translate-y-0 scale-100" : "translate-y-8 scale-95"
+          }`}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
       >
@@ -142,11 +156,10 @@ export default function ChatModal({ article, onClose }) {
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fadeIn`}
             >
               <div
-                className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed shadow-panel ui-transition ${
-                  msg.role === "user"
+                className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed shadow-panel ui-transition ${msg.role === "user"
                     ? "bg-brand text-white rounded-tl-none"
                     : "bg-appSurface text-appText border border-appBorder rounded-tr-none"
-                }`}
+                  }`}
               >
                 {msg.text}
               </div>
