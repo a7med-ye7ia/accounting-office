@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { MODAL_LAYER_CLASS } from "../../../shared/components/HrShared.jsx";
 
 export default function UploadModal({
   onClose,
@@ -109,25 +107,20 @@ export default function UploadModal({
                   transition-all duration-300
                   ${isVisible ? "bg-black/50 backdrop-blur-sm" : "bg-transparent"}`}
       onClick={handleClose}
-      role="presentation"
     >
       <div
-        className={`relative isolate w-full max-w-lg overflow-hidden rounded-2xl border border-appBorder bg-appSurface shadow-panel ui-transition ${
-          isVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-95 opacity-0"
-        }`}
+        className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg
+                    overflow-hidden transition-all duration-300
+                    ${isVisible ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-4"}`}
         onClick={(e) => e.stopPropagation()}
         dir="rtl"
       >
-        <div className="bg-gradient-to-l from-brand to-brandDeep px-6 py-5 flex items-center justify-between">
+        {/* Header */}
+        <div className="bg-gradient-to-l from-green-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-appSurface/20 rounded-xl flex items-center justify-center border border-appSurface/30">
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
             </div>
             <h3 className="text-white font-bold text-lg">رفع عقد جديد</h3>
@@ -142,6 +135,7 @@ export default function UploadModal({
           </button>
         </div>
 
+        {/* Body */}
         <div className="p-6 space-y-6">
           {!uploadZoneOnly && !initialType ? (
             <div>
@@ -198,6 +192,7 @@ export default function UploadModal({
             </div>
           ) : null}
 
+          {/* Drag & Drop Zone */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-3">
               ارفع الملف
@@ -238,10 +233,19 @@ export default function UploadModal({
                 className="hidden"
               />
 
-              {file ? (
+              {error ? (
                 <div className="animate-fadeIn">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-success/15 rounded-xl flex items-center justify-center border border-appBorder">
-                    <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-red-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <p className="font-semibold text-red-700 text-sm">حدث خطأ</p>
+                </div>
+              ) : file ? (
+                <div className="animate-fadeIn">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
@@ -266,14 +270,9 @@ export default function UploadModal({
                 </div>
               ) : (
                 <div>
-                  <div className="w-12 h-12 mx-auto mb-3 bg-appMuted rounded-xl flex items-center justify-center border border-appBorder">
-                    <svg className="w-6 h-6 text-appSubtext" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
+                  <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
                   <p className="text-sm font-medium text-slate-600">
@@ -307,16 +306,16 @@ export default function UploadModal({
             إلغاء
           </button>
           <button
-            type="button"
             onClick={handleUpload}
             disabled={!file || !type}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand hover:bg-brandDeep disabled:opacity-40 disabled:cursor-not-allowed ui-transition shadow-panel"
+            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-l from-green-600 to-indigo-700 
+                       disabled:bg-none disabled:bg-slate-300 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer
+                       enabled:hover:shadow-xl enabled:hover:shadow-indigo-300"
           >
             رفع العقد
           </button>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
