@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { mockArticles } from "../../../shared/data/mockData";
 import { generateResponse } from "../../../api/ollamaClient.js";
+import { pickArticleByPrompt } from "../../../api/ragClauseSearch.js";
 
 // ─────────────────────────────────────────────────────────
 // helpers
@@ -222,6 +223,9 @@ function ArticlePickerOverlay({ articles, selectedId, onSelect, onClose }) {
 function ArticleSection({ index, section, availableArticles, onChangeSection }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ragLoading, setRagLoading] = useState(false);
+  const [ragResults, setRagResults] = useState(null);
+  const [ragError, setRagError] = useState(null);
 
   const selectedArticle =
     availableArticles.find(
@@ -269,7 +273,55 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
     }
   };
 
+  const handleArticleRagPick = async () => {
+    if (!section.prompt?.trim() || availableArticles.length === 0) return;
+    setRagLoading(true);
+    setRagError(null);
+    setRagResults(null);
+    try {
+      const data = await pickArticleByPrompt({
+        articles: availableArticles,
+        query: section.prompt,
+      });
+      const article = availableArticles.find(
+        (a) => String(a.id) === String(data.article_id)
+      );
+      if (!article) {
+        setRagError("أعاد الخادم مادة غير موجودة في القائمة.");
+        return;
+      }
+      onChangeSection(index, {
+        selectedArticleId: article.id,
+        selectedArticleTitle: article.title,
+        beforeText: article.content,
+        afterText: "",
+      });
+      setRagResults({
+        kind: "article",
+        score: data.score,
+        title: data.title,
+        id: data.article_id,
+        method: data.method === "lexical" ? "lexical" : "embedding",
+      });
+    } catch (err) {
+      console.error("RAG article pick error:", err);
+      const detail = err?.response?.data?.detail;
+      setRagError(
+        (typeof detail === "string" ? detail : Array.isArray(detail) ? JSON.stringify(detail) : null) ||
+          err?.message ||
+          "تعذر الاتصال بخدمة البحث على المنفذ 8765. شغّل ./run_rag_server.sh من مجلد accounting-office/AI"
+      );
+    } finally {
+      setRagLoading(false);
+    }
+  };
+
   const canSend = !!section.beforeText && !!section.prompt && !loading;
+  const canArticleRag =
+    !!section.prompt?.trim() &&
+    availableArticles.length > 0 &&
+    !ragLoading &&
+    !loading;
 
   return (
     <>
@@ -392,21 +444,81 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
             </label>
             <textarea
               value={section.prompt}
-              onChange={(e) => onChangeSection(index, { prompt: e.target.value })}
+              onChange={(e) => {
+                onChangeSection(index, { prompt: e.target.value });
+                setRagResults(null);
+                setRagError(null);
+              }}
               rows={3}
               placeholder="مثال: غيّر نسبة رأس المال إلى 30٪، وأضف بنداً يتعلق بحقوق المساهمين..."
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
                          focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 resize-y"
             />
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              «اختيار مادة ذكي» يبحث في كل المواد ويختار الأنسب من تعليماتك. يعمل بدون Ollama (مطابقة كلمات)؛ مع Ollama يصبح الترتيب بالتضمين.
+            </p>
           </div>
 
-          {/* Send */}
-          <div className="flex justify-end">
+          {ragError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 whitespace-pre-wrap">
+              {ragError}
+            </div>
+          )}
+
+          {ragResults?.kind === "article" && (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-950">
+              <span className="font-bold">تم اختيار مادة:</span>{" "}
+              م.{ragResults.id} — {ragResults.title}
+              <span className="text-indigo-700 text-xs mr-2">
+                {" "}
+                (درجة تطابق:{" "}
+                {typeof ragResults.score === "number" ? ragResults.score.toFixed(4) : ragResults.score}
+                {ragResults.method === "embedding" ? " — Ollama" : ""})
+              </span>
+              {ragResults.method === "lexical" && (
+                <span className="block mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                  وضع بدون Ollama: ترتيب تقريبي حسب تطابق الكلمات. لتضمين أدق، شغّل Ollama ونفّذ ollama pull nomic-embed-text
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Send + article RAG */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleArticleRagPick}
+              disabled={!canArticleRag}
+              title="يتطلب تعليمات التعديل وقائمة مواد، وخدمة RAG على المنفذ 8765 (Ollama اختياري — بدونه يُستخدم تطابق كلمات)"
+              className={`order-2 sm:order-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-all duration-200
+                         ${canArticleRag
+                           ? "border-indigo-400 bg-indigo-50 text-indigo-900 cursor-pointer hover:bg-indigo-100 hover:border-indigo-500"
+                           : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                         }`}
+            >
+              {ragLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  جاري اختيار المادة…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  اختيار مادة ذكي (RAG)
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={handleSend}
               disabled={!canSend}
-              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+              className={`order-1 sm:order-2 flex items-center justify-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
                          ${canSend
                            ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
                            : "bg-slate-100 text-slate-400 cursor-not-allowed"

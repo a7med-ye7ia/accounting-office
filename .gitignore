@@ -1,1 +1,40 @@
+# Project-specific
 FileSystem/
+
+# --- Environment & secrets (never commit) ---
+.env
+.env.*
+!.env.example
+
+# --- Python / AI (venv, caches, wheels) ---
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.Python
+**/pip-log.txt
+**/pip-delete-this-directory.txt
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
+**/.eggs/
+**/dist/*.egg
+**/*.so
+**/.coverage
+**/htmlcov/
+
+# --- OS & editors ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Optional local tooling ---
+.python-version
