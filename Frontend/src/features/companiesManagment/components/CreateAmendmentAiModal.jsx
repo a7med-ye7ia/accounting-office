@@ -513,23 +513,38 @@ function ArticleSection({
             <p className="text-xs text-amber-600 text-right">{smartSearchNote}</p>
           )}
           {smartSearchResults.length > 0 && (
-            <div className="space-y-2" dir="rtl">
-              <p className="text-xs text-slate-500 text-right">
-                اختر أفضل نتيجة من الاقتراحات:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {smartSearchResults.map((article) => (
+            <div className="space-y-3" dir="rtl">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500 text-right">
+                  اختر أفضل نتيجة من الاقتراحات:
+                </p>
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  أفضل 3 نتائج
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {smartSearchResults.map((article, idx) => (
                   <button
                     key={article.id}
                     type="button"
                     onClick={() => handlePickArticle(article)}
-                    className="text-right rounded-xl border border-slate-200 bg-white p-3 text-xs hover:border-emerald-300 hover:bg-emerald-50 transition"
+                    className="text-right rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm
+                               hover:border-emerald-300 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md
+                               transition-all"
                   >
-                    <div className="font-semibold text-slate-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                        #{idx + 1}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {Math.round(article.score * 100)}%
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-800 line-clamp-2">
                       م.{article.id}: {article.title}
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      درجة: {article.score.toFixed(3)}
+                    <div className="text-[11px] text-slate-500 mt-2 line-clamp-3">
+                      {article.content}
                     </div>
                   </button>
                 ))}
