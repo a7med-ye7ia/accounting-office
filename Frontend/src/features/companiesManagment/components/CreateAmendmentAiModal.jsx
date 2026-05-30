@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react"; // Cach
 import { mockArticles } from "../../../shared/data/mockData";
 import { generateResponse } from "../../../api/ollamaClient.js";
+import { getEmbedding } from "../../../api/ollamaClient.js";
+
 
 // ─────────────────────────────────────────────────────────
 // helpers
@@ -15,6 +17,7 @@ function createEmptySection(index, existing = {}) {
     prompt: existing.prompt || "",
   };
 }
+
 
 // ─────────────────────────────────────────────────────────
 // Document Loading Animation
@@ -120,28 +123,32 @@ function ArticlePickerOverlay({ articles, selectedId, onSelect, onClose }) {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="px-5 py-3 border-b border-slate-100 flex-shrink-0">
-          <div className="relative">
-            <svg
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ابحث في المواد…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pr-9 pl-4 py-2.5 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
-              autoFocus
-            />
-          </div>
-        </div>
-
+       {/* Search Section */}
+<div className="px-5 py-3 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
+  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+    <div className="relative flex-1">
+      {/* Icon Search */}
+      <svg
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        
+        placeholder="ابحث بالكلمات الحرفية…"
+        className="w-full rounded-xl border border-slate-200 bg-white pr-9 pl-4 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition-all"
+        autoFocus
+      />
+    </div>
+  </div>
+</div>
         {/* Articles */}
         <div className="overflow-y-auto flex-1 p-5 space-y-3">
           {filtered.length === 0 ? (
@@ -219,9 +226,19 @@ function ArticlePickerOverlay({ articles, selectedId, onSelect, onClose }) {
 // ─────────────────────────────────────────────────────────
 // Article Section
 // ─────────────────────────────────────────────────────────
-function ArticleSection({ index, section, availableArticles, onChangeSection }) {
+function ArticleSection({
+  index,
+  section,
+  availableArticles,
+  onChangeSection,
+  getCachedEmbedding, // Cach
+}) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [smartSearching, setSmartSearching] = useState(false);
+  const [smartSearchNote, setSmartSearchNote] = useState("");
+  const [smartSearchScore, setSmartSearchScore] = useState(null); // Cach
+  const [smartSearchResults, setSmartSearchResults] = useState([]);
 
   const selectedArticle =
     availableArticles.find(
@@ -234,6 +251,49 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
       selectedArticleTitle: article.title,
       beforeText: article.content,
     });
+  };
+
+  const handleSmartPick = async () => {
+    if (!section.prompt) return;
+    setSmartSearching(true);
+    setSmartSearchNote("");
+    setSmartSearchScore(null); // Cach
+    setSmartSearchResults([]);
+    try {
+      const cosineSimilarity = (vecA, vecB) => {
+        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+        const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+        const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+        if (!magA || !magB) return 0;
+        return dotProduct / (magA * magB);
+      };
+
+      const minSimilarity = 0.5;
+
+      const queryVector = await getEmbedding(section.prompt);
+      const scoredArticles = await Promise.all(
+        availableArticles.map(async (article) => {
+          const articleVector = await getCachedEmbedding( // Cach
+            String(article.id), // Cach
+            String(article.content ?? "") // Cach
+          ); // Cach
+          const score = cosineSimilarity(queryVector, articleVector);
+          return { ...article, score };
+        })
+      );
+      const sorted = scoredArticles.sort((a, b) => b.score - a.score);
+      const topMatches = sorted.slice(0, 3);
+      const topScore = sorted[0] ? sorted[0].score : null; // Cach
+      setSmartSearchScore(topScore); // Cach
+      setSmartSearchResults(topMatches);
+      if (!topScore || topScore < minSimilarity) {
+        setSmartSearchNote("لم يتم العثور على مادة مطابقة بشكل كافٍ.");
+      }
+    } catch (err) {
+      console.error("Smart search error:", err);
+    } finally {
+      setSmartSearching(false);
+    }
   };
  
   // send to ai
@@ -300,7 +360,9 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
           {/* Select Article button */}
           <button
             type="button"
-            onClick={() => setPickerOpen(true)}
+            onClick={() => {
+              setPickerOpen(true);
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-200 cursor-pointer
                        ${selectedArticle
                          ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
@@ -404,6 +466,23 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
           <div className="flex justify-end">
             <button
               type="button"
+              onClick={handleSmartPick}
+              disabled={!section.prompt || smartSearching}
+              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+                         ${section.prompt && !smartSearching
+                           ? "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
+                           : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                         }`}
+            >
+              {smartSearching ? "جاري البحث..." : "بحث ذكي"}
+              {!smartSearching && (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={handleSend}
               disabled={!canSend}
               className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
@@ -430,6 +509,53 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
               )}
             </button>
           </div>
+          {smartSearchNote && (
+            <p className="text-xs text-amber-600 text-right">{smartSearchNote}</p>
+          )}
+          {smartSearchResults.length > 0 && (
+            <div className="space-y-3" dir="rtl">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500 text-right">
+                  اختر أفضل نتيجة من الاقتراحات:
+                </p>
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  أفضل 3 نتائج
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {smartSearchResults.map((article, idx) => (
+                  <button
+                    key={article.id}
+                    type="button"
+                    onClick={() => handlePickArticle(article)}
+                    className="text-right rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm
+                               hover:border-emerald-300 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md
+                               transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                        #{idx + 1}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {Math.round(article.score * 100)}%
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-800 line-clamp-2">
+                      م.{article.id}: {article.title}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-2 line-clamp-3">
+                      {article.content}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {smartSearchScore !== null && ( // Cach
+            <p className="text-xs text-slate-500 text-right"> 
+              درجة التطابق: {smartSearchScore.toFixed(3) *100.00 } %
+            </p> // Cach
+          )} 
         </div>
       </div>
     </>
@@ -442,6 +568,8 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
 function useCreateAmendmentAiForm(company, articlesFromProps) {
   const [articleCount, setArticleCount] = useState(1);
   const [sections, setSections] = useState([createEmptySection(0)]);
+  const embeddingCacheRef = useRef(new Map()); // Cach
+  const pendingEmbeddingsRef = useRef(new Map()); // Cach
 
   const availableArticles =
     articlesFromProps && articlesFromProps.length > 0
@@ -488,6 +616,26 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
     [company, articleCount, sections]
   );
 
+  const getCachedEmbedding = useCallback(async (key, text) => { // Cach
+    // In-memory cache to avoid recomputing article embeddings each click. // Cach
+    if (embeddingCacheRef.current.has(key)) { // Cach
+      return embeddingCacheRef.current.get(key); // Cach
+    } // Cach
+
+    if (pendingEmbeddingsRef.current.has(key)) { // Cach
+      return pendingEmbeddingsRef.current.get(key); // Cach
+    } // Cach
+
+    const request = getEmbedding(text).then((vector) => { // Cach
+      embeddingCacheRef.current.set(key, vector); // Cach
+      pendingEmbeddingsRef.current.delete(key); // Cach
+      return vector; // Cach
+    }); // Cach
+
+    pendingEmbeddingsRef.current.set(key, request); // Cach
+    return request; // Cach
+  }, []); // Cach
+
   return {
     availableArticles,
     articleCount,
@@ -495,6 +643,7 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
     sections,
     handleChangeSection,
     getPayload,
+    getCachedEmbedding, // Cach
   };
 }
 
@@ -505,6 +654,7 @@ function AmendmentAiFormFields({
   sections,
   handleChangeSection,
   onCreateClick,
+  getCachedEmbedding, // Cach
 }) {
   return (
     <>
@@ -588,6 +738,7 @@ function AmendmentAiFormFields({
             section={section}
             availableArticles={availableArticles}
             onChangeSection={handleChangeSection}
+            getCachedEmbedding={getCachedEmbedding} // Cach
           />
         ))}
       </div>
@@ -627,6 +778,7 @@ export function CreateAmendmentAiPageView({
     sections,
     handleChangeSection,
     getPayload,
+    getCachedEmbedding, // Cach
   } = useCreateAmendmentAiForm(company, articlesFromProps);
 
   const handleCreate = () => onSubmit?.(getPayload());
@@ -667,6 +819,7 @@ export function CreateAmendmentAiPageView({
           sections={sections}
           handleChangeSection={handleChangeSection}
           onCreateClick={handleCreate}
+          getCachedEmbedding={getCachedEmbedding} // Cach
         />
       </div>
     </div>
@@ -689,6 +842,7 @@ export default function CreateAmendmentAiModal({
     sections,
     handleChangeSection,
     getPayload,
+    getCachedEmbedding, // Cach
   } = useCreateAmendmentAiForm(company, articlesFromProps);
 
   const handleCreate = () => onSubmit?.(getPayload());
@@ -758,6 +912,7 @@ export default function CreateAmendmentAiModal({
             sections={sections}
             handleChangeSection={handleChangeSection}
             onCreateClick={handleCreate}
+            getCachedEmbedding={getCachedEmbedding} // Cach
           />
         </div>
       </div>
