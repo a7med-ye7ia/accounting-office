@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,6 +60,9 @@ public class UserController {
     @Autowired
     private EmployeeProfileService employeeProfileService;
 
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+
     @GetMapping
     @Transactional
     public List<Map<String, Object>> getAllUsers() {
@@ -95,7 +99,8 @@ public class UserController {
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setNationalId(request.getNationalId());
-        user.setPassword(request.getPassword() != null ? request.getPassword() : "123456");
+        // user.setPassword(request.getPassword() != null ? request.getPassword() : "123456");
+        user.setPassword(request.getPassword() != null ? passwordEncoder.encode(request.getPassword()) : passwordEncoder.encode("123456"));
         user.setHireDate(request.getHireDate());
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
