@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, User, LogIn, AlertCircle } from 'lucide-react';
 import { login } from '../../api/auth';
 import { useNavigate } from "react-router-dom";
+import { getEmployeeProfile } from '../../api/users';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({ username: '', password: '' });
@@ -20,11 +21,18 @@ const LoginPage = () => {
     setLoading(true);
     setError('');
 
-    // Logic for authentication would go here
     try {
       console.log('Logging in with:', formData);
-      const userData = await login(formData.username, formData.password);
-      const token = userData.token;
+      const userData = await login({
+        email: formData.username,
+        password: formData.password
+      });
+
+      const userProfile = await getEmployeeProfile(userData.user.id);
+
+      localStorage.setItem('authToken', userData.token);
+      localStorage.setItem('user', JSON.stringify(userProfile));
+
       navigate('/Dashboard');
     } catch (err) {
       setError('اسم المستخدم أو كلمة المرور غير صحيحة');

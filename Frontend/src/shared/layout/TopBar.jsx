@@ -2,11 +2,19 @@ import { Menu, Sun, Moon } from "lucide-react";
 import { Link } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
 import { useTheme } from "../../context/ThemeContext.jsx";
+import { useEffect, useState } from "react";
 
 function TopBar() {
   const { toggle, isOpen, isDesktop } = useSidebar();
   const showNavMenu = !isDesktop;
   const { theme, toggleTheme } = useTheme();
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    // console.log(JSON.parse(user));
+    setCurrentUser(JSON.parse(user));
+  }, []);
 
   return (
     <header className="z-30 shrink-0 border-b border-appBorder bg-appSurface/70 backdrop-blur-2xl backdrop-saturate-150">
@@ -44,13 +52,13 @@ function TopBar() {
 
           <div className="flex items-center gap-3 border-s border-appBorder ps-3 sm:ps-4">
             <span className="hidden max-w-[8rem] truncate text-xs font-semibold text-appText md:block">
-              مسؤول النظام
+              {currentUser ? currentUser.fullName : "اسم المستخدم"}
             </span>
             <Link
-              to="/profile/1"
+              to={`/profile/${currentUser ? currentUser.id : ""}`}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-appBorder bg-gradient-to-br from-brand/20 to-brandDeep/10 text-sm font-bold text-brand shadow-sm ui-transition hover:border-brand/50 hover:from-brand/30 hover:shadow-panel active:scale-95"
             >
-              AD
+              {currentUser ? (currentUser.fullName.charAt(0) + " " + currentUser.fullName.split(" ").pop().charAt(0)): "U"}
             </Link>
           </div>
         </div>

@@ -7,7 +7,7 @@ import MainLayout from '../../../shared/layout/MainLayout';
 import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
-import { fetchTasks, addTask, deleteTask, updateTask } from '../../../api/tasks';
+import {getTaskByAssignedToId, addTask, deleteTask, updateTask } from '../../../api/tasks';
 import { addCommentToTask } from '../../../api/comments';
 
 // ─── Status Mapping ────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
       {/* Title */}
       <p className="text-sm font-semibold text-appText mb-2.5 leading-snug pr-2">{task.title}</p>
 
-      {task.description && (
+      {/*task.description && (
         <div className="mb-2">
           <button
             onClick={() => setShowDesc(v => !v)}
@@ -86,7 +86,7 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
             </p>
           )}
         </div>
-      )}
+      ) */}
 
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
@@ -96,7 +96,10 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
       <div className="flex items-center gap-2 mt-3 mb-2">
         {task.status === 'PENDING' && (
           <button
-            onClick={() => onMove(task.id, 'IN_PROGRESS')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(task.id, 'IN_PROGRESS')
+            }}
             className="flex items-center gap-1 px-2 py-1 text-[11px] bg-badgeBlueBg text-badgeBlueText rounded-lg border border-appBorder hover:bg-badgeBlueBg/80 ui-transition"
           >
             {/* <ArrowRight size={11} /> */}
@@ -107,14 +110,20 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         {task.status === 'IN_PROGRESS' && (
           <>
             <button
-              onClick={() => onMove(task.id, 'PENDING')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(task.id, 'PENDING')
+              }}
               className="flex items-center gap-1 px-2 py-1 text-[11px] bg-appMuted text-appSubtext rounded-lg border border-appBorder hover:bg-appBorder/40 ui-transition"
             >
               وضع في قائمة الانتظار
             </button>
 
             <button
-              onClick={() => onMove(task.id, 'DONE')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(task.id, 'DONE')
+              }}
               className="flex items-center gap-1 px-2 py-1 text-[11px] bg-success/15 text-success rounded-lg border border-appBorder hover:bg-success/25 ui-transition"
             >
               <CheckCircle2 size={11} />
@@ -188,7 +197,7 @@ function AddCommentBox({ task, setTasks }) {
 
     const newComment = {
       message: text,
-      createdById: 1, // ! hardcoded for now
+      createdById: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1, // ! hardcoded for now
       taskId: task.id,
     };
 
@@ -237,12 +246,13 @@ function EmployeeTasksPage() {
   const [form, setForm] = useState(EMPTY_TASK);
   const [employees, setEmployees] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [saveSubmitting, setSaveSubmitting] = useState(false);
 
   useEffect(() => {
 
     const loadData = async () => {
       try {
-        const [tasksData, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
+        const [tasksData, employeesData] = await Promise.all([getTaskByAssignedToId(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1), fetchUsers()]);
         setTasks(tasksData);
         setEmployees(employeesData);
         console.log("debug loaded tasks ", tasksData);
@@ -285,7 +295,9 @@ function EmployeeTasksPage() {
   const handleSave = async () => {
     if (!form.title.trim() || !form.assignedToId) return;
 
-    console.log(form);
+    // console.log(form);
+    
+    setSaveSubmitting(true);
 
     const newTask = {
       title: form.title,
@@ -293,7 +305,7 @@ function EmployeeTasksPage() {
       status: form.status,
       dueDate: form.dueDate || null,
       assignedToId: parseInt(form.assignedToId),
-      createdById: 1
+      createdById: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1, // ! hardcoded fallback
     };
 
     try {
@@ -303,6 +315,8 @@ function EmployeeTasksPage() {
     } catch (error) {
       console.error('Error saving task:', error);
       // ! optionally show a notification/error state here
+    } finally {
+      setSaveSubmitting(false);
     }
   };
 
@@ -324,7 +338,7 @@ function EmployeeTasksPage() {
   );
 
   return (
-    <MainLayout title="مهام الموظين" subtitle="" actions={actions}>
+    <MainLayout title="مهام الموظفين" subtitle="" actions={JSON.parse(localStorage.getItem('user')).roleName === "employee" ? null : actions}>
       <div className="space-y-5">
 
         {/* Quick Stats */}
@@ -366,16 +380,18 @@ function EmployeeTasksPage() {
       {showForm && (
         <Modal
           title="اضافة مهمة جديدة"
-          onClose={() => setShowForm(false)}
+          onClose={() => {
+            if (!saveSubmitting) setShowForm(false);
+          }}
           footer={
             <>
-              <button onClick={() => setShowForm(false)}
+              <button onClick={() => setShowForm(false)} disabled={saveSubmitting}
                 className="px-4 py-2 text-sm font-medium text-appText bg-appMuted border border-appBorder rounded-xl hover:bg-appBorder/30 ui-transition">
                 الغاء
               </button>
               <button onClick={handleSave}
                 className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel">
-                اضافة
+                {saveSubmitting ? "جاري الإضافة..." : "اضافة"}
               </button>
             </>
           }

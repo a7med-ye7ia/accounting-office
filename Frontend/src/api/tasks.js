@@ -39,3 +39,13 @@ export const updateTask = async (id, newTask) => {
     throw error;
   }
 };
+
+export const getTaskByAssignedToId = async (userId) => {
+  try {
+    const response = await apiClient.get(`/tasks/assignedTo/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching tasks by user ID:', error);
+    throw error;
+  }
+};

@@ -123,6 +123,11 @@ function Sidebar() {
           }`}
         >
           {navItems.map((item) => {
+            const user = JSON.parse(localStorage.getItem("user"));
+            if ( user?.roleName === "employee" 
+            &&  (item.path === "/EmployeeManagement" || item.path === "/Departments")) {
+              return null; // Skip rendering this item for employees
+            }
             const Icon = item.icon;
             return (
               <NavLink

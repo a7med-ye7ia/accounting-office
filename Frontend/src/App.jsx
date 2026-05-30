@@ -11,6 +11,7 @@ import EmployeeManagementPage from "./features/employees/pages/EmployeeManagemen
 import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage";
 import EquilibriumLedgerPage from "./features/ledger/pages/EquilibriumLedgerPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
+import LoginPage from "./features/login/LoginPage";
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -20,7 +21,9 @@ function LegacyEmployeeProfileRedirect() {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate replace to="/Dashboard" />} />
+      {/* <Route path="/" element={<Navigate replace to="/Dashboard" />} /> */}
+      <Route path="/" element={<LoginPage />} />
+      {/* <Route path="/login" element={<login />} /> */}
       <Route path="/Dashboard" element={<DashboardPage />} />
       <Route path="/CompaniesDirectory" element={<CompaniesDirectoryPage />} />
       <Route path="/Documents" element={<DocumentsPage />} />
