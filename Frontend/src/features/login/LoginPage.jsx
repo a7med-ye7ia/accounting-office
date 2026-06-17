@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Lock, User, LogIn, AlertCircle } from 'lucide-react';
-import { login } from '../../api/auth';
+import { login, verify } from '../../api/auth';
 import { useNavigate } from "react-router-dom";
 import { getEmployeeProfile } from '../../api/users';
 
@@ -41,6 +41,30 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const authToken = localStorage.getItem('authToken');
+
+      if (!authToken) {
+        return;
+      }
+
+      try {
+        const data = await verify(authToken);
+
+        if (data.success) {
+          navigate('/Dashboard');
+        }
+      } catch (err) {
+        console.log("Token expired or invalid");
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   const inputCls = `
     w-full pr-10 pl-4 py-3 bg-appMuted border border-appBorder rounded-xl 

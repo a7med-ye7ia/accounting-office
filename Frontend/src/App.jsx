@@ -12,6 +12,7 @@ import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage"
 import EquilibriumLedgerPage from "./features/ledger/pages/EquilibriumLedgerPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import LoginPage from "./features/login/LoginPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -24,23 +25,25 @@ function App() {
       {/* <Route path="/" element={<Navigate replace to="/Dashboard" />} /> */}
       <Route path="/" element={<LoginPage />} />
       {/* <Route path="/login" element={<login />} /> */}
-      <Route path="/Dashboard" element={<DashboardPage />} />
-      <Route path="/CompaniesDirectory" element={<CompaniesDirectoryPage />} />
-      <Route path="/Documents" element={<DocumentsPage />} />
-      <Route path="/CompanyProfile" element={<CompanyProfilePage />} />
-      <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
-      <Route path="/profile/:id" element={<EmployeeProfilePage />} />
-      <Route path="/EmployeeProfile/:id" element={<LegacyEmployeeProfileRedirect />} />
-      <Route path="/EmployeeTasks" element={<EmployeeTasksPage />} />
-      <Route path="/Departments" element={<DepartmentsPage />} />
-      <Route path="/ContractAi" element={<ContractAiPage />} />
-      <Route path="/EditContractAi" element={<EditContractAiPage />} />
-      <Route path="/EquilibriumLedger" element={<EquilibriumLedgerPage />} />
-      <Route path="/ContractBrowser" element={<ContractBrowserPage />} />
-      <Route path="/ContractBrowser/company/:companyId" element={<ContractBrowserPage />}/>
-      <Route path="/ContractBrowser/company/:companyId/type/:type/Ai" element={<ContractBrowserPage />}/>
-      <Route path="/ContractBrowser/company/:companyId/type/:type" element={<ContractBrowserPage />}/>
-      <Route path="/ContractBrowser/company/:companyId/type/:type/pdf/:pdfId" element={<ContractBrowserPage />}/>
+      <Route element={<ProtectedRoute />}>
+        <Route path="/Dashboard" element={<DashboardPage />} />
+        <Route path="/CompaniesDirectory" element={<CompaniesDirectoryPage />} />
+        <Route path="/Documents" element={<DocumentsPage />} />
+        <Route path="/CompanyProfile" element={<CompanyProfilePage />} />
+        <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
+        <Route path="/profile/:id" element={<EmployeeProfilePage />} />
+        <Route path="/EmployeeProfile/:id" element={<LegacyEmployeeProfileRedirect />} />
+        <Route path="/EmployeeTasks" element={<EmployeeTasksPage />} />
+        <Route path="/Departments" element={<DepartmentsPage />} />
+        <Route path="/ContractAi" element={<ContractAiPage />} />
+        <Route path="/EditContractAi" element={<EditContractAiPage />} />
+        <Route path="/EquilibriumLedger" element={<EquilibriumLedgerPage />} />
+        <Route path="/ContractBrowser" element={<ContractBrowserPage />} />
+        <Route path="/ContractBrowser/company/:companyId" element={<ContractBrowserPage />}/>
+        <Route path="/ContractBrowser/company/:companyId/type/:type/Ai" element={<ContractBrowserPage />}/>
+        <Route path="/ContractBrowser/company/:companyId/type/:type" element={<ContractBrowserPage />}/>
+        <Route path="/ContractBrowser/company/:companyId/type/:type/pdf/:pdfId" element={<ContractBrowserPage />}/>
+      </Route>
     </Routes>
   );
 }

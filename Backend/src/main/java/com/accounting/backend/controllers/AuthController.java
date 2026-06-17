@@ -131,6 +131,20 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(true, "Logout successful"));
     }
 
+    @GetMapping("/verify")
+    public ResponseEntity<AuthResponse> verifyToken(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        String token = extractToken(authHeader);
+
+        if (token == null || !authService.verifyToken(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Invalid token"));
+        }
+
+        return ResponseEntity.ok(new AuthResponse(true, "Token is valid"));
+    }
+
     /**
      * Extract the raw JWT token from the Authorization header.
      *

@@ -25,3 +25,12 @@ export const getCurrentUser = async (token) => {
   });
   return response.data;
 };
+
+export const verify = async (token) => {
+  const response = await apiClient.get('/auth/verify', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+  });
+  return response.data;
+};
