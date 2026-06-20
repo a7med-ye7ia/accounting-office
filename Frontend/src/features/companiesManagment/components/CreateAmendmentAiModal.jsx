@@ -14,6 +14,8 @@ function createEmptySection(index, existing = {}) {
     selectedArticleTitle: existing.selectedArticleTitle || "",
     beforeText: existing.beforeText || "",
     afterText: existing.afterText || "",
+    modelOutput: existing.modelOutput || "",
+    embeddingScore: existing.embeddingScore ?? null,
     prompt: existing.prompt || "",
   };
 }
@@ -232,6 +234,7 @@ function ArticleSection({
   availableArticles,
   onChangeSection,
   getCachedEmbedding, // Cach
+  company,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -271,6 +274,10 @@ function ArticleSection({
       const minSimilarity = 0.5;
 
       const queryVector = await getEmbedding(section.prompt);
+      if (!queryVector) {
+        setSmartSearchNote("تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً، وتم إيقاف البحث الذكي مؤقتاً.");
+        return;
+      }
       const scoredArticles = await Promise.all(
         availableArticles.map(async (article) => {
           const articleVector = await getCachedEmbedding( // Cach
@@ -328,6 +335,8 @@ function ArticleSection({
       setLoading(false);
     }
   };
+
+  
 
   const canSend = !!section.beforeText && !!section.prompt && !loading;
 
@@ -464,50 +473,54 @@ function ArticleSection({
 
           {/* Send */}
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleSmartPick}
-              disabled={!section.prompt || smartSearching}
-              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                         ${section.prompt && !smartSearching
-                           ? "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
-                           : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                         }`}
-            >
-              {smartSearching ? "جاري البحث..." : "بحث ذكي"}
-              {!smartSearching && (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!canSend}
-              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                         ${canSend
-                           ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
-                           : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                         }`}
-            >
-              {loading ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  جاري الإرسال…
-                </>
-              ) : (
-                <>
-                  إرسال
+            <div className="flex items-center gap-3">
+                {/* per-section download removed: single PDF download available at form level */}
+
+              <button
+                type="button"
+                onClick={handleSmartPick}
+                disabled={!section.prompt || smartSearching}
+                className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+                           ${section.prompt && !smartSearching
+                             ? "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
+                             : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                           }`}
+              >
+                {smartSearching ? "جاري البحث..." : "بحث ذكي"}
+                {!smartSearching && (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </>
-              )}
-            </button>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!canSend}
+                className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+                           ${canSend
+                             ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
+                             : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                           }`}
+              >
+                {loading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    جاري الإرسال…
+                  </>
+                ) : (
+                  <>
+                    إرسال
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
           {smartSearchNote && (
             <p className="text-xs text-amber-600 text-right">{smartSearchNote}</p>
@@ -605,12 +618,15 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
     () => ({
       company,
       articleCount,
-      sections: sections.map(({ id, selectedArticleId, beforeText, afterText, prompt }) => ({
+      sections: sections.map(({ id, selectedArticleId, selectedArticleTitle, beforeText, afterText, prompt, modelOutput, embeddingScore }) => ({
         id,
         selectedArticleId,
+        selectedArticleTitle,
         beforeText,
         afterText,
         prompt,
+        modelOutput,
+        embeddingScore,
       })),
     }),
     [company, articleCount, sections]
@@ -648,6 +664,7 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
 }
 
 function AmendmentAiFormFields({
+  company,
   availableArticles,
   articleCount,
   handleCountChange,
@@ -656,6 +673,59 @@ function AmendmentAiFormFields({
   onCreateClick,
   getCachedEmbedding, // Cach
 }) {
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+
+  const handleDownloadAll = async () => {
+    if (!sections || sections.length === 0) return;
+    setIsDownloadingAll(true);
+    try {
+      const changedArticles = sections
+        .map((s) => s.selectedArticleId || s.selectedArticleTitle)
+        .filter(Boolean);
+      const titleSuffix = changedArticles.length
+        ? changedArticles.join("، ")
+        : `${sections.length} مواد`;
+
+      const payload = {
+        contractTitle: `عقد تعديل المادة ${titleSuffix}`,
+        companyName: company?.name || "",
+        companyLegalLine: company?.legalLine || "شركة ذات مسئولية محدودة خاضعة لأحكام القانون رقم 159 لسنة 1981",
+        sections: sections.map((s) => ({
+          id: s.id,
+          selectedArticleId: s.selectedArticleId,
+          selectedArticleTitle: s.selectedArticleTitle,
+          beforeText: s.beforeText,
+          afterText: s.afterText || s.modelOutput,
+          modelOutput: s.modelOutput || "",
+          embeddingScore: s.embeddingScore || null,
+        })),
+      };
+
+      const res = await fetch("http://localhost:8080/api/pdf/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`PDF generation failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeName = changedArticles.length
+        ? changedArticles.join("_")
+        : `multiple_articles`;
+      link.setAttribute("download", `تعديل_${safeName}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading combined PDF:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. الرجاء المحاولة مرة أخرى.");
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
   return (
     <>
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 md:p-6">
@@ -739,24 +809,45 @@ function AmendmentAiFormFields({
             availableArticles={availableArticles}
             onChangeSection={handleChangeSection}
             getCachedEmbedding={getCachedEmbedding} // Cach
+            company={company}
           />
         ))}
       </div>
 
       <div className="flex justify-end pt-2 pb-4">
-        <button
-          type="button"
-          onClick={onCreateClick}
-          className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-sm font-extrabold
-                     bg-gradient-to-l from-slate-800 to-slate-700 text-white
-                     hover:shadow-xl hover:shadow-slate-300 hover:-translate-y-0.5
-                     transition-all duration-200 cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          إنشاء
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadAll}
+            disabled={isDownloadingAll || sections.length === 0}
+            className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+                       ${!isDownloadingAll && sections.length > 0
+                         ? "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 hover:shadow-md"
+                         : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                       }`}
+          >
+            {isDownloadingAll ? "جاري التحميل..." : "تحميل PDF"}
+            {!isDownloadingAll && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onCreateClick}
+            className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-sm font-extrabold
+                       bg-gradient-to-l from-slate-800 to-slate-700 text-white
+                       hover:shadow-xl hover:shadow-slate-300 hover:-translate-y-0.5
+                       transition-all duration-200 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            إنشاء
+          </button>
+        </div>
       </div>
     </>
   );
@@ -819,6 +910,7 @@ export function CreateAmendmentAiPageView({
           sections={sections}
           handleChangeSection={handleChangeSection}
           onCreateClick={handleCreate}
+          company={company}
           getCachedEmbedding={getCachedEmbedding} // Cach
         />
       </div>
@@ -912,6 +1004,7 @@ export default function CreateAmendmentAiModal({
             sections={sections}
             handleChangeSection={handleChangeSection}
             onCreateClick={handleCreate}
+            company={company}
             getCachedEmbedding={getCachedEmbedding} // Cach
           />
         </div>
