@@ -1,13 +1,16 @@
 package com.accounting.backend.controllers;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,7 +39,10 @@ import com.accounting.backend.repositories.EmployeeAssignmentRepository;
 import com.accounting.backend.repositories.RoleRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.repositories.UserRoleRepository;
+import com.accounting.backend.security.JwtService;
+import com.accounting.backend.services.EmailService;
 import com.accounting.backend.services.EmployeeProfileService;
+import com.accounting.backend.services.TokenCacheService;
 
 import jakarta.transaction.Transactional;
 
@@ -56,12 +63,17 @@ public class UserController {
     private RoleRepository roleRepository;
     @Autowired
     private UserRoleRepository userRoleRepository;
-
     @Autowired
     private EmployeeProfileService employeeProfileService;
+    @Autowired
+    private EmailService emailService;
+    @Autowired
+    private JwtService jwtService;
+    @Autowired
+    private TokenCacheService tokenCacheService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @GetMapping
     @Transactional
@@ -90,56 +102,91 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * POST /api/users
+     * Creates a new user. ONLY accessible by users with the "owner" role.
+     *
+     * - Generates a random 8-digit temporary password.
+     * - Sets the new user's status to PENDING_VERIFICATION (blocked from system
+     * actions).
+     * - Sends the temporary password to the new user's email.
+     * - The new user must call POST /api/auth/change-password to activate their
+     * account.
+     *
+     * @param authHeader Authorization: Bearer <token> of the caller (must be owner)
+     * @param request    the new user's details
+     */
     @PostMapping
     @Transactional
-    public ResponseEntity<?> createUser(@RequestBody EmployeeCreationRequest request) {
+    public ResponseEntity<?> createUser(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody EmployeeCreationRequest request) {
 
+        // ── 1. Owner-only guard ──────────────────────────────────────────────
+        ResponseEntity<?> authError = requireOwnerRole(authHeader);
+        if (authError != null) {
+            return authError;
+        }
+
+        // ── 2. Build user ────────────────────────────────────────────────────
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setNationalId(request.getNationalId());
-        // user.setPassword(request.getPassword() != null ? request.getPassword() : "123456");
-        user.setPassword(request.getPassword() != null ? passwordEncoder.encode(request.getPassword()) : passwordEncoder.encode("123456"));
         user.setHireDate(request.getHireDate());
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
-        if (request.getStatus() != null) {
+        // ── 3. Generate random 8-digit temporary password ────────────────────
+        String tempPassword = generateTempPassword();
+        user.setPassword(passwordEncoder.encode(tempPassword));
+
+        // ── 4. New user is PENDING_VERIFICATION until they change their password
+        user.setStatus(UserStatus.PENDING_VERIFICATION);
+
+        // Allow overriding status explicitly (e.g., for owner themselves)
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
             user.setStatus(UserStatus.valueOf(request.getStatus()));
         }
+        // ── 7. Send temporary password email ─────────────────────────────────
+        try {
+            emailService.sendTemporaryPasswordEmail(request.getEmail(), request.getFullName(), tempPassword);
+            User savedUser = userRepository.save(user);
+            // ── 5. Create EmployeeAssignment if department and branch are provided ─
+            if (request.getDepartmentId() != null && request.getBranchId() != null) {
+                Department dept = departmentRepository.findById(request.getDepartmentId())
+                        .orElseThrow(() -> new RuntimeException("القسم غير موجود"));
+                Branch branch = branchRepository.findById(request.getBranchId())
+                        .orElseThrow(() -> new RuntimeException("الفرع غير موجود"));
 
-        User savedUser = userRepository.save(user);
+                EmployeeAssignment assignment = new EmployeeAssignment();
+                assignment.setUser(savedUser);
+                assignment.setDepartment(dept);
+                assignment.setBranch(branch);
+                assignment.setIsPrimary(true);
+                assignment.setStartDate(request.getHireDate() != null ? request.getHireDate() : LocalDate.now());
+                employeeAssignmentRepository.save(assignment);
+            }
 
-        // Create EmployeeAssignment if department and branch are provided
-        if (request.getDepartmentId() != null && request.getBranchId() != null) {
-            Department dept = departmentRepository.findById(request.getDepartmentId())
-                    .orElseThrow(() -> new RuntimeException("القسم غير موجود"));
-            Branch branch = branchRepository.findById(request.getBranchId())
-                    .orElseThrow(() -> new RuntimeException("الفرع غير موجود"));
-
-            EmployeeAssignment assignment = new EmployeeAssignment();
-            assignment.setUser(savedUser);
-            assignment.setDepartment(dept);
-            assignment.setBranch(branch);
-            assignment.setIsPrimary(true);
-            assignment.setStartDate(request.getHireDate() != null ? request.getHireDate() : LocalDate.now());
-            employeeAssignmentRepository.save(assignment);
+            // ── 6. Create UserRole if roleId is provided ─────────────────────────
+            if (request.getRoleId() != null) {
+                Role role = roleRepository.findById(request.getRoleId())
+                        .orElseThrow(() -> new RuntimeException("المسمى الوظيفي غير موجود"));
+                UserRole userRole = new UserRole();
+                UserRoleId userRoleId = new UserRoleId(savedUser.getId(), role.getId());
+                userRole.setId(userRoleId);
+                userRole.setUser(savedUser);
+                userRole.setRole(role);
+                userRoleRepository.save(userRole);
+            }
+            Map<String, Object> response = buildUserMap(savedUser);
+            response.put("message", "User created. A temporary password has been sent to " + savedUser.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to create user", "details", e.getMessage()));
         }
-
-        // Create UserRole if roleId is provided
-        if (request.getRoleId() != null) {
-            Role role = roleRepository.findById(request.getRoleId())
-                    .orElseThrow(() -> new RuntimeException("المسمى الوظيفي غير موجود"));
-            UserRole userRole = new UserRole();
-            UserRoleId userRoleId = new UserRoleId(savedUser.getId(), role.getId());
-            userRole.setId(userRoleId);
-            userRole.setUser(savedUser);
-            userRole.setRole(role);
-            userRoleRepository.save(userRole);
-        }
-
-        return ResponseEntity.ok(buildUserMap(savedUser));
     }
 
     @PutMapping("/{id}")
@@ -214,6 +261,71 @@ public class UserController {
         userRoleRepository.deleteByUser_Id(id);
         userRepository.deleteById(id);
         return ResponseEntity.ok().build();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Private helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Checks that the request comes from an authenticated user with the "owner"
+     * role.
+     * Returns a 401/403 ResponseEntity if the check fails, or null if OK.
+     */
+    private ResponseEntity<?> requireOwnerRole(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Authentication required"));
+        }
+
+        String token = authHeader.substring(7).trim();
+
+        if (!jwtService.isTokenValid(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid or expired token"));
+        }
+
+        Long callerId;
+        try {
+            callerId = jwtService.extractUserId(token);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Could not read token claims"));
+        }
+
+        if (!tokenCacheService.isTokenValid(callerId, token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Session expired. Please log in again."));
+        }
+
+        Optional<User> callerOpt = userRepository.findById(callerId);
+        if (callerOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Caller user not found"));
+        }
+
+        boolean isOwner = userRoleRepository.findByUser_Id(callerId).stream()
+                .anyMatch(ur -> "owner".equalsIgnoreCase(ur.getRole().getName()));
+
+        if (!isOwner) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Only users with the 'owner' role can create new users"));
+        }
+
+        return null; // all checks passed
+    }
+
+    /**
+     * Generates a random 8-digit numeric temporary password using SecureRandom.
+     * Example: "04729381"
+     */
+    private String generateTempPassword() {
+        int digits = 8;
+        StringBuilder sb = new StringBuilder(digits);
+        for (int i = 0; i < digits; i++) {
+            sb.append(secureRandom.nextInt(10)); // 0-9
+        }
+        return sb.toString();
     }
 
     /**

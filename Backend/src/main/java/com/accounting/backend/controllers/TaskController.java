@@ -4,14 +4,17 @@ import com.accounting.backend.dto.TaskRequest;
 import com.accounting.backend.dto.TaskResponse;
 import com.accounting.backend.entities.Task;
 import com.accounting.backend.entities.User;
+import com.accounting.backend.enums.UserStatus;
 import com.accounting.backend.repositories.TaskRepository;
 import com.accounting.backend.repositories.UserRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -40,13 +43,26 @@ public class TaskController {
     }
 
     @PostMapping
-    public TaskResponse createTask(@RequestBody TaskRequest request) {
+    public ResponseEntity<?> createTask(@RequestBody TaskRequest request) {
 
         User assignedUser = userRepository.findById(request.getAssignedToId())
             .orElseThrow(() -> new RuntimeException("Assigned user not found"));
 
         User createdByUser = userRepository.findById(request.getCreatedById())
             .orElseThrow(() -> new RuntimeException("Creator user not found"));
+
+        // Block unverified users from taking or creating tasks
+        if (assignedUser.getStatus() == UserStatus.PENDING_VERIFICATION) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "User '" + assignedUser.getFullName() + "' has not verified their account yet. " +
+                          "They must change their temporary password before tasks can be assigned to them."
+            ));
+        }
+        if (createdByUser.getStatus() == UserStatus.PENDING_VERIFICATION) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Your account is not yet verified. Please change your temporary password first."
+            ));
+        }
 
         Task task = new Task();
         task.setTitle(request.getTitle());
@@ -59,7 +75,7 @@ public class TaskController {
 
         Task saved = taskRepository.save(task);
 
-        return TaskResponse.mapToResponse(saved);
+        return ResponseEntity.ok(TaskResponse.mapToResponse(saved));
     }
 
     @PutMapping("/{id}")
