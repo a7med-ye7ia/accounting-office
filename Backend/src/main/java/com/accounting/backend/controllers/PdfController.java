@@ -40,6 +40,7 @@ public class PdfController {
                     request.getContractTitle(),
                     request.getCompanyName(),
                     request.getCompanyLegalLine(),
+                    request.getIntroText(),
                     sectionsForService
                 );
 
@@ -63,6 +64,7 @@ class PdfRequest {
     private String contractTitle;
     private String companyName;
     private String companyLegalLine;
+    private String introText;
     private java.util.List<SectionRequest> sections;
 
     public String getContractTitle() {
@@ -87,6 +89,14 @@ class PdfRequest {
 
     public void setCompanyLegalLine(String companyLegalLine) {
         this.companyLegalLine = companyLegalLine;
+    }
+
+    public String getIntroText() {
+        return introText;
+    }
+
+    public void setIntroText(String introText) {
+        this.introText = introText;
     }
 
     public java.util.List<SectionRequest> getSections() {

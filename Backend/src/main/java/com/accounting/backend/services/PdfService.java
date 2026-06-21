@@ -1,11 +1,16 @@
 package com.accounting.backend.services;
 
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 
 @Service
 public class PdfService {
@@ -20,12 +25,14 @@ public class PdfService {
             String contractTitle,
             String companyName,
             String companyLegalLine,
+            String introText,
             java.util.List<java.util.Map<String, Object>> requestSections) throws Exception {
         // 1. Build the model for Thymeleaf
         Context context = new Context();
         context.setVariable("contractTitle", contractTitle != null && !contractTitle.isBlank() ? contractTitle : "عقد تعديل");
         context.setVariable("companyName", companyName != null ? companyName : "");
         context.setVariable("companyLegalLine", companyLegalLine != null ? companyLegalLine : "");
+        context.setVariable("introText", introText != null ? introText : "");
 
         java.util.List<java.util.Map<String, Object>> sectionsModel = new java.util.ArrayList<>();
         java.util.List<String> articleLabels = new java.util.ArrayList<>();
@@ -62,27 +69,28 @@ public class PdfService {
 
         String htmlContent = templateEngine.process("pdf-template", context);
 
-        // 2. Convert HTML to PDF using OpenHTMLToPDF
-        // 2. Convert HTML to PDF using OpenHTMLToPDF
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
-            
-            // Enable Arabic / RTL text shaping
-            builder.useFastMode();
+
             builder.useUnicodeBidiSplitter(new com.openhtmltopdf.bidi.support.ICUBidiSplitter.ICUBidiSplitterFactory());
             builder.useUnicodeBidiReorderer(new com.openhtmltopdf.bidi.support.ICUBidiReorderer());
-            
-            // ---> ADD THIS LINE TO LOAD THE FONT DIRECTLY <---
-            builder.useFont(
-                () -> getClass().getResourceAsStream("/fonts/NotoNaskhArabic-Regular.ttf"),
-                "Noto Naskh"
-            );
-            
+
+            builder.useFont(this::openArabicFont, "Noto Naskh", 400, PdfRendererBuilder.FontStyle.NORMAL, true);
+            builder.useFont(this::openArabicFont, "Noto Naskh", 700, PdfRendererBuilder.FontStyle.NORMAL, true);
+
             builder.withHtmlContent(htmlContent, getClass().getResource("/").toExternalForm());
             builder.toStream(outputStream);
             builder.run();
 
             return outputStream.toByteArray();
+        }
+    }
+
+    private InputStream openArabicFont() {
+        try {
+            return new ClassPathResource("fonts/NotoNaskhArabic-Regular.ttf").getInputStream();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to load Arabic font", e);
         }
     }
 

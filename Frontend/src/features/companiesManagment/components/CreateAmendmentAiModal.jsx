@@ -22,6 +22,126 @@ function createEmptySection(index, existing = {}) {
 
 
 // ─────────────────────────────────────────────────────────
+// PDF preview
+// ─────────────────────────────────────────────────────────
+function buildAmendmentPdfPayload(company, sections) {
+  const changedArticles = sections
+    .map((s) => s.selectedArticleId || s.selectedArticleTitle)
+    .filter(Boolean);
+  const titleSuffix = changedArticles.length
+    ? changedArticles.join("، ")
+    : `${sections.length} مواد`;
+
+  return {
+    payload: {
+      contractTitle: `عقد تعديل المادة ${titleSuffix}`,
+      companyName: company?.name || "",
+      companyLegalLine:
+        company?.legalLine ||
+        "شركة ذات مسئولية محدودة خاضعة لأحكام القانون رقم 159 لسنة 1981",
+      introText: company?.preamble || company?.introText || "",
+      sections: sections.map((s) => ({
+        id: s.id,
+        selectedArticleId: s.selectedArticleId,
+        selectedArticleTitle: s.selectedArticleTitle,
+        beforeText: s.beforeText,
+        afterText: s.afterText || s.modelOutput,
+        modelOutput: s.modelOutput || "",
+        embeddingScore: s.embeddingScore || null,
+      })),
+    },
+    fileName: `تعديل_${changedArticles.length ? changedArticles.join("_") : "multiple_articles"}.pdf`,
+  };
+}
+
+async function generateAmendmentPdfBlob(company, sections) {
+  const { payload, fileName } = buildAmendmentPdfPayload(company, sections);
+
+  const res = await fetch("http://localhost:8080/api/pdf/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(`PDF generation failed: ${res.status}`);
+
+  const blob = await res.blob();
+  return { blob, fileName };
+}
+
+function PdfPreviewModal({ previewUrl, fileName, onClose, onDownload }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end md:items-center justify-center p-3 md:p-6"
+      dir="rtl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pdf-preview-title"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
+        aria-label="إغلاق"
+        onClick={onClose}
+      />
+
+      <div
+        className="relative w-full max-w-5xl h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-700 px-4 md:px-6 py-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="pdf-preview-title" className="text-white font-extrabold text-lg">
+              معاينة ملف PDF
+            </h2>
+            <p className="text-blue-100 text-xs mt-1 truncate">{fileName}</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onDownload}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-blue-700 bg-white hover:bg-blue-50 transition-all cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              تحميل
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-white/90 hover:text-white hover:bg-white/10 rounded-xl p-2 transition-all cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 bg-slate-100">
+          <iframe
+            src={previewUrl}
+            title="معاينة PDF"
+            className="w-full h-full border-0"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────
 // Document Loading Animation
 // ─────────────────────────────────────────────────────────
 function DocumentLoader() {
@@ -673,61 +793,59 @@ function AmendmentAiFormFields({
   onCreateClick,
   getCachedEmbedding, // Cach
 }) {
-  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState(null);
 
-  const handleDownloadAll = async () => {
+  const closePdfPreview = useCallback(() => {
+    setPdfPreview((current) => {
+      if (current?.url) window.URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }, []);
+
+  useEffect(() => () => {
+    if (pdfPreview?.url) window.URL.revokeObjectURL(pdfPreview.url);
+  }, [pdfPreview?.url]);
+
+  const handlePreviewPdf = async () => {
     if (!sections || sections.length === 0) return;
-    setIsDownloadingAll(true);
+    setIsGeneratingPdf(true);
     try {
-      const changedArticles = sections
-        .map((s) => s.selectedArticleId || s.selectedArticleTitle)
-        .filter(Boolean);
-      const titleSuffix = changedArticles.length
-        ? changedArticles.join("، ")
-        : `${sections.length} مواد`;
-
-      const payload = {
-        contractTitle: `عقد تعديل المادة ${titleSuffix}`,
-        companyName: company?.name || "",
-        companyLegalLine: company?.legalLine || "شركة ذات مسئولية محدودة خاضعة لأحكام القانون رقم 159 لسنة 1981",
-        sections: sections.map((s) => ({
-          id: s.id,
-          selectedArticleId: s.selectedArticleId,
-          selectedArticleTitle: s.selectedArticleTitle,
-          beforeText: s.beforeText,
-          afterText: s.afterText || s.modelOutput,
-          modelOutput: s.modelOutput || "",
-          embeddingScore: s.embeddingScore || null,
-        })),
-      };
-
-      const res = await fetch("http://localhost:8080/api/pdf/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`PDF generation failed: ${res.status}`);
-      const blob = await res.blob();
+      const { blob, fileName } = await generateAmendmentPdfBlob(company, sections);
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const safeName = changedArticles.length
-        ? changedArticles.join("_")
-        : `multiple_articles`;
-      link.setAttribute("download", `تعديل_${safeName}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      setPdfPreview((current) => {
+        if (current?.url) window.URL.revokeObjectURL(current.url);
+        return { url, fileName, blob };
+      });
     } catch (err) {
-      console.error("Error downloading combined PDF:", err);
+      console.error("Error generating PDF preview:", err);
       alert("حدث خطأ أثناء إنشاء ملف الـ PDF. الرجاء المحاولة مرة أخرى.");
     } finally {
-      setIsDownloadingAll(false);
+      setIsGeneratingPdf(false);
     }
   };
+
+  const handleDownloadPreview = () => {
+    if (!pdfPreview) return;
+    const link = document.createElement("a");
+    link.href = pdfPreview.url;
+    link.setAttribute("download", pdfPreview.fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+  };
+
   return (
     <>
+      {pdfPreview && (
+        <PdfPreviewModal
+          previewUrl={pdfPreview.url}
+          fileName={pdfPreview.fileName}
+          onClose={closePdfPreview}
+          onDownload={handleDownloadPreview}
+        />
+      )}
+
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
@@ -818,18 +936,19 @@ function AmendmentAiFormFields({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleDownloadAll}
-            disabled={isDownloadingAll || sections.length === 0}
+            onClick={handlePreviewPdf}
+            disabled={isGeneratingPdf || sections.length === 0}
             className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                       ${!isDownloadingAll && sections.length > 0
+                       ${!isGeneratingPdf && sections.length > 0
                          ? "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 hover:shadow-md"
                          : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
                        }`}
           >
-            {isDownloadingAll ? "جاري التحميل..." : "تحميل PDF"}
-            {!isDownloadingAll && (
+            {isGeneratingPdf ? "جاري الإنشاء..." : "معاينة PDF"}
+            {!isGeneratingPdf && (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
             )}
           </button>

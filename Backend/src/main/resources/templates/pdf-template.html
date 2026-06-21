@@ -3,135 +3,154 @@
 <head>
     <meta charset="UTF-8" />
     <style>
-        /* OpenHTMLToPDF requires you to declare the font explicitly */
-        @font-face {
-            font-family: 'Noto Naskh';
-            src: url('classpath:/fonts/NotoNaskhArabic-Regular.ttf');
-            -fs-pdf-font-embed: embed;
-            -fs-pdf-font-encoding: Identity-H;
-        }
-        body {
+        /* Font is registered in PdfService via useFont(); name must match exactly */
+        html, body {
             font-family: 'Noto Naskh', serif;
-            color: #111827;
-            line-height: 1.9;
-            padding: 28px 42px 36px;
-            font-size: 16px;
-            background: #ffffff;
+            direction: rtl;
+            color: #000;
+            font-size: 18px;
+            line-height: 2;
+            background: white;
+            padding: 0;
+            margin: 0;
         }
 
         .page {
-            border-left: 8px solid #000000;
-            border-right: 8px solid #000000;
-            padding: 0 18px 12px;
+            border-left: 8px solid #000;
+            border-right: 8px solid #000;
+            padding: 20px 40px;
         }
+
+        /* ===========================
+        Header
+        =========================== */
 
         .header {
             text-align: center;
-            margin-bottom: 22px;
-            padding-top: 6px;
+            margin-bottom: 20px;
         }
 
-        .section {
-            margin: 0 0 24px;
-            padding: 22px 18px 18px;
-            border: 1px solid #d7dee9;
-            border-radius: 12px;
-            background: #ffffff;
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-        }
-
-        .section-title {
-            margin: 0 0 16px;
-            text-align: right;
-            font-size: 24px;
-            font-weight: 900;
-            color: #111827;
-        }
-
-        p {
-            white-space: pre-wrap;
-            font-size: 16px;
-            text-align: justify;
-            margin: 0;
-        }
-        /* Add this below your existing CSS */
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
-            margin-bottom: 18px;
-            font-family: 'Noto Naskh', serif;
-            font-size: 15px;
-        }
-
-        /* only vertical borders on table cells (remove horizontal lines) */
-        th, td {
-            border-left: 1px solid #000000;
-            border-right: 1px solid #000000;
-            padding: 12px 14px;
-            text-align: right; /* Aligns text properly for RTL */
-            font-size: 15px;
-        }
-
-        th {
-            background-color: #f8fafc;
-            color: #0f172a;
-            font-weight: 800;
-        }
-
-        tr {
-            /* This prevents a single row from being cut in half if it hits the bottom of the PDF page */
-            page-break-inside: avoid;
-        }
-
-        /* Optional: Zebra striping for readability */
-        tr:nth-child(even) {
-            background-color: #ffffff;
-        }
         .heading {
-            text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         .doc-title,
         .doc-company,
         .doc-legal {
             display: inline-block;
-            margin: 0;
-            padding-bottom: 2px;
             border-bottom: 4px solid black;
+            padding-bottom: 3px;
+            margin: 0;
         }
 
         .doc-title {
-            font-size: 22px;
-            font-weight: 900;
+            font-size: 28px;
+            font-weight: bold;
         }
 
         .doc-company {
-            font-size: 18px;
-            font-weight: 800;
+            font-size: 24px;
+            font-weight: bold;
         }
 
         .doc-legal {
-            font-size: 14px;
-            font-weight: 700;
-        }
-        .subtitle {
-            margin-top: 0;
-            margin-bottom: 10px;
-            font-size: 18px;
-            font-weight: 900;
-            color: #111827;
-            letter-spacing: 0;
+            font-size: 22px;
+            font-weight: bold;
         }
 
+        /* ===========================
+        Article labels
+        =========================== */
+
         .article-labels {
-            margin: 6px 0 0;
-            font-size: 16px;
-            font-weight: 800;
-            color: #111827;
             text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        /* ===========================
+        Sections
+        =========================== */
+
+        .section {
+            margin-bottom: 35px;
+
+            /* remove card appearance */
+            border: none;
+            background: none;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 15px;
+            text-align: right;
+        }
+
+        .intro {
+            margin: 25px 0 35px;
+        }
+
+        .intro-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 0 18px;
+        }
+
+        .intro-body {
+            text-align: justify;
+            font-size: 20px;
+            line-height: 2;
+            margin: 0 0 18px;
+            white-space: pre-wrap;
+        }
+
+        .intro-clause {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: right;
+            margin: 0;
+        }
+
+        p {
+            white-space: pre-wrap;
+            text-align: justify;
+            font-size: 20px;
+            line-height: 2;
+            margin: 0;
+        }
+
+        /* ===========================
+        Tables
+        =========================== */
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        th,
+        td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            font-weight: bold;
+            background: white;
+        }
+
+        tr {
+            page-break-inside: avoid;
         }
     </style>
 </head>
@@ -153,13 +172,13 @@
         </h3>
     </div>
 
-    <div class="article-labels" th:if="${articleLabels != null and !articleLabels.isEmpty()}">
-        <span th:each="label,iterStat : ${articleLabels}">
-            <span th:text="${label}">المادة الخامسة</span><span th:if="${!iterStat.last}">، </span>
-        </span>
     </div>
 
-</div>
+    <div class="intro">
+        <h3 class="intro-title">تمهيد</h3>
+        <p class="intro-body" th:text="${introText}">سبق وأن تكونت الشركة خاضعة لأحكام القانون رقم 159 لسنة 1981، وتم الاتفاق على تعديل بعض مواد عقد التأسيس.</p>
+        <p class="intro-clause">أولاً: يعتبر التمهيد جزءاً لا يتجزأ من العقد.</p>
+    </div>
 
     <div th:each="sec,iterStat : ${sections}">
         <div class="section">
