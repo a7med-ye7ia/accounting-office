@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react"; // Cach
 import { mockArticles } from "../../../shared/data/mockData";
+import companyExampleData from "../../../shared/data/companyExampleData.json";
 import { generateResponse } from "../../../api/ollamaClient.js";
 import { getEmbedding } from "../../../api/ollamaClient.js";
 
@@ -32,14 +33,17 @@ function buildAmendmentPdfPayload(company, sections) {
     ? changedArticles.join("، ")
     : `${sections.length} مواد`;
 
+  const merged = { ...companyExampleData, ...company, name: company?.name || companyExampleData.company_name };
+  const introParagraph = buildCompanyIntro(merged);
+
   return {
     payload: {
       contractTitle: `عقد تعديل المادة ${titleSuffix}`,
-      companyName: company?.name || "",
+      companyName: merged.name,
       companyLegalLine:
         company?.legalLine ||
-        "شركة ذات مسئولية محدودة خاضعة لأحكام القانون رقم 159 لسنة 1981",
-      introText: company?.preamble || company?.introText || "",
+        `شركة ${merged.company_type} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`,
+      introText: company?.preamble || introParagraph || "",
       sections: sections.map((s) => ({
         id: s.id,
         selectedArticleId: s.selectedArticleId,
@@ -52,6 +56,32 @@ function buildAmendmentPdfPayload(company, sections) {
     },
     fileName: `تعديل_${changedArticles.length ? changedArticles.join("_") : "multiple_articles"}.pdf`,
   };
+}
+
+function buildCompanyIntro(data) {
+  if (!data) return "";
+  const { company_name, company_type, law_reference, company_address, company_capital, commercial_register_number, approval_date, real_estate_registry_minutes_number, company_duration, company_activity } = data;
+
+  const lawRef = law_reference?.law_number && law_reference?.law_year ? `رقم ${law_reference.law_number} لسنة ${law_reference.law_year}` : "";
+
+  const parts = [];
+
+  if (company_name && company_type) {
+    parts.push(`سبق وأن تكونت شركة ${company_name} (${company_type})`);
+  } else if (company_name) {
+    parts.push(`سبق وأن تكونت شركة ${company_name}`);
+  }
+
+  if (lawRef) parts.push(`خاضعة لأحكام القانون ${lawRef}`);
+  if (approval_date) parts.push(`بموجب الموافقة الصادرة بتاريخ ${approval_date}`);
+  if (commercial_register_number) parts.push(`والقيد برقم ${commercial_register_number} بالسجل التجاري`);
+  if (real_estate_registry_minutes_number) parts.push(`وبمقتضى محضر الشهر العقاري رقم ${real_estate_registry_minutes_number}`);
+  if (company_address) parts.push(`ومركزها الرئيسي ${company_address}`);
+  if (company_capital) parts.push(`ورأس مالها ${company_capital}`);
+  if (company_duration) parts.push(`ومدة الشركة ${company_duration}`);
+  if (company_activity) parts.push(`وغرضها ${company_activity}`);
+
+  return parts.join("، ") + ".";
 }
 
 async function generateAmendmentPdfBlobFromPayload(payload, fileName) {
