@@ -11,4 +11,5 @@ import com.accounting.backend.entities.Task;
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByAssignedTo_Id(Long assignedToUserId);
+    List<Task> findByCreatedBy_Id(Long createdByUserId);
 }

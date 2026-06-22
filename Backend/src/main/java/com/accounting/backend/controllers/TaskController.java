@@ -7,6 +7,7 @@ import com.accounting.backend.entities.User;
 import com.accounting.backend.enums.UserStatus;
 import com.accounting.backend.repositories.TaskRepository;
 import com.accounting.backend.repositories.UserRepository;
+import com.accounting.backend.services.NotificationService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,9 @@ public class TaskController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @GetMapping
     public List<TaskResponse> getAllTasks() {
@@ -74,6 +78,9 @@ public class TaskController {
         task.setCreatedBy(createdByUser);
 
         Task saved = taskRepository.save(task);
+
+        String message = String.format("You have been assigned a new task: %s", task.getTitle());
+        notificationService.createNotification(assignedUser.getId(), "New task", message);
 
         return ResponseEntity.ok(TaskResponse.mapToResponse(saved));
     }

@@ -1,20 +1,44 @@
-import { Menu, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon, Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { useEffect, useState } from "react";
+import { fetchNotifications, markNotificationAsRead} from "../../api/notification";
 
 function TopBar() {
   const { toggle, isOpen, isDesktop } = useSidebar();
   const showNavMenu = !isDesktop;
   const { theme, toggleTheme } = useTheme();
   const [currentUser, setCurrentUser] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
     // console.log(JSON.parse(user));
-    setCurrentUser(JSON.parse(user));
+    try {
+      setCurrentUser(user ? JSON.parse(user) : null);
+    } catch (e) {
+      setCurrentUser(null);
+    }
   }, []);
+
+  useEffect(() => {
+    const fetchForUser = async () => {
+      if (!currentUser || !currentUser.id) return;
+      try {
+        const data = await fetchNotifications(currentUser.id);
+        console.log('Fetched notifications:', data);
+        setNotifications(Array.isArray(data) ? data : []);
+        setUnreadCount(data.filter(n => !n.read).length);
+      } catch (err) {
+        console.error('Failed to load notifications', err);
+      }
+    };
+
+    fetchForUser();
+  }, [currentUser]);
 
   return (
     <header className="z-30 shrink-0 border-b border-appBorder bg-appSurface/70 backdrop-blur-2xl backdrop-saturate-150">
@@ -51,6 +75,39 @@ function TopBar() {
           </div>
 
           <div className="flex items-center gap-3 border-s border-appBorder ps-3 sm:ps-4">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowNotifications(v => !v)}
+                className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-appBorder bg-appMuted/70 text-appText ui-transition hover:border-brand/40 hover:bg-brand/10 hover:text-brand active:scale-95"
+                aria-label="إشعارات"
+                title="الإشعارات"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-semibold text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute left-0 z-40 mt-2 w-80 rounded-lg border border-appBorder bg-appSurface p-2 shadow-lg">
+                  <div className="max-h-64 overflow-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-appSubtext">لا توجد إشعارات</div>
+                    ) : (
+                      notifications.map((n, idx) => (
+                        <div key={n.id || idx} className="rounded-md px-3 py-2 hover:bg-appMuted/60" onClick={() => {markNotificationAsRead(n.id); setUnreadCount(c => Math.max(0, c - 1));}}>
+                          <div className="text-sm font-semibold text-appText truncate">{n.title}</div>
+                          {n.message && <div className="mt-1 text-xs text-appSubtext truncate">{n.message}</div>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <span className="hidden max-w-[8rem] truncate text-xs font-semibold text-appText md:block">
               {currentUser ? currentUser.fullName : "اسم المستخدم"}
             </span>
