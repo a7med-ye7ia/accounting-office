@@ -20,6 +20,7 @@ import com.accounting.backend.entities.User;
 import com.accounting.backend.repositories.TaskCommentRepository;
 import com.accounting.backend.repositories.TaskRepository;
 import com.accounting.backend.repositories.UserRepository;
+import com.accounting.backend.services.NotificationService;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -35,6 +36,9 @@ public class CommentController {
   @Autowired
   TaskRepository taskRepository;
 
+  @Autowired
+  NotificationService notificationService;
+
   @GetMapping
   public List<TaskComment> getAllComments() {
     return taskCommentRepository.findAll();
@@ -46,13 +50,31 @@ public class CommentController {
   }
 
   @PostMapping
-public CommentResponse createComment(@RequestBody CommentRequest request) {
+  public CommentResponse createComment(@RequestBody CommentRequest request) {
 
     User commentBy = userRepository.findById(request.getCreatedById())
-        .orElseThrow(() -> new RuntimeException("User not found"));
+      .orElseThrow(() -> new RuntimeException("User not found"));
 
     Task task = taskRepository.findById(request.getTaskId())
-        .orElseThrow(() -> new RuntimeException("Task not found"));
+      .orElseThrow(() -> new RuntimeException("Task not found"));
+
+    User assignedTo = task.getAssignedTo(), createdBy = task.getCreatedBy();
+
+    if (assignedTo != null && !assignedTo.getId().equals(commentBy.getId())) {
+      notificationService.createNotification(
+        assignedTo.getId(),
+        "New comment on task: " + task.getTitle(),
+        request.getMessage()
+      );
+    }
+
+    if (createdBy != null && !createdBy.getId().equals(commentBy.getId())) {
+      notificationService.createNotification(
+        createdBy.getId(),
+        "New comment on task: " + task.getTitle(),
+        request.getMessage()
+      );
+    }
 
     TaskComment comment = new TaskComment();
     comment.setTask(task);
@@ -62,12 +84,12 @@ public CommentResponse createComment(@RequestBody CommentRequest request) {
     TaskComment saved = taskCommentRepository.save(comment);
 
     return new CommentResponse(
-        saved.getId(),
-        saved.getMessage(),
-        saved.getCommentBy().getFullName(),
-        saved.getCreatedAt()
+      saved.getId(),
+      saved.getMessage(),
+      saved.getCommentBy().getFullName(),
+      saved.getCreatedAt()
     );
-}
+  }
   
   @DeleteMapping("/{id}")
   public void deleteComment(@PathVariable Long id) {

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import com.accounting.backend.entities.Contract;
 import com.accounting.backend.entities.EmployeeAssignment;
 import com.accounting.backend.entities.Task;
+import com.accounting.backend.entities.TaskComment;
 import com.accounting.backend.entities.User;
 import com.accounting.backend.entities.UserRole;
 import com.accounting.backend.repositories.ContractRepository;
@@ -96,6 +97,24 @@ public class EmployeeProfileService {
         }
         m.put("tasks", taskMaps);
 
+        List<Map<String, Object>> assignedByTasks = new ArrayList<>();
+        for(Task t: taskRepository.findByCreatedBy_Id(userId)) {
+            if (t.getDeletedAt() != null) {
+                continue;
+            }
+            Map<String, Object> tm  = new HashMap<>();
+            tm.put("id", t.getId());
+            tm.put("title", t.getTitle());
+            tm.put("description", t.getDescription());
+            tm.put("status", t.getStatus() != null ? t.getStatus().name() : null);
+            tm.put("dueDate", t.getDueDate());
+            tm.put("departmentId", t.getDepartment() != null ? t.getDepartment().getId() : null);
+            tm.put("createdAt", t.getCreatedAt());
+            tm.put("comments", toCommentsMap(t));
+            assignedByTasks.add(tm);
+        }
+        m.put("assignedByTasks", assignedByTasks);
+
         List<Map<String, Object>> contractMaps = new ArrayList<>();
         for (Contract c : contractRepository.findByCreatedBy_Id(userId)) {
             if (c.getDeletedAt() != null) {
@@ -112,5 +131,18 @@ public class EmployeeProfileService {
         m.put("contracts", contractMaps);
 
         return m;
+    }
+
+    private List<Map<String, Object>> toCommentsMap(Task t) {
+        List<Map<String, Object>> commentMaps = new ArrayList<>();
+        for (TaskComment tc : t.getComments()) {
+            Map<String, Object> cm = new HashMap<>();
+            cm.put("id", tc.getId());
+            cm.put("comment", tc.getMessage());
+            cm.put("createdAt", tc.getCreatedAt());
+            cm.put("createdBy", tc.getCommentBy().getFullName());
+            commentMaps.add(cm);
+        }
+        return commentMaps;
     }
 }

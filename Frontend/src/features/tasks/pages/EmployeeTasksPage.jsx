@@ -4,11 +4,12 @@ import {
   CheckCircle2, Circle, Loader2
 } from 'lucide-react';
 import MainLayout from '../../../shared/layout/MainLayout';
-import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
+import { Avatar, CardSkeleton } from '../../../shared/components/HrShared';
+import TaskDetailsModel from './TaskDetailsModel';
+import { Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
-import {getTaskByAssignedToId, addTask, deleteTask, updateTask } from '../../../api/tasks';
-import { addCommentToTask } from '../../../api/comments';
+import { getTaskByAssignedToId, addTask, deleteTask, updateTask } from '../../../api/tasks';
 
 // ─── Status Mapping ────────────────────────────────────────────────────────
 const STATUS_TO_ARABIC = {
@@ -437,93 +438,12 @@ function EmployeeTasksPage() {
 
       {/* Task Details Modal */}
       {selectedTask && (
-        <Modal
-          title="تفاصيل المهمة"
+        <TaskDetailsModel
+          selectedTask={selectedTask}
+          setTasks={setTasks}
+          setSelectedTask={setSelectedTask}
           onClose={() => setSelectedTask(null)}
-          footer={
-            <button
-              onClick={() => setSelectedTask(null)}
-              className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel"
-            >
-              اغلاق
-            </button>
-          }
-        >
-          <div className="space-y-4">
-
-            {/* Title */}
-            <div>
-              <p className="text-xs text-appSubtext">العنوان</p>
-              <p className="text-sm font-semibold text-appText">
-                {selectedTask.title}
-              </p>
-            </div>
-
-            {/* Description */}
-            <div>
-              <p className="text-xs text-appSubtext">الوصف</p>
-              <p className="text-sm text-appText bg-appMuted p-2 rounded-lg">
-                {selectedTask.description || 'لا يوجد وصف'}
-              </p>
-            </div>
-
-            {/* Assigned */}
-            <div>
-              <p className="text-xs text-appSubtext">الموظف</p>
-              <p className="text-sm text-appText">
-                {selectedTask.assignedToName || 'غير محدد'}
-              </p>
-            </div>
-
-            {/* Deadline */}
-            <div>
-              <p className="text-xs text-appSubtext">موعد التسليم</p>
-              <p className="text-sm text-appText">
-                {selectedTask.dueDate
-                  ? new Date(selectedTask.dueDate).toLocaleString()
-                  : 'غير محدد'}
-              </p>
-            </div>
-
-            {/* Comments Section */}
-            <div>
-              <p className="text-xs text-appSubtext mb-2">التعليقات</p>
-
-              {/* Comments list (temporary static) */}
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {(selectedTask.comments || []).length === 0 ? (
-                  <p className="text-xs text-appSubtext">لا توجد تعليقات</p>
-                ) : (
-                  selectedTask.comments.map((c, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-2 bg-appMuted p-2 rounded-lg"
-                    >
-                      {/* Avatar */}
-                      <div className="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-xs font-semibold">
-                        {c.createdByName?.charAt(0) || "?"}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-appText">
-                          {c.createdByName || "Unknown"}
-                        </span>
-                        <span className="text-xs text-appSubtext">
-                          {c.message}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Add comment */}
-              <AddCommentBox task={selectedTask} setTasks={setTasks} />
-            </div>
-
-          </div>
-        </Modal>
+        />
       )}
     </MainLayout>
   );

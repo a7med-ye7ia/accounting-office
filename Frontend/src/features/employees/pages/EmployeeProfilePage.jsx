@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import MainLayout from '../../../shared/layout/MainLayout';
 import { Avatar, StatusBadge, Modal } from '../../../shared/components/HrShared';
+import TaskDetailsModel from '../../tasks/pages/TaskDetailsModel';
 import {
   getEmployeeProfile,
   updateUser,
@@ -95,6 +96,8 @@ function EmployeeProfilePage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [assignedByTasks, setAssignedByTasks] = useState([]);
 
   const loadEmployee = useCallback(async () => {
     if (!id) {
@@ -115,6 +118,7 @@ function EmployeeProfilePage() {
       setBranches(branchData);
       setRoles(roleData);
       setEmployee(profileData);
+      setAssignedByTasks(Array.isArray(profileData.assignedByTasks) ? profileData.assignedByTasks : []);
       setFormData({});
     } catch (err) {
       setError('خطأ في تحميل بيانات الموظف');
@@ -382,6 +386,31 @@ function EmployeeProfilePage() {
 
             <div className="bg-appSurface border border-appBorder rounded-2xl p-6 space-y-3">
               <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-appSubtext flex items-center gap-2 mb-2">
+                <ListTodo size={16} /> المهام التي قمت بتعينها
+              </h3>
+              {assignedByTasks.length === 0 ? (
+                <p className="text-appSubtext text-sm">لا توجد مهام مسجّلة لهذا الموظف.</p>
+              ) : (
+                <ul className="divide-y divide-appBorder rounded-xl border border-appBorder overflow-hidden">
+                  {assignedByTasks.map((task) => (
+                    <li
+                      key={task.id}
+                      onClick={() => setSelectedTask(task)}
+                      className="ps-4 pe-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 cursor-pointer hover:bg-appMuted/50 ui-transition"
+                    >
+                      <div>
+                        <p className="font-semibold text-appText text-sm">{task.title}</p>
+                        <p className="text-[11px] text-appSubtext">{task.status}</p>
+                      </div>
+                      <p className="text-xs text-appSubtext tabular-nums" dir="ltr">{formatDateTime(task.dueDate)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-appSurface border border-appBorder rounded-2xl p-6 space-y-3">
+              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-appSubtext flex items-center gap-2 mb-2">
                 <ListTodo size={16} /> المهام المرتبطة
               </h3>
               {tasks.length === 0 ? (
@@ -547,6 +576,16 @@ function EmployeeProfilePage() {
             لا يمكن التراجع عن هذا الإجراء.
           </p>
         </Modal>
+      )}
+
+      {/* Task Details Modal */}
+      {selectedTask && (
+        <TaskDetailsModel
+          selectedTask={selectedTask}
+          setTasks={setAssignedByTasks}
+          setSelectedTask={setSelectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
       )}
     </MainLayout>
   );
