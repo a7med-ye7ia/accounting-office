@@ -41,6 +41,9 @@ public class Contract {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "ocr_data", columnDefinition = "TEXT")
+    private String ocrData;
+
     // Getters and setters
 
     public Long getId() { return id; }
@@ -69,11 +72,14 @@ public class Contract {
 
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+
+    public String getOcrData() { return ocrData; }
+    public void setOcrData(String ocrData) { this.ocrData = ocrData; }
     @Override
     public String toString() {
         return "Contract [id=" + id + ", type=" + type + ", company=" + company + ", createdBy=" + createdBy
                 + ", filePath=" + filePath + ", status=" + status + ", createdAt=" + createdAt + ", updatedAt="
-                + updatedAt + ", deletedAt=" + deletedAt + "]";
+                + updatedAt + ", deletedAt=" + deletedAt + ", ocrData='" + ocrData + "']";
     }
     @Override
     public int hashCode() {
