@@ -146,6 +146,32 @@ public class AuthController {
     }
 
     /**
+     * POST /api/auth/change-password
+     * Allows a user to change their password using their temporary password.
+     * If the user's status is PENDING_VERIFICATION, it will be changed to ACTIVE
+     * upon successful password change, unlocking their account.
+     *
+     * Request body:
+     * {
+     *   "email": "user@example.com",
+     *   "currentPassword": "12345678",
+     *   "newPassword": "MyNewSecurePass!"
+     * }
+     *
+     * Response: 200 OK | 400 Bad Request
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<AuthResponse> changePassword(
+            @RequestBody com.accounting.backend.dtos.ChangePasswordRequest request) {
+        AuthResponse response = authService.changePassword(request);
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
      * Extract the raw JWT token from the Authorization header.
      *
      * @param authHeader the full Authorization header value (e.g. "Bearer eyJhbG...")

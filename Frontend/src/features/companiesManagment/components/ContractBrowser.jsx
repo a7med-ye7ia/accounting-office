@@ -10,6 +10,7 @@ import ChatModal from "./ChatModal";
 import UploadModal from "./UploadModal";
 import DeleteToast from "./DeleteToast";
 import { CreateAmendmentAiPageView } from "./CreateAmendmentAiModal";
+import AddCompanyModal from "./AddCompanyModal";
 
 const BASE_PATH = "/ContractBrowser";
 
@@ -55,65 +56,62 @@ export default function ContractBrowser() {
   /* ---- Article Chat State ---- */
   const [selectedArticle, setSelectedArticle] = useState(null);
 
+  /* ---- Add Company State ---- */
+  const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
+
   /* ---- Load Companies ---- */
-  useEffect(() => {
-    const loadCompanies = async () => {
-      setLoadingCompanies(true);
-      setCompaniesError(null);
+  const loadCompanies = useCallback(async () => {
+    setLoadingCompanies(true);
+    setCompaniesError(null);
 
-      try {
-        const data = await fetchCompanies();
-        console.log("Companies data:", data);
+    try {
+      const data = await fetchCompanies();
+      console.log("Companies data:", data);
 
-        const transformedCompanies = data.map((company) => ({
-          id: company.id,
-          icon: "🏢",
-          name: company.name,
-          description: company.companyType,
-          establishmentContracts: (company.contracts || [])
-            .filter((c) => c.type === "ESTABLISHMENT")
-            .map((c) => ({
-              id: c.id,
-              name: c.filePath || `Contract ${c.id}`,
-              type: "establishment",
-              date: c.createdAt,
-              size: "N/A",
-              company_name: c.company_name,
-              company_address: c.company_address,
-              company_type: c.company_type,
-              law_reference: c.law_reference,
-              company_capital: c.company_capital,
-              commercial_register_number: c.commercial_register_number,
-              approval_date: c.approval_date,
-              real_estate_registry_minutes_number:
-                c.real_estate_registry_minutes_number,
-              company_duration: c.company_duration,
-              company_activity: c.company_activity,
-              articles: c.articles,
-            })),
-          amendmentContracts: (company.contracts || [])
-            .filter((c) => c.type === "CREATING")
-            .map((c) => ({
-              id: c.id,
-              name: c.filePath || `Contract ${c.id}`,
-              type: "amendment",
-              date: c.createdAt,
-              size: "N/A",
-            })),
-          otherContracts: [],
-        }));
+      const transformedCompanies = data.map((company) => ({
+        id: company.id,
+        icon: "🏢",
+        name: company.name,
+        description: company.companyType,
+        establishmentContracts: (company.contracts || [])
+          .filter((c) => c.type === "ESTABLISHMENT" || c.type === "CREATING") // Note: The enum is CREATING in backend
+          .map((c) => ({
+            id: c.id,
+            name: c.filePath || `Contract ${c.id}`,
+            type: "establishment",
+            date: c.createdAt,
+            size: "N/A",
+            // Parse OCR data if available, fallback to contract entity fields
+            ...(c.ocrData ? JSON.parse(c.ocrData) : {
+              company_name: company.name,
+              company_type: company.companyType,
+              commercial_register_number: company.commercialRegNo
+            })
+          })),
+        amendmentContracts: (company.contracts || [])
+          .filter((c) => c.type === "UPDATING")
+          .map((c) => ({
+            id: c.id,
+            name: c.filePath || `Contract ${c.id}`,
+            type: "amendment",
+            date: c.createdAt,
+            size: "N/A",
+          })),
+        otherContracts: [],
+      }));
 
-        setCompanies(transformedCompanies || []);
-      } catch (error) {
-        console.error("Error fetching companies:", error);
-        setCompaniesError("فشل تحميل الشركات. حاول مرة أخرى لاحقًا.");
-      } finally {
-        setLoadingCompanies(false);
-      }
-    };
-
-    loadCompanies();
+      setCompanies(transformedCompanies || []);
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      setCompaniesError("فشل تحميل الشركات. حاول مرة أخرى لاحقًا.");
+    } finally {
+      setLoadingCompanies(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCompanies();
+  }, [loadCompanies]);
 
   /* ---- Derived Data ---- */
   const selectedCompany = useMemo(() => {
@@ -432,6 +430,7 @@ export default function ContractBrowser() {
               <CompanyList
                 companies={companies}
                 onSelectCompany={handleSelectCompany}
+                onAddCompany={() => setShowAddCompanyModal(true)}
               />
             )}
           </>
@@ -508,6 +507,16 @@ export default function ContractBrowser() {
           contract={deletedContract}
           onUndo={handleUndo}
           onExpire={handleExpire}
+        />
+      )}
+
+      {showAddCompanyModal && (
+        <AddCompanyModal
+          onClose={() => setShowAddCompanyModal(false)}
+          onCompanyCreated={() => {
+            setShowAddCompanyModal(false);
+            loadCompanies();
+          }}
         />
       )}
     </div>

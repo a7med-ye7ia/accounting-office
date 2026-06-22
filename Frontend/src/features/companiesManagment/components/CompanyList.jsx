@@ -1,4 +1,4 @@
-export default function CompanyList({ companies, onSelectCompany }) {
+export default function CompanyList({ companies, onSelectCompany, onAddCompany }) {
   return (
     <div className="animate-fadeIn">
       <div className="text-center mb-10 space-y-2">
@@ -6,6 +6,21 @@ export default function CompanyList({ companies, onSelectCompany }) {
         <p className="text-appSubtext max-w-xl mx-auto leading-relaxed">
           اختر شركة لعرض العقود المتاحة
         </p>
+        {onAddCompany && (
+          <button
+            type="button"
+            onClick={onAddCompany}
+            className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white
+                       bg-gradient-to-l from-emerald-600 to-indigo-700 shadow-lg shadow-indigo-200/50
+                       hover:shadow-xl hover:shadow-indigo-300/60 hover:-translate-y-0.5
+                       active:scale-95 transition-all duration-200 cursor-pointer"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            إضافة شركة
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
