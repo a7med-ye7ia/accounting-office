@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        /* Font is registered in PdfService via useFont(); name must match exactly */
+        html, body {
+            font-family: 'Noto Naskh', serif;
+            direction: rtl;
+            color: #000;
+            font-size: 18px;
+            line-height: 2;
+            background: white;
+            padding: 0;
+            margin: 0;
+        }
+
+        .page {
+            border-left: 8px solid #000;
+            border-right: 8px solid #000;
+            padding: 20px 40px;
+        }
+
+        /* ===========================
+        Header
+        =========================== */
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .heading {
+            margin-bottom: 12px;
+        }
+
+        .doc-title,
+        .doc-company,
+        .doc-legal {
+            display: inline-block;
+            border-bottom: 4px solid black;
+            padding-bottom: 3px;
+            margin: 0;
+        }
+
+        .doc-title {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .doc-company {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .doc-legal {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        /* ===========================
+        Article labels
+        =========================== */
+
+        .article-labels {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        /* ===========================
+        Sections
+        =========================== */
+
+        .section {
+            margin-bottom: 35px;
+
+            /* remove card appearance */
+            border: none;
+            background: none;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 15px;
+            text-align: right;
+        }
+
+        .intro {
+            margin: 25px 0 35px;
+        }
+
+        .intro-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 0 18px;
+        }
+
+        .intro-body {
+            text-align: justify;
+            font-size: 20px;
+            line-height: 2;
+            margin: 0 0 18px;
+            white-space: pre-wrap;
+        }
+
+        .intro-clause {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: right;
+            margin: 0;
+        }
+
+        p {
+            white-space: pre-wrap;
+            text-align: justify;
+            font-size: 20px;
+            line-height: 2;
+            margin: 0;
+        }
+
+        /* ===========================
+        Tables
+        =========================== */
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        th,
+        td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            font-weight: bold;
+            background: white;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="header">
+
+    <div class="heading">
+        <h1 class="doc-title" th:text="${contractTitle}">عقد تعديل المادة 5</h1>
+    </div>
+
+    <div class="heading">
+        <h2 class="doc-company" th:text="${companyName}">شركة الرمال للتنمية والعقارات الحديثة</h2>
+    </div>
+
+    <div class="heading">
+        <h3 class="doc-legal" th:text="${companyLegalLine}">
+            شركة ذات مسئولية محدودة خاضعة لأحكام القانون رقم 159 لسنة 1981
+        </h3>
+    </div>
+
+    </div>
+
+    <div class="intro">
+        <h3 class="intro-title">تمهيد</h3>
+        <p class="intro-body" th:text="${introText}">سبق وأن تكونت الشركة خاضعة لأحكام القانون رقم 159 لسنة 1981، وتم الاتفاق على تعديل بعض مواد عقد التأسيس.</p>
+        <p class="intro-clause">أولاً: يعتبر التمهيد جزءاً لا يتجزأ من العقد.</p>
+    </div>
+
+    <div th:each="sec,iterStat : ${sections}">
+        <div class="section">
+            <h3 class="section-title" th:text="${sec.sectionTitleBefore}">الماده قبل التعديل</h3>
+            <p th:text="${sec.beforeText}">النص قبل</p>
+        </div>
+
+        <div class="section">
+            <h3 class="section-title" th:text="${sec.sectionTitleAfter}">الماده بعد التعديل</h3>
+            <p th:text="${sec.afterText}">النص بعد</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
