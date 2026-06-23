@@ -3,6 +3,7 @@ import ContractChatMessage from "../components/ContractChatMessage";
 import useMockAsyncData from "../../../shared/hooks/useMockAsyncData";
 import MainLayout from "../../../shared/layout/MainLayout";
 import { fetchArabicContractClauses } from "../../../shared/data/mockDataService";
+import MicButton from "../../../shared/components/MicButton.jsx";
 
 function EditContractAiPage() {
   const { data: clauses, isLoading } = useMockAsyncData(fetchArabicContractClauses, []);
@@ -43,7 +44,16 @@ function EditContractAiPage() {
         </section>
         <aside className="rounded-2xl border border-appBorder bg-appSurface p-6 shadow-panel">
           <h4 className="text-sm font-bold uppercase tracking-wider text-appSubtext">LLM Amendment Workspace</h4>
-          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="اكتب طلب التعديل القانوني المطلوب هنا" dir="rtl" className="mt-4 h-32 w-full rounded-xl bg-appMuted p-3 font-arabic text-sm outline-none ring-brand focus:ring-2" />
+          <div className="mt-4 flex items-start gap-2">
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="اكتب طلب التعديل القانوني المطلوب هنا"
+              dir="rtl"
+              className="flex-1 h-32 rounded-xl bg-appMuted p-3 font-arabic text-sm outline-none ring-brand focus:ring-2"
+            />
+            <MicButton value={prompt} onChange={setPrompt} className="mt-1" />
+          </div>
           <div className="mt-4 grid gap-2">
             <button className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white" onClick={submitPrompt}>Generate Amendment</button>
             <button className="rounded-xl bg-appMuted px-4 py-2 text-sm font-semibold text-appText">Apply Suggested Change</button>

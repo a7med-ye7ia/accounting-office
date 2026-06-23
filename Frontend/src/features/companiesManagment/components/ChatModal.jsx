@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { MODAL_LAYER_CLASS } from "../../../shared/components/HrShared.jsx";
 import { generateResponse } from "../../../api/ollamaClient.js";
+import MicButton from "../../../shared/components/MicButton.jsx";
 
 export default function ChatModal({ article, onClose }) {
   const [message, setMessage] = useState("");
@@ -169,7 +170,7 @@ export default function ChatModal({ article, onClose }) {
         </div>
 
         <div className="px-8 py-5 bg-appSurface border-t border-appBorder mt-auto shadow-inner">
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 items-center">
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -178,6 +179,7 @@ export default function ChatModal({ article, onClose }) {
               rows={1}
               className="flex-1 resize-none border border-appBorder rounded-2xl px-5 py-3.5 text-sm text-appText placeholder:text-appSubtext/80 ui-transition bg-appMuted hover:bg-appMuted/80 focus:bg-appSurface focus:border-brand focus:ring-2 focus:ring-brand/25"
             />
+            <MicButton value={message} onChange={setMessage} />
             <button
               type="button"
               onClick={handleSend}

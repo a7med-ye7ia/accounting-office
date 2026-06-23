@@ -3,6 +3,7 @@ import { mockArticles } from "../../../shared/data/mockData";
 import companyExampleData from "../../../shared/data/companyExampleData.json";
 import { generateResponse } from "../../../api/ollamaClient.js";
 import { getEmbedding } from "../../../api/ollamaClient.js";
+import MicButton from "../../../shared/components/MicButton.jsx";
 
 
 // ─────────────────────────────────────────────────────────
@@ -812,14 +813,22 @@ function ArticleSection({
             <label className="text-sm font-bold text-slate-700">
               تعليمات التعديل للذكاء الاصطناعي
             </label>
-            <textarea
-              value={section.prompt}
-              onChange={(e) => onChangeSection(index, { prompt: e.target.value })}
-              rows={3}
-              placeholder="مثال: غيّر نسبة رأس المال إلى 30٪، وأضف بنداً يتعلق بحقوق المساهمين..."
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 resize-y"
-            />
+            <div className="flex items-start gap-2">
+              <textarea
+                value={section.prompt}
+                onChange={(e) => onChangeSection(index, { prompt: e.target.value })}
+                rows={3}
+                placeholder="مثال: غيّر نسبة رأس المال إلى 30٪، وأضف بنداً يتعلق بحقوق المساهمين..."
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 resize-y"
+              />
+              <MicButton 
+                value={section.prompt} 
+                onChange={(newPrompt) => onChangeSection(index, { prompt: newPrompt })} 
+                variant="slate" 
+                className="mt-1" 
+              />
+            </div>
           </div>
 
           {/* Send */}

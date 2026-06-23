@@ -6,7 +6,7 @@ export const login = async (credentials) => {
 };
 
 export const register = async (userData) => {
-  const response = await apiClient.post('/auth/register', userData);
+  const response = await apiClient.post('/users', userData);
   return response.data;
 };
 
@@ -28,9 +28,9 @@ export const getCurrentUser = async (token) => {
 
 export const verify = async (token) => {
   const response = await apiClient.get('/auth/verify', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
   });
   return response.data;
 };
