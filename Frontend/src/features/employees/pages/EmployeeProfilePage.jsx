@@ -15,6 +15,7 @@ import {
 import { fetchDepartments } from '../../../api/departments';
 import { fetchBranches } from '../../../api/branches';
 import { fetchRoles } from '../../../api/roles';
+import { deleteTask, updateTask } from '../../../api/tasks';
 
 const UI_MAP = {
   owner: 'صاحب العمل',
@@ -215,6 +216,32 @@ function EmployeeProfilePage() {
       console.error('Error deleting employee:', err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!taskId) return;
+    try {
+      await deleteTask(taskId);
+      setAssignedByTasks(prev => prev.filter(t => t.id !== taskId));
+      if (selectedTask && selectedTask.id === taskId) {
+        setSelectedTask(null);
+      }
+    } catch (err) {
+      console.error('Error deleting task:', err);
+    }
+  };
+
+  const handleAcceptTask = async (taskId) => {
+    if (!taskId) return;
+    try {
+      await updateTask(taskId, { status: 'ACCEPTED' });
+      setAssignedByTasks(prev => prev.filter(t => t.id !== taskId));
+      if (selectedTask && selectedTask.id === taskId) {
+        setSelectedTask(null);
+      }
+    } catch (err) {
+      console.error('Error accepting task:', err);
     }
   };
 
@@ -584,6 +611,8 @@ function EmployeeProfilePage() {
           selectedTask={selectedTask}
           setTasks={setAssignedByTasks}
           setSelectedTask={setSelectedTask}
+          onDelete={() => handleDeleteTask(selectedTask.id)}
+          onAccept={() => handleAcceptTask(selectedTask.id)}
           onClose={() => setSelectedTask(null)}
         />
       )}

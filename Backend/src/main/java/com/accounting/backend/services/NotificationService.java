@@ -23,7 +23,9 @@ public class NotificationService {
     public void createNotification(
             Long userId,
             String title,
-            String message) {
+            String message, 
+            com.accounting.backend.enums.NotificationType type,
+            Long referenceId) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow();
@@ -32,6 +34,8 @@ public class NotificationService {
         notification.setUser(user);
         notification.setTitle(title);
         notification.setMessage(message);
+        notification.setType(type);
+        notification.setReferenceId(referenceId);
 
         notificationRepository.save(notification);
     }

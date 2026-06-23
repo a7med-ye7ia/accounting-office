@@ -111,6 +111,7 @@ public class EmployeeProfileService {
             tm.put("departmentId", t.getDepartment() != null ? t.getDepartment().getId() : null);
             tm.put("createdAt", t.getCreatedAt());
             tm.put("comments", toCommentsMap(t));
+            tm.put("assignedToName", t.getAssignedTo() != null ? t.getAssignedTo().getFullName() : null);
             assignedByTasks.add(tm);
         }
         m.put("assignedByTasks", assignedByTasks);

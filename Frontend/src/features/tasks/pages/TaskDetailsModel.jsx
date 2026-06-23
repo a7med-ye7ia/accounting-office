@@ -56,30 +56,50 @@ function AddCommentBox({ task, setTasks, setSelectedTask }) {
   );
 }
 
-function TaskDetailsModel({ selectedTask, setTasks, onClose, setSelectedTask }) {
+function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept, setSelectedTask }) {
   if (!selectedTask) return null;
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  // console.log('Current user:', user);
+  console.log('Selected task:', selectedTask);
+  const isOwner = user ? user.roleName === 'owner' : false;
+
 
   return (
     <Modal
-      title="تفاصيل المهمة"
+      title={selectedTask.title || 'تفاصيل المهمة'}
       onClose={onClose}
       footer={
-        <button
-          onClick={onClose}
-          className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel"
-        >
-          اغلاق
-        </button>
+        <>
+          {isOwner && (
+            <>
+              <button
+                onClick={onDelete}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 ui-transition shadow-panel"
+              >
+                حذف المهمة
+              </button>
+              
+              {selectedTask.status === 'DONE' && (
+                <button
+                  onClick={onAccept}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 ui-transition shadow-panel"
+                >
+                  قبول المهمة
+                </button>
+              )}
+            </>
+          )}
+
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-white bg-slate-600 rounded-xl hover:bg-slate-700 ui-transition shadow-panel"
+          >
+            اغلاق
+          </button>
+        </>
       }
     >
       <div className="space-y-4">
-        <div>
-          <p className="text-xs text-appSubtext">العنوان</p>
-          <p className="text-sm font-semibold text-appText">
-            {selectedTask.title}
-          </p>
-        </div>
-
         <div>
           <p className="text-xs text-appSubtext">الوصف</p>
           <p className="text-sm text-appText bg-appMuted p-2 rounded-lg">
@@ -87,12 +107,12 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, setSelectedTask }) 
           </p>
         </div>
 
-        <div>
-          <p className="text-xs text-appSubtext">الموظف</p>
+        {isOwner && (<div>
+          <p className="text-xs text-appSubtext">الموظف المسؤال</p>
           <p className="text-sm text-appText">
             {selectedTask.assignedToName || 'غير محدد'}
           </p>
-        </div>
+        </div>)}
 
         <div>
           <p className="text-xs text-appSubtext">موعد التسليم</p>

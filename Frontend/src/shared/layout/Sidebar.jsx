@@ -13,6 +13,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  LogOut,
 } from "lucide-react";
 
 const navItems = [
@@ -32,6 +33,13 @@ function Sidebar() {
   const isDrawer = isMobile || isTablet;
   /** Desktop narrow rail: collapsed and not overlay drawer */
   const isCollapsedRail = !isOpen && !isDrawer;
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("authToken");
+
+    window.location.href = "/";
+  };
 
   useEffect(() => {
     if (!isDrawer || !isOpen) return;
@@ -86,11 +94,12 @@ function Sidebar() {
 
           {!isDrawer && isOpen && (
             <div className="min-w-0 flex-1 overflow-hidden text-end">
-              <span className="font-display block truncate text-lg font-black tracking-tight text-brand">
+              {/* <span className="font-display block truncate text-lg font-black tracking-tight text-brand">
                 المحاسبة
-              </span>
-              <span className="mt-0.5 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-appSubtext">
-                Accounting Office
+              </span> */}
+              <span className="mt-0.5 block truncate text-[20px] font-semibold uppercase tracking-[0.14em] text-appSubtext">
+                {/* Accounting Office */}
+                CLARA
               </span>
             </div>
           )}
@@ -182,6 +191,33 @@ function Sidebar() {
           })}
         </nav>
 
+        <div
+          className={`shrink-0 border-t border-appBorder ${
+            isCollapsedRail
+              ? "flex justify-center p-3"
+              : "p-3 sm:p-4"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={handleLogout}
+            title={isCollapsedRail ? "تسجيل الخروج" : undefined}
+            className={`flex items-center rounded-2xl border border-red-500/20 text-red-500 ui-transition hover:bg-red-500/10 hover:border-red-500/40 ${
+              isCollapsedRail
+                ? "h-10 w-10 justify-center sm:h-11 sm:w-11"
+                : "w-full justify-center gap-2 px-4 py-2.5 text-xs font-bold sm:py-3"
+            }`}
+          >
+            <LogOut size={18} />
+
+            {!isCollapsedRail && (
+              <span>
+                تسجيل الخروج
+              </span>
+            )}
+          </button>
+        </div>
+
         {isDrawer && isOpen && (
           <div className="shrink-0 border-t border-appBorder p-3 sm:p-4">
             <button
@@ -193,6 +229,8 @@ function Sidebar() {
             </button>
           </div>
         )}
+
+
       </aside>
     </div>
   );

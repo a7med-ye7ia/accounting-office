@@ -1,5 +1,5 @@
 import { Menu, Sun, Moon, Bell } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { useEffect, useState } from "react";
@@ -39,6 +39,24 @@ function TopBar() {
 
     fetchForUser();
   }, [currentUser]);
+
+  const navigate = useNavigate();
+  const handleNotificationClick = (notificationId) => {
+    markNotificationAsRead(notificationId);
+    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    // Navigate to the notification detail page or perform any other action
+    const notification = notifications.find(n => n.id === notificationId);
+    if (!notification) return;
+    if (notification.type == 'TASK_ASSIGNED') {
+        navigate("/EmployeeTasks", {
+          state: {
+            openTaskId: notification.referenceId
+          }
+        });
+    }
+  }
 
   return (
     <header className="z-30 shrink-0 border-b border-appBorder bg-appSurface/70 backdrop-blur-2xl backdrop-saturate-150">
@@ -98,7 +116,7 @@ function TopBar() {
                       <div className="px-3 py-2 text-sm text-appSubtext">لا توجد إشعارات</div>
                     ) : (
                       notifications.map((n, idx) => (
-                        <div key={n.id || idx} className="rounded-md px-3 py-2 hover:bg-appMuted/60" onClick={() => {markNotificationAsRead(n.id); setUnreadCount(c => Math.max(0, c - 1));}}>
+                        <div key={n.id || idx} className="rounded-md px-3 py-2 hover:bg-appMuted/60" onClick={() => handleNotificationClick(n.id)}>
                           <div className="text-sm font-semibold text-appText truncate">{n.title}</div>
                           {n.message && <div className="mt-1 text-xs text-appSubtext truncate">{n.message}</div>}
                         </div>
