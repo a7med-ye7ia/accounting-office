@@ -3,6 +3,7 @@ import {
   ClipboardList, Plus, AlertTriangle,
   CheckCircle2, Circle, Loader2
 } from 'lucide-react';
+import { useLocation } from "react-router-dom";
 import MainLayout from '../../../shared/layout/MainLayout';
 import { Avatar, CardSkeleton } from '../../../shared/components/HrShared';
 import TaskDetailsModel from './TaskDetailsModel';
@@ -72,23 +73,6 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
       {/* Title */}
       <p className="text-sm font-semibold text-appText mb-2.5 leading-snug pr-2">{task.title}</p>
 
-      {/*task.description && (
-        <div className="mb-2">
-          <button
-            onClick={() => setShowDesc(v => !v)}
-            className="text-[11px] text-brand hover:underline ui-transition"
-          >
-            {showDesc ? 'إخفاء الوصف' : 'عرض الوصف'}
-          </button>
-
-          {showDesc && (
-            <p className="text-xs text-appSubtext mt-1 leading-relaxed bg-appMuted p-2 rounded-lg">
-              {task.description}
-            </p>
-          )}
-        </div>
-      ) */}
-
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         {task.dueDate && <DeadlinePill dueDate={task.dueDate} />}
@@ -103,7 +87,6 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
             }}
             className="flex items-center gap-1 px-2 py-1 text-[11px] bg-badgeBlueBg text-badgeBlueText rounded-lg border border-appBorder hover:bg-badgeBlueBg/80 ui-transition"
           >
-            {/* <ArrowRight size={11} /> */}
             بدءالعمل
           </button>
         )}
@@ -267,6 +250,22 @@ function EmployeeTasksPage() {
     loadData();
   }, []);
 
+  const location = useLocation();
+  useEffect(() => {
+    const taskId = location.state?.openTaskId;
+
+    if(!taskId || tasks.length === 0) return;
+
+    const task = tasks.find(
+      t => t.id === taskId
+    );
+
+    if(task){
+      setSelectedTask(task);
+    }
+
+  }, [tasks, location.state]);
+
   const moveTask = async (id, newStatus) => {
     const newTask = {
       status: newStatus
@@ -339,7 +338,7 @@ function EmployeeTasksPage() {
   );
 
   return (
-    <MainLayout title="مهام الموظفين" subtitle="" actions={JSON.parse(localStorage.getItem('user')).roleName === "employee" ? null : actions}>
+    <MainLayout title="مهامي" subtitle="" actions={JSON.parse(localStorage.getItem('user')).roleName === "employee" ? null : actions}>
       <div className="space-y-5">
 
         {/* Quick Stats */}

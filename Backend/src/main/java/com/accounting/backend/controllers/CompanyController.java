@@ -61,12 +61,7 @@ public class CompanyController {
                 .filter(contract -> contract.getCompany().getId().equals(company.getId()))
                 .toList());
         }
-        
-        System.out.println("==================================");
-        for(Company company : companies) {
-            System.out.println(company);
-        }
-        System.out.println("==================================");
+
         return companies;
     }
 
