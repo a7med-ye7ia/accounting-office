@@ -325,8 +325,30 @@ export default function ContractBrowser() {
     );
   };
 
-  const handleGenerateAiAmendment = (payload) => {
+  const handleGenerateAiAmendment = async (payload) => {
     console.log("🤖 AI amendment request:", payload);
+    try {
+      const token = localStorage.getItem("authToken");
+      const sections = (payload.sections || []).map((s) => ({
+        selectedArticleTitle: s.selectedArticleTitle || "",
+        beforeText: s.beforeText || "",
+        afterText: s.afterText || "",
+      }));
+      await fetch("http://localhost:8080/api/activity-logs/amendment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({
+          companyId: selectedCompany?.id,
+          companyName: selectedCompany?.name,
+          sections,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to log amendment activity:", err);
+    }
     if (selectedCompany) {
       navigate(
         `${BASE_PATH}/company/${selectedCompany.id}/type/amendment`

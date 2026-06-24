@@ -4,9 +4,13 @@ import com.accounting.backend.dto.TaskRequest;
 import com.accounting.backend.dto.TaskResponse;
 import com.accounting.backend.entities.Task;
 import com.accounting.backend.entities.User;
+import com.accounting.backend.enums.ActionType;
+import com.accounting.backend.enums.EntityType;
 import com.accounting.backend.enums.UserStatus;
 import com.accounting.backend.repositories.TaskRepository;
 import com.accounting.backend.repositories.UserRepository;
+import com.accounting.backend.security.JwtService;
+import com.accounting.backend.services.ActivityLogService;
 import com.accounting.backend.services.NotificationService;
 import com.accounting.backend.enums.NotificationType;
 
@@ -15,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +36,10 @@ public class TaskController {
 
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private JwtService jwtService;
+    @Autowired
+    private ActivityLogService activityLogService;
 
     @GetMapping
     public List<TaskResponse> getAllTasks() {
@@ -84,11 +93,21 @@ public class TaskController {
         notificationService.createNotification(assignedUser.getId(), "New task",
                              message, NotificationType.TASK_ASSIGNED, saved.getId());
 
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("taskTitle", saved.getTitle());
+        meta.put("assignedTo", assignedUser.getFullName());
+        activityLogService.logAction(
+            createdByUser.getId(), null, EntityType.TASK, saved.getId(),
+            ActionType.CREATE, "تم إنشاء مهمة: " + saved.getTitle(), meta);
+
         return ResponseEntity.ok(TaskResponse.mapToResponse(saved));
     }
 
     @PutMapping("/{id}")
-    public TaskResponse updateTask(@PathVariable Long id, @RequestBody TaskRequest request) {
+    public TaskResponse updateTask(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id,
+            @RequestBody TaskRequest request) {
 
         Task task = taskRepository.findById(id).orElseThrow();
 
@@ -120,13 +139,50 @@ public class TaskController {
 
         Task updated = taskRepository.save(task);
 
+        Long callerId = extractUserId(authHeader);
+        if (callerId != null) {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("taskTitle", updated.getTitle());
+            if (request.getAssignedToId() != null) {
+                userRepository.findById(request.getAssignedToId())
+                    .ifPresent(u -> meta.put("assignedTo", u.getFullName()));
+            }
+            activityLogService.logAction(
+                callerId, null, EntityType.TASK, updated.getId(),
+                ActionType.UPDATE, "تم تحديث المهمة: " + updated.getTitle(), meta);
+        }
+
         return TaskResponse.mapToResponse(updated);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteTask(@PathVariable Long id) {
-        // TODO : handle the delete logic (soft delete)
+    public void deleteTask(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        Task task = taskRepository.findById(id).orElse(null);
+        if (task == null) return;
+
+        String taskTitle = task.getTitle();
         taskRepository.deleteById(id);
+
+        Long callerId = extractUserId(authHeader);
+        if (callerId != null) {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("taskTitle", taskTitle);
+            activityLogService.logAction(
+                callerId, null, EntityType.TASK, id,
+                ActionType.DELETE, "تم حذف المهمة: " + taskTitle, meta);
+        }
+    }
+
+    private Long extractUserId(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
+        try {
+            String token = authHeader.substring(7).trim();
+            return jwtService.extractUserId(token);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @GetMapping("/assignedTo/{userId}")

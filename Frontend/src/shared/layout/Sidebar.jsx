@@ -10,6 +10,7 @@ import {
   Building2,
   FileSignature,
   BookOpen,
+  History,
   X,
   ChevronRight,
   ChevronLeft,
@@ -24,7 +25,8 @@ const navItems = [
   { label: "مهام الموظفين", path: "/EmployeeTasks", icon: ClipboardList },
   { label: "الأقسام", path: "/Departments", icon: Building2 },
   { label: "العقود", path: "/ContractAi", icon: FileSignature },
-  { label: "السجل", path: "/EquilibriumLedger", icon: BookOpen },
+  { label: " السجل المالي", path: "/EquilibriumLedger", icon: BookOpen },
+  { label: "سجل النشاطات", path: "/ActivityHistory", icon: History },
 ];
 
 function Sidebar() {
