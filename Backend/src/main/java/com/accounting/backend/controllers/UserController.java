@@ -119,7 +119,7 @@ public class UserController {
     @PostMapping
     @Transactional
     public ResponseEntity<?> createUser(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = "Authorization") String authHeader,
             @RequestBody EmployeeCreationRequest request) {
 
         // ── 0. validate fields ──────────────────────────────────────────────

@@ -1,11 +1,13 @@
 package com.accounting.backend.controllers;
 
+import java.net.ResponseCache;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -102,9 +104,9 @@ public class CompanyController {
     }
 
     @PostMapping("/with-contract")
-    public Company createCompanyWithContract(
+    public ResponseEntity<?> createCompanyWithContract(
             @RequestBody CreateCompanyRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
 
         // Resolve the authenticated user from the JWT token
         User user = null;
@@ -119,13 +121,13 @@ public class CompanyController {
         }
         // Development fallback: if no valid auth, use the first user in the database
         if (user == null) {
-            user = userRepository.findAll().stream().findFirst().orElseThrow();
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
 
         // Create and save the company
         Company company = new Company();
         company.setName(request.getCompany_name());
-        company.setCompanyType(CompanyType.LLC);
+        company.setCompanyType(request.getCompany_type());
         company.setCommercialRegNo(request.getCommercial_register_number());
         company.setStatus(CompanyStatus.ACTIVE);
         company.setCreatedAt(LocalDateTime.now());
@@ -164,7 +166,7 @@ public class CompanyController {
         // Populate the transient contracts list on the company
         savedCompany.setContracts(Collections.singletonList(contract));
 
-        return savedCompany;
+        return ResponseEntity.ok(savedCompany);
     }
 
     private String escapeJson(String str) {
