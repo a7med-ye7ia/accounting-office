@@ -151,7 +151,6 @@ public class UserController {
         }
         // ── 7. Send temporary password email ─────────────────────────────────
         try {
-            emailService.sendTemporaryPasswordEmail(request.getEmail(), request.getFullName(), tempPassword);
             User savedUser = userRepository.save(user);
             // ── 5. Create EmployeeAssignment if department and branch are provided ─
             if (request.getDepartmentId() != null && request.getBranchId() != null) {
@@ -182,6 +181,7 @@ public class UserController {
             }
             Map<String, Object> response = buildUserMap(savedUser);
             response.put("message", "User created. A temporary password has been sent to " + savedUser.getEmail());
+            emailService.sendTemporaryPasswordEmail(request.getEmail(), request.getFullName(), tempPassword);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
