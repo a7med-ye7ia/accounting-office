@@ -21,6 +21,7 @@ import com.accounting.backend.repositories.TaskCommentRepository;
 import com.accounting.backend.repositories.TaskRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.services.NotificationService;
+import com.accounting.backend.enums.NotificationType;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -64,7 +65,9 @@ public class CommentController {
       notificationService.createNotification(
         assignedTo.getId(),
         "New comment on task: " + task.getTitle(),
-        request.getMessage()
+        request.getMessage(),
+        NotificationType.COMMENT_ADDED,
+        task.getId()
       );
     }
 
@@ -72,7 +75,9 @@ public class CommentController {
       notificationService.createNotification(
         createdBy.getId(),
         "New comment on task: " + task.getTitle(),
-        request.getMessage()
+        request.getMessage(),
+        NotificationType.COMMENT_ADDED,
+        task.getId()
       );
     }
 

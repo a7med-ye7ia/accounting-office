@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   MapPin, Mail, Phone, Calendar, Building2, Briefcase,
   Edit, Save, X, AlertCircle, CheckCircle, ListTodo, FileText,
@@ -133,6 +133,22 @@ function EmployeeProfilePage() {
   useEffect(() => {
     loadEmployee();
   }, [loadEmployee]);
+
+  const location = useLocation();
+  useEffect(() => {
+    const taskId = location.state?.openTaskId;
+
+    if(!taskId || assignedByTasks.length === 0) return;
+
+    const task = assignedByTasks.find(
+      t => t.id === taskId
+    );
+
+    if(task){
+      setSelectedTask(task);
+    }
+
+  }, [assignedByTasks, location.state]);
 
   const handleEdit = () => {
     if (!employee) return;

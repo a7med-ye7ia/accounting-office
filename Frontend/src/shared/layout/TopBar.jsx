@@ -48,13 +48,37 @@ function TopBar() {
 
     // Navigate to the notification detail page or perform any other action
     const notification = notifications.find(n => n.id === notificationId);
+    const handleEmpAction = () => {
+      navigate("/EmployeeTasks", {
+        state: {
+          openTaskId: notification.referenceId
+        }
+      });
+    };
+
+    const handleOwnerAction = () => {
+      navigate(`/profile/${currentUser.id}`, {
+        state: {
+          openTaskId: notification.referenceId
+        }
+      });
+    };
+
     if (!notification) return;
-    if (notification.type == 'TASK_ASSIGNED') {
-        navigate("/EmployeeTasks", {
-          state: {
-            openTaskId: notification.referenceId
-          }
-        });
+    if (notification.type === 'TASK_ASSIGNED') {
+      console.log("yyyyyyyyyyyyyyyyyy");
+        handleEmpAction();
+    }
+
+    if (notification.type === 'COMMENT_ADDED') {
+      console.log("xxxxxxxxxxxxx", currentUser);
+      if (currentUser && currentUser.roleName === 'owner') {
+        handleOwnerAction();
+      }
+
+      if (currentUser && currentUser.roleName === 'employee') {
+        handleEmpAction();
+      }
     }
   }
 
