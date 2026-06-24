@@ -477,4 +477,14 @@ public class UserController {
 
         return exists;
     }
+
+    private void addChange(List<Map<String, String>> changes, String field, String oldVal, String newVal) {
+        if (oldVal == null && newVal == null) return;
+        if (oldVal != null && oldVal.equals(newVal)) return;
+        Map<String, String> entry = new HashMap<>();
+        entry.put("field", field);
+        entry.put("old", oldVal != null ? oldVal : "");
+        entry.put("new", newVal != null ? newVal : "");
+        changes.add(entry);
+    }
 }

@@ -90,7 +90,7 @@ function ActivityHistory({ logs, loading, onRetry }) {
                         <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-xl bg-appMuted/60 px-3 py-2">
                           <span className="font-bold text-appSubtext">{c.field}:</span>
                           <span className="line-through text-danger/70">{c.old}</span>
-                          <span className="text-appSubtext/50">→</span>
+                          <span className="text-appSubtext/50">←</span>
                           <span className="font-semibold text-success">{c.new}</span>
                         </div>
                       ))}
