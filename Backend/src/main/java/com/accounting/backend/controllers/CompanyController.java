@@ -1,5 +1,6 @@
 package com.accounting.backend.controllers;
 
+import java.io.IOException;
 import java.net.ResponseCache;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,7 +19,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.accounting.backend.dtos.CreateCompanyRequest;
 import com.accounting.backend.entities.Company;
@@ -31,6 +35,7 @@ import com.accounting.backend.repositories.CompanyRepository;
 import com.accounting.backend.repositories.ContractRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.security.JwtService;
+import com.accounting.backend.services.FileService;
 
 
 @RestController
@@ -52,6 +57,9 @@ public class CompanyController {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private FileService fileService;
 
     @GetMapping
     public List<Company> getAllCompanies() {
@@ -103,10 +111,15 @@ public class CompanyController {
         companyRepository.deleteById(id);
     }
 
-    @PostMapping("/with-contract")
+    @PostMapping(
+        value = "/with-contract",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<?> createCompanyWithContract(
-            @RequestBody CreateCompanyRequest request,
-            @RequestHeader(value = "Authorization") String authHeader) {
+            @RequestPart("company") CreateCompanyRequest request,
+            @RequestPart("pdf") MultipartFile pdfFile,
+            @RequestPart("ocrJson") String ocrJson,
+            @RequestHeader("Authorization") String authHeader) {
 
         // Resolve the authenticated user from the JWT token
         User user = null;
@@ -128,43 +141,42 @@ public class CompanyController {
         Company company = new Company();
         company.setName(request.getCompany_name());
         company.setCompanyType(request.getCompany_type());
-        company.setCommercialRegNo(request.getCommercial_register_number());
+        company.setCommercialRegNo(request.getCommercial_register_number() + LocalDateTime.now().toString());
         company.setStatus(CompanyStatus.ACTIVE);
         company.setCreatedAt(LocalDateTime.now());
         company.setUpdatedAt(LocalDateTime.now());
         Company savedCompany = companyRepository.save(company);
+
+        String companyFolder = savedCompany.getId() + " - " + savedCompany.getName();
+        // TODO: remove the opration from the database if folder creation fails
+        try {
+
+            fileService.createFolder(companyFolder);
+            fileService.createFolder(companyFolder + "/CreationContract");
+            fileService.createFolder(companyFolder + "/EditingContracts");
+            fileService.createFolder(companyFolder + "/OtherTypesContracts");
+            
+            fileService.saveFile(companyFolder + "/CreationContract", pdfFile);
+            fileService.saveJsonFile(companyFolder + "/CreationContract", "ocrData.json", ocrJson);
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
 
         // Create and save the establishment contract
         Contract contract = new Contract();
         contract.setType(ContractType.CREATING);
         contract.setCompany(savedCompany);
         contract.setCreatedBy(user);
-        contract.setStatus(ContractStatus.DRAFT);
+        contract.setStatus(ContractStatus.APPROVED);
+        contract.setFilePath(companyFolder + "/CreationContract/" + pdfFile.getOriginalFilename());
         contract.setCreatedAt(LocalDateTime.now());
         contract.setUpdatedAt(LocalDateTime.now());
 
-        // Store the OCR request as JSON in ocrData
-        try {
-            StringBuilder json = new StringBuilder();
-            json.append("{");
-            json.append("\"company_name\":\"").append(escapeJson(request.getCompany_name())).append("\",");
-            json.append("\"company_address\":\"").append(escapeJson(request.getCompany_address())).append("\",");
-            json.append("\"company_type\":\"").append(escapeJson(request.getCompany_type())).append("\",");
-            json.append("\"company_capital\":\"").append(escapeJson(request.getCompany_capital())).append("\",");
-            json.append("\"commercial_register_number\":\"").append(escapeJson(request.getCommercial_register_number())).append("\",");
-            json.append("\"approval_date\":\"").append(escapeJson(request.getApproval_date())).append("\",");
-            json.append("\"company_duration\":\"").append(escapeJson(request.getCompany_duration())).append("\",");
-            json.append("\"company_activity\":\"").append(escapeJson(request.getCompany_activity())).append("\"");
-            json.append("}");
-            contract.setOcrData(json.toString());
-        } catch (Exception e) {
-            contract.setOcrData(null);
-        }
-
         contractRepository.save(contract);
 
-        // Populate the transient contracts list on the company
         savedCompany.setContracts(Collections.singletonList(contract));
+        
 
         return ResponseEntity.ok(savedCompany);
     }

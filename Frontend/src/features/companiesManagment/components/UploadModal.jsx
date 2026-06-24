@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { uploadFileToCompanyFolder } from "../../../api/files";
 
 export default function UploadModal({
   onClose,
   onUpload,
+  companyFolderName,
   initialType = null,
   uploadZoneOnly = false,
 }) {
@@ -77,19 +79,28 @@ export default function UploadModal({
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file || !type) return;
 
-    onUpload({
-      id: `file-${Date.now()}`,
-      name: file.name,
-      type,
-      size: (file.size / 1024).toFixed(1) + " KB",
-      date: new Date().toLocaleDateString("ar-SA"),
-      file,
-    });
+    try {
+      const result = await uploadFileToCompanyFolder(file, companyFolderName);
 
-    handleClose();
+      console.log("Upload success:", result);
+
+      onUpload({
+        id: `file-${Date.now()}`,
+        name: file.name,
+        type,
+        size: (file.size / 1024).toFixed(1) + " KB",
+        date: new Date().toLocaleDateString("ar-SA"),
+        file,
+      });
+
+      handleClose();
+    } catch (err) {
+      console.error(err);
+      setError("فشل رفع الملف");
+    }
   };
 
   const typeLabel =

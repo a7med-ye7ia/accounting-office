@@ -22,6 +22,7 @@ const navItems = [
   { label: "المستندات", path: "/Documents", icon: FileText },
   { label: "الموظفون", path: "/EmployeeManagement", icon: Users },
   { label: "مهام الموظفين", path: "/EmployeeTasks", icon: ClipboardList },
+  { label: "underWork", path: "/AssignedTasks", icon: ClipboardList },
   { label: "الأقسام", path: "/Departments", icon: Building2 },
   { label: "العقود", path: "/ContractAi", icon: FileSignature },
   { label: "السجل", path: "/EquilibriumLedger", icon: BookOpen },

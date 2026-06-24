@@ -35,18 +35,45 @@ export const uploadPdfForOcr = async (file) => {
  * Create a company with an establishment contract using OCR-extracted data.
  * The OCR JSON is stored as-is in the contract's ocrData field.
  */
-export const createCompanyFromOcr = async (ocrData) => {
-  try {
-    const token = localStorage.getItem('token');
-    const headers = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+export const createCompanyFromOcr = async (
+  companyData,
+  pdfFile,
+  ocrData
+) => {
+  const formData = new FormData();
 
-    const response = await apiClient.post('/companies/with-contract', ocrData, { headers });
-    return response.data;
-  } catch (error) {
-    console.error('Error creating company from OCR:', error);
-    throw error;
+  // CreateCompanyRequest
+  formData.append(
+    "company",
+    new Blob(
+      [JSON.stringify(companyData)],
+      { type: "application/json" }
+    )
+  );
+
+  // PDF
+  formData.append("pdf", pdfFile);
+
+  // OCR JSON (saved as file later)
+  formData.append(
+    "ocrJson",
+    JSON.stringify(ocrData, null, 2)
+  );
+
+  console.log("FormData contents:");
+  for (let pair of formData.entries()) {
+    console.log(pair[0] + ': ' + pair[1]);
   }
+
+  const response = await apiClient.post(
+    "/companies/with-contract",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
 };

@@ -67,22 +67,42 @@ export default function AddCompanyModal({ onClose, onCompanyCreated }) {
   };
 
   // ---- Step 2 → Step 3: Create company ----
-  const handleCreateCompany = async () => {
-    if (!ocrData) return;
-    setLoading(true);
-    setError("");
+const handleCreateCompany = async () => {
+  if (!ocrData || !file) return;
 
-    try {
-      const company = await createCompanyFromOcr(ocrData);
-      setCreatedCompany(company);
-      setStep(3);
-      if (onCompanyCreated) onCompanyCreated();
-    } catch (err) {
-      setError("فشل في إنشاء الشركة. حاول مرة أخرى.");
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  setError("");
+
+  try {
+    const companyRequest = {
+      company_name: ocrData.company_name,
+      company_type: ocrData.company_type,
+      company_address: ocrData.company_address,
+      company_capital: ocrData.company_capital,
+      commercial_register_number: ocrData.commercial_register_number,
+      approval_date: ocrData.approval_date,
+      company_duration: ocrData.company_duration,
+      company_activity: ocrData.company_activity,
+    };
+
+    const company = await createCompanyFromOcr(
+      companyRequest,
+      file,
+      ocrData
+    );
+
+    setCreatedCompany(company);
+    setStep(3);
+
+    if (onCompanyCreated) {
+      onCompanyCreated();
     }
-  };
+  } catch (err) {
+    setError("فشل في إنشاء الشركة. حاول مرة أخرى.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ---- Step indicators ----
   const steps = [
