@@ -122,6 +122,21 @@ public class UserController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody EmployeeCreationRequest request) {
 
+        // ── 0. validate fields ──────────────────────────────────────────────
+        List<String> errors = checkExist(request);
+        if (!errors.isEmpty()) {
+            StringBuilder errorsString = new StringBuilder();
+            errorsString.append("The following fields already exist: ");
+            for (int i = 0; i < errors.size(); i++) {
+                errorsString.append(errors.get(i));
+                if (i < errors.size() - 1) {
+                    errorsString.append(", ");
+                }
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", errorsString.toString()));
+        }
+
         // ── 1. Owner-only guard ──────────────────────────────────────────────
         ResponseEntity<?> authError = requireOwnerRole(authHeader);
         if (authError != null) {
@@ -365,5 +380,25 @@ public class UserController {
         }
 
         return userData;
+    }
+
+    private List<String> checkExist(EmployeeCreationRequest request) {
+        List<String> exists = new ArrayList<>();
+        Optional<User> emailCheck = userRepository.findByEmail(request.getEmail());
+        if (emailCheck.isPresent()) {
+            exists.add("Email already exists");
+        }
+        
+        Optional<User> nationalIdCheck = userRepository.findByNationalId(request.getNationalId());
+        if (nationalIdCheck.isPresent()) {
+            exists.add("National ID already exists");
+        }
+
+        Optional<User> phoneCheck = userRepository.findByPhone(request.getPhone());
+        if (phoneCheck.isPresent()) {
+            exists.add("Phone number already exists");
+        }
+
+        return exists;
     }
 }
