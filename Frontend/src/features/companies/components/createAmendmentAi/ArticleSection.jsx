@@ -6,7 +6,7 @@
 //   • smart semantic search
 // ─────────────────────────────────────────────────────────
 import { useState } from "react";
-import { generateResponse, getEmbedding } from "../../../../api/ollamaClient.js";
+import { generateResponse, getEmbedding, rerank } from "../../../../api/ollamaClient.js";
 import MicButton from "../../../../shared/components/MicButton.jsx";
 import DocumentLoader from "./DocumentLoader.jsx";
 import ArticlePickerOverlay from "./ArticlePickerOverlay.jsx";
@@ -44,7 +44,7 @@ export default function ArticleSection({
     if (!section.prompt) return;
     setSmartSearching(true);
     setSmartSearchNote("");
-    setSmartSearchScore(null); // Cach
+    setSmartSearchScore(null);
     setSmartSearchResults([]);
     try {
       const cosineSimilarity = (vecA, vecB) => {
@@ -57,31 +57,54 @@ export default function ArticleSection({
 
       const minSimilarity = 0.5;
 
+      // 1. Get query embedding
       const queryVector = await getEmbedding(section.prompt);
       if (!queryVector) {
         setSmartSearchNote("تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً، وتم إيقاف البحث الذكي مؤقتاً.");
         return;
       }
 
+      // 2. Embedding-based scoring (cosine similarity) for all articles
       const scoredArticles = await Promise.all(
         availableArticles.map(async (article) => {
-          const articleVector = await getCachedEmbedding( // Cach
-            String(article.id), // Cach
-            String(article.content ?? "") // Cach
-          ); // Cach
+          const articleVector = await getCachedEmbedding(
+            String(article.id),
+            String(article.content ?? "")
+          );
           const score = cosineSimilarity(queryVector, articleVector);
           return { ...article, score };
         })
       );
 
       const sorted = scoredArticles.sort((a, b) => b.score - a.score);
-      const topMatches = sorted.slice(0, 3);
-      const topScore = sorted[0] ? sorted[0].score : null; // Cach
-      setSmartSearchScore(topScore); // Cach
-      setSmartSearchResults(topMatches);
+      const topScore = sorted[0]?.score ?? null;
+      setSmartSearchScore(topScore);
 
       if (!topScore || topScore < minSimilarity) {
         setSmartSearchNote("لم يتم العثور على مادة مطابقة بشكل كافٍ.");
+        return;
+      }
+
+      // 3. Pass top 15 candidates through the reranker
+      const candidates = sorted.slice(0, 15);
+      const rerankResults = await rerank(
+        section.prompt,
+        candidates.map((a) => a.content || "")
+      );
+
+      if (rerankResults && rerankResults.length > 0) {
+        const bestResult = rerankResults[0];
+        const bestArticle = candidates[bestResult.index];
+        handlePickArticle(bestArticle);
+        setSmartSearchScore(bestResult.relevance_score);
+        setSmartSearchNote(
+          `✓ تم اختيار المادة رقم ${bestArticle.id}: ${bestArticle.title}`
+        );
+      } else {
+        // 4. Reranker failed — fall back to top 3 from cosine similarity
+        const topMatches = sorted.slice(0, 3);
+        setSmartSearchResults(topMatches);
+        setSmartSearchNote("تعذر استخدام الرانكر، تم عرض أفضل 3 نتائج.");
       }
     } catch (err) {
       console.error("Smart search error:", err);
