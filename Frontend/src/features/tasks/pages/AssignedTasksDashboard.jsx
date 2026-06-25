@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ClipboardList,
   Clock3,
@@ -10,50 +11,65 @@ import {
 
 import MainLayout from "../../../shared/layout/MainLayout";
 import TaskDetailsModel from "./TaskDetailsModel";
+import { getTaskByCreatedById, deleteTask, updateTask } from "../../../api/tasks";
 
 const STATUS_AR = {
   PENDING: "في الانتظار",
   IN_PROGRESS: "قيد التنفيذ",
   DONE: "بانتظار المراجعة",
-  APPROVED: "معتمدة",
+  ACCEPTED: "معتمدة",
 };
 
 export default function AssignedTasksDashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
 
-  // replace with api response
-  const [tasks] = useState([
-    {
-      id: 27,
-      title: "إعداد تقرير الرواتب",
-      description: "مراجعة رواتب الموظفين",
-      assignedToName: "employee1",
-      createdAt: "2026-06-24T11:09:10.375052",
-      dueDate: "2026-06-28T09:00:00",
-      status: "PENDING",
-      comments: [],
-    },
-    {
-      id: 28,
-      title: "مراجعة العقود",
-      description: "مراجعة العقود الجديدة",
-      assignedToName: "employee2",
-      createdAt: "2026-06-22T11:09:10.375052",
-      dueDate: "2026-06-25T09:00:00",
-      status: "IN_PROGRESS",
-      comments: [],
-    },
-    {
-      id: 29,
-      title: "تحديث ملفات الموظفين",
-      description: "رفع المستندات المطلوبة",
-      assignedToName: "employee3",
-      createdAt: "2026-06-20T11:09:10.375052",
-      dueDate: "2026-06-24T09:00:00",
-      status: "DONE",
-      comments: [],
-    },
-  ]);
+  const navigate = useNavigate();
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+      navigate('/login');
+      return;
+    }
+
+    const user = JSON.parse(userStr);
+    if (user.roleName === 'employee') {
+      navigate('/dashboard');
+      return;
+    }
+
+    const loadTasks = async () => {
+      try {
+        const tasksData = await getTaskByCreatedById(user.id);
+        setTasks(tasksData);
+      } catch (error) {
+        console.error("Error loading tasks:", error);
+      }
+    };
+
+    loadTasks();
+  }, [navigate]);
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await deleteTask(taskId);
+      setTasks((prevTasks) => prevTasks.filter((t) => t.id !== taskId));
+      setSelectedTask(null);
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
+  };
+
+  const handleAcceptTask = async (taskId) => {
+    try {
+      await updateTask(taskId, { status: "ACCEPTED" });
+      setTasks((prevTasks) => prevTasks.map((t) => (t.id === taskId ? { ...t, status: "ACCEPTED" } : t)));
+      setSelectedTask((prev) => ({ ...prev, status: "ACCEPTED" }));
+    } catch (error) {
+      console.error("Error accepting task:", error);
+    }
+  };
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -76,7 +92,7 @@ export default function AssignedTasksDashboard() {
     pending: tasks.filter((t) => t.status === "PENDING").length,
     progress: tasks.filter((t) => t.status === "IN_PROGRESS").length,
     review: tasks.filter((t) => t.status === "DONE").length,
-    approved: tasks.filter((t) => t.status === "APPROVED").length,
+    approved: tasks.filter((t) => t.status === "ACCEPTED").length,
   };
 
   const getStatusBadge = (status) => {
@@ -102,7 +118,7 @@ export default function AssignedTasksDashboard() {
           </span>
         );
 
-      case "APPROVED":
+      case "ACCEPTED":
         return (
           <span className="px-2 py-1 rounded-lg text-xs bg-success/15 text-success">
             معتمدة
@@ -235,7 +251,7 @@ export default function AssignedTasksDashboard() {
             <option value="PENDING">في الانتظار</option>
             <option value="IN_PROGRESS">قيد التنفيذ</option>
             <option value="DONE">بانتظار المراجعة</option>
-            <option value="APPROVED">معتمدة</option>
+            <option value="ACCEPTED">معتمدة</option>
           </select>
         </div>
 
@@ -301,7 +317,10 @@ export default function AssignedTasksDashboard() {
       {selectedTask && (
         <TaskDetailsModel
           selectedTask={selectedTask}
+          setTasks={setTasks}
           setSelectedTask={setSelectedTask}
+          onDelete={() => handleDeleteTask(selectedTask.id)}
+          onAccept={() => handleAcceptTask(selectedTask.id)}
           onClose={() => setSelectedTask(null)}
         />
       )}

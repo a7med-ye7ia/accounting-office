@@ -192,4 +192,12 @@ public class TaskController {
             .map(TaskResponse::mapToResponse)
             .toList();
     }
+
+    @GetMapping("/createdBy/{userId}")
+    public List<TaskResponse> getTasksByCreatedByUserId(@PathVariable Long userId) {
+        return taskRepository.findByCreatedBy_Id(userId)
+            .stream()
+            .map(TaskResponse::mapToResponse)
+            .toList();
+    }
 }

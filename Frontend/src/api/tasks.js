@@ -49,3 +49,13 @@ export const getTaskByAssignedToId = async (userId) => {
     throw error;
   }
 };
+
+export const getTaskByCreatedById = async (userId) => {
+  try {
+    const response = await apiClient.get(`/tasks/createdBy/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching tasks by creator ID:', error);
+    throw error;
+  }
+};
