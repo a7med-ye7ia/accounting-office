@@ -1,8 +1,106 @@
-import ContractCard from "./ContractCard";
-import UploadCard from "./UploadCard";
+import { Eye, FilePlus2, FileText, FolderOpen, Sparkles, Trash2, Upload } from "lucide-react";
+import { getContractTypeMeta } from "../services/companyWorkflow";
+
+const TYPE_ICONS = {
+  establishment: FileText,
+  amendment: FilePlus2,
+  other: FolderOpen,
+};
+
+const TYPE_STYLES = {
+  establishment: {
+    badge: "bg-badgeBlueBg text-badgeBlueText border-appBorder",
+    icon: "bg-badgeBlueBg/80 text-badgeBlueText",
+  },
+  amendment: {
+    badge: "bg-badgePurpleBg text-badgePurpleText border-appBorder",
+    icon: "bg-badgePurpleBg/80 text-badgePurpleText",
+  },
+  other: {
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-900",
+    icon: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200",
+  },
+};
+
+function UploadAction({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-appBorder bg-appMuted px-4 text-sm font-bold text-appText shadow-sm ui-transition hover:border-brand/50 hover:bg-brand/10 hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+    >
+      <Upload className="h-4 w-4" aria-hidden="true" />
+      رفع ملف جديد
+    </button>
+  );
+}
+
+function EmptyContracts({ meta }) {
+  return (
+    <div className="rounded-lg border border-dashed border-appBorder bg-appSurface p-8 text-center shadow-panel">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-appBorder bg-appMuted text-appSubtext">
+        <FolderOpen className="h-7 w-7" aria-hidden="true" />
+      </div>
+      <h3 className="mt-4 text-base font-bold text-appText">{meta.emptyLabel}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-appSubtext">
+        يمكنك رفع ملف جديد ليظهر ضمن هذا القسم.
+      </p>
+    </div>
+  );
+}
+
+function ContractCard({ contract, onDelete, onOpen }) {
+  const meta = getContractTypeMeta(contract.type);
+  const styles = TYPE_STYLES[contract.type] || TYPE_STYLES.other;
+
+  return (
+    <article className="group rounded-lg border border-appBorder bg-appSurface p-4 shadow-panel ui-transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-raise-hover">
+      <div className="flex items-start justify-between gap-3">
+        <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${styles.badge}`}>
+          {meta.shortLabel}
+        </span>
+        {contract.date && <span className="text-xs text-appSubtext">{contract.date}</span>}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onOpen?.(contract)}
+        className="mt-5 flex w-full flex-col items-center rounded-lg border border-transparent p-2 text-center ui-transition hover:border-appBorder hover:bg-appMuted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      >
+        <div className={`flex h-20 w-16 flex-col items-center justify-center rounded-lg ${styles.icon} ui-transition group-hover:scale-105`}>
+          <FileText className="mb-1 h-8 w-8" aria-hidden="true" />
+          <span className="text-[10px] font-bold">PDF</span>
+        </div>
+        <h4 className="mt-4 min-h-[40px] text-sm font-bold leading-snug text-appText line-clamp-2">
+          {contract.name}
+        </h4>
+        {contract.size && <p className="mt-1 text-xs text-appSubtext">{contract.size}</p>}
+      </button>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-appBorder pt-3">
+        <button
+          type="button"
+          onClick={() => onOpen?.(contract)}
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-appBorder bg-appMuted text-xs font-bold text-appText ui-transition hover:border-brand/40 hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          <Eye className="h-4 w-4" aria-hidden="true" />
+          عرض
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete?.(contract)}
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-danger/20 bg-danger/10 text-xs font-bold text-danger ui-transition hover:bg-danger hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+          حذف
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export default function PdfList({
-  contracts = [], // 2. تأمين لو مفيش مصفوفة مبعوتة
+  contracts = [],
   contractType,
   company,
   onSelectPdf,
@@ -12,138 +110,77 @@ export default function PdfList({
 }) {
   if (!company) return null;
 
-  const typeLabel =
-    contractType === "establishment"
-      ? "عقود تأسيس"
-      : contractType === "amendment"
-        ? "عقود تعديل"
-        : "عقود وملفات أخرى";
-  const typeIcon =
-    contractType === "establishment"
-      ? "📋"
-      : contractType === "amendment"
-        ? "📝"
-        : "📁";
-
-  const enrichedContracts = contracts.map((c) => ({
-    ...c,
-    type: c.type || contractType,
+  const meta = getContractTypeMeta(contractType);
+  const HeaderIcon = TYPE_ICONS[contractType] || FolderOpen;
+  const enrichedContracts = contracts.map((contract) => ({
+    ...contract,
+    type: contract.type || contractType,
   }));
 
   return (
-    <div className="animate-fadeIn">
-      <div className="text-center mb-10 space-y-2">
-        <div className="text-4xl">{typeIcon}</div>
-        <h2 className="text-3xl font-bold text-appText">{typeLabel}</h2>
-        <p className="text-appSubtext">{company.name}</p>
-      </div>
-
-      {enrichedContracts.length === 0 && (
-        <div className="text-center py-16 rounded-2xl border border-appBorder bg-appSurface shadow-panel max-w-md mx-auto">
-          <div className="w-20 h-20 mx-auto mb-4 bg-appMuted rounded-2xl flex items-center justify-center border border-appBorder">
-            <svg
-              className="w-10 h-10 text-appSubtext"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-              />
-            </svg>
+    <div className="animate-fadeIn space-y-6">
+      <section className="rounded-lg border border-appBorder bg-appSurface p-5 shadow-panel md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-appBorder bg-appMuted text-brand">
+              <HeaderIcon className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-brand">{company.name}</p>
+              <h2 className="mt-1 text-2xl font-bold text-appText md:text-3xl">{meta.label}</h2>
+              <p className="mt-2 text-sm text-appSubtext">
+                {enrichedContracts.length === 1
+                  ? "ملف واحد متاح"
+                  : `${enrichedContracts.length} ملفات متاحة`}
+              </p>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-appText mb-2">لا توجد عقود</h3>
-          <p className="text-sm text-appSubtext px-6">لم يتم إضافة أي عقود بعد لهذا القسم</p>
+
+          <div className="w-full md:w-64">
+            <UploadAction onClick={onUploadClick} />
+          </div>
+        </div>
+      </section>
+
+      {enrichedContracts.length === 0 ? (
+        <EmptyContracts meta={meta} />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {enrichedContracts.map((contract, index) => (
+            <div
+              key={contract.id}
+              className="animate-fadeIn"
+              style={{ animationDelay: `${index * 45}ms` }}
+            >
+              <ContractCard contract={contract} onDelete={onDelete} onOpen={onSelectPdf} />
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-        {enrichedContracts.map((contract, index) => (
-          <div
-            key={contract.id}
-            className="animate-fadeIn"
-            style={{ animationDelay: `${index * 80}ms` }}
-          >
-            <ContractCard contract={contract} onDelete={onDelete} onEdit={onSelectPdf} />
-          </div>
-        ))}
-      </div>
-
-      {/* منطقة الرفع والـ AI الديناميكية */}
-      <div className="max-w-4xl mx-auto mt-10 px-4 pb-10">
-        {/* العنوان الجانبي */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-px flex-1 bg-slate-200" />
-          <span className="text-sm text-slate-400 font-medium text-center">
-            {contractType === "amendment"
-              ? "خيارات الإضافة والتعديل الذكي"
-              : "قم برفع ملف جديد"}
-          </span>
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-
-        {/* الحاوية اللي شايلاهم جنب بعض */}
-        <div
-          className={`grid gap-4 justify-items-center ${
-            contractType === "amendment"
-              ? "grid-cols-1 md:grid-cols-2"
-              : "grid-cols-1"
-          }`}
-        >
-          {/* كارت الرفع الأساسي */}
-          <div className="w-full max-w-xs">
-            <UploadCard onClick={onUploadClick} />
-          </div>
-
-          {/* كارت الـ AI المخطط باللون البنفسجي */}
-          {contractType === "amendment" && onCreateAiClick && (
-            <div className="w-full max-w-xs">
-              <button
-                type="button"
-                onClick={onCreateAiClick}
-                className="group relative w-full h-52 rounded-2xl
-                     border-2 border-dashed border-purple-300
-                     hover:border-purple-500 hover:bg-purple-50/50
-                     bg-white flex flex-col items-center justify-center gap-3
-                     transition-all duration-300 hover:scale-[1.02] hover:shadow-lg
-                     cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400"
-              >
-                {/* الأيقونة البنفسجية */}
-                <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                  <svg
-                    className="w-7 h-7 text-purple-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9.75 17L9 20l-1-1-3 1 1-3-1-1 3-.75M14 7h.01M6 13a8 8 0 1111.314 0L12 18.314 6.686 13A7.963 7.963 0 016 13z"
-                    />
-                  </svg>
-                </div>
-
-                {/* النصوص */}
-                <div className="text-center px-4">
-                  <span className="block text-sm font-bold text-purple-700 mb-1">
-                    Create Amendment using AI
-                  </span>
-                  <span className="block text-[11px] text-slate-400 leading-tight">
-                    إنشاء تعديل بالذكاء الاصطناعي <br /> اختر مادة واكتب
-                    تعليماتك
-                  </span>
-                </div>
-              </button>
+      {contractType === "amendment" && onCreateAiClick && (
+        <section className="rounded-lg border border-appBorder bg-appSurface p-4 shadow-panel">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-badgePurpleText/20 bg-badgePurpleBg text-badgePurpleText">
+                <Sparkles className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-appText">إنشاء تعديل بالذكاء الاصطناعي</h3>
+                <p className="text-xs text-appSubtext">اختر المواد واكتب تعليمات التعديل ثم راجع ملف PDF قبل اعتماده.</p>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={onCreateAiClick}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-badgePurpleText/20 bg-badgePurpleBg px-4 text-sm font-bold text-badgePurpleText ui-transition hover:border-badgePurpleText/40 hover:bg-badgePurpleBg/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              إنشاء تعديل
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,5 +1,53 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, FilePenLine, FileText, FolderOpen, Upload, X, XCircle } from "lucide-react";
 import { uploadFileToCompanyFolder } from "../../../api/files";
+import { getContractTypeMeta } from "../services/companyWorkflow";
+
+const TYPE_OPTIONS = [
+  {
+    key: "establishment",
+    icon: FileText,
+    description: "عقد تأسيس أو مستند أصلي للشركة.",
+  },
+  {
+    key: "amendment",
+    icon: FilePenLine,
+    description: "عقد تعديل أو تحديث على بيانات الشركة.",
+  },
+];
+
+function formatFileSize(size) {
+  return `${(size / 1024).toFixed(1)} KB`;
+}
+
+function TypeChoice({ option, selected, onClick }) {
+  const meta = getContractTypeMeta(option.key);
+  const Icon = option.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border p-4 text-right ui-transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+        selected
+          ? "border-brand bg-brand/10 text-brand"
+          : "border-appBorder bg-appSurface text-appText hover:border-brand/40 hover:bg-appMuted"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
+          selected ? "border-brand/20 bg-brand/10" : "border-appBorder bg-appMuted"
+        }`}>
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <p className="text-sm font-bold">{meta.label}</p>
+          <p className="mt-1 text-xs leading-5 text-appSubtext">{option.description}</p>
+        </div>
+      </div>
+    </button>
+  );
+}
 
 export default function UploadModal({
   onClose,
@@ -15,20 +63,12 @@ export default function UploadModal({
   const [dragOver, setDragOver] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
   }, []);
-
-  useEffect(() => {
-    if (initialType) {
-      setType(initialType);
-      setError("");
-    } else if (!uploadZoneOnly) {
-      setType(null);
-    }
-  }, [initialType, uploadZoneOnly]);
 
   useEffect(() => {
     if (!initialType || uploadZoneOnly) return;
@@ -40,22 +80,38 @@ export default function UploadModal({
     return () => clearTimeout(timer);
   }, [initialType, uploadZoneOnly]);
 
-  useEffect(() => {
-    setError("");
-  }, [file, type]);
-
   const handleClose = () => {
+    if (uploading) return;
     setIsVisible(false);
-    setTimeout(onClose, 300);
+    setTimeout(onClose, 220);
   };
 
-  const handleFileChange = (e) => {
-    const selected = e.target.files?.[0];
-    validateAndSetFile(selected);
+  const selectType = (nextType) => {
+    setType(nextType);
+    setFile(null);
+    setError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
+  const validateAndSetFile = (selected) => {
+    if (!selected) return;
+
+    if (selected.type !== "application/pdf") {
+      setError("يرجى اختيار ملف PDF فقط");
+      setFile(null);
+      return;
+    }
+
+    setFile(selected);
+    setError("");
+  };
+
+  const handleFileChange = (event) => {
+    validateAndSetFile(event.target.files?.[0]);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
     setDragOver(false);
 
     if (!type) {
@@ -63,177 +119,119 @@ export default function UploadModal({
       return;
     }
 
-    const dropped = e.dataTransfer.files?.[0];
-    validateAndSetFile(dropped);
-  };
-
-  const validateAndSetFile = (selected) => {
-    if (selected) {
-      if (selected.type === "application/pdf") {
-        setFile(selected);
-        setError("");
-      } else {
-        setError("يرجى اختيار ملف PDF فقط");
-        setFile(null);
-      }
-    }
+    validateAndSetFile(event.dataTransfer.files?.[0]);
   };
 
   const handleUpload = async () => {
-    if (!file || !type) return;
+    if (!file || !type || uploading) return;
+
+    setUploading(true);
+    setError("");
 
     try {
-      const result = await uploadFileToCompanyFolder(file, companyFolderName);
-
-      console.log("Upload success:", result);
+      await uploadFileToCompanyFolder(file, companyFolderName);
 
       onUpload({
         id: `file-${Date.now()}`,
         name: file.name,
         type,
-        size: (file.size / 1024).toFixed(1) + " KB",
+        size: formatFileSize(file.size),
         date: new Date().toLocaleDateString("ar-SA"),
         file,
       });
 
       handleClose();
-    } catch (err) {
-      console.error(err);
-      setError("فشل رفع الملف");
+    } catch (uploadError) {
+      console.error(uploadError);
+      setError("فشل رفع الملف. حاول مرة أخرى.");
+    } finally {
+      setUploading(false);
     }
   };
 
-  const typeLabel =
-    type === "establishment"
-      ? "عقود تأسيس"
-      : type === "amendment"
-        ? "عقود تعديل"
-        : type === "other"
-          ? "عقود وملفات أخرى"
-          : "";
+  const selectedMeta = type ? getContractTypeMeta(type) : null;
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4
-                  transition-all duration-300
-                  ${isVisible ? "bg-black/50 backdrop-blur-sm" : "bg-transparent"}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-200 ${
+        isVisible ? "bg-appText/45 backdrop-blur-sm" : "bg-transparent"
+      }`}
       onClick={handleClose}
     >
       <div
-        className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg
-                    overflow-hidden transition-all duration-300
-                    ${isVisible ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-4"}`}
-        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-xl overflow-hidden rounded-lg border border-appBorder bg-appSurface shadow-raise transition-all duration-200 ${
+          isVisible ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-3"
+        }`}
+        onClick={(event) => event.stopPropagation()}
         dir="rtl"
+        role="dialog"
+        aria-modal="true"
       >
-        {/* Header */}
-        <div className="bg-gradient-to-l from-green-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
+        <div className="flex items-start justify-between gap-4 border-b border-appBorder p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-brand/20 bg-brand/10 text-brand">
+              <Upload className="h-5 w-5" aria-hidden="true" />
             </div>
-            <h3 className="text-white font-bold text-lg">رفع عقد جديد</h3>
+            <div>
+              <h3 className="text-lg font-bold text-appText">رفع مستند للشركة</h3>
+              <p className="mt-1 text-sm leading-6 text-appSubtext">
+                اختر نوع المستند ثم ارفع ملف PDF ليتم حفظه في ملف الشركة الحالي.
+              </p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-2 cursor-pointer transition-all"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-appBorder bg-appMuted text-appSubtext ui-transition hover:text-appText"
+            aria-label="إغلاق"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6">
+        <div className="space-y-5 p-5">
           {!uploadZoneOnly && !initialType ? (
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-3">
-                اختر نوع العقد
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setType("establishment");
-                    setFile(null);
-                    setError("");
-                  }}
-                  className={`p-4 rounded-xl border-2 text-center transition-all duration-200 cursor-pointer
-                    ${type === "establishment"
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"}`}
-                >
-                  <div className="text-2xl mb-1">📋</div>
-                  <div className="text-sm font-medium">عقود تأسيس</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setType("amendment");
-                    setFile(null);
-                    setError("");
-                  }}
-                  className={`p-4 rounded-xl border-2 text-center transition-all duration-200 cursor-pointer
-                    ${type === "amendment"
-                      ? "border-amber-500 bg-amber-50 text-amber-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-amber-300"}`}
-                >
-                  <div className="text-2xl mb-1">📝</div>
-                  <div className="text-sm font-medium">عقود تعديل</div>
-                </button>
+            <section>
+              <h4 className="text-sm font-bold text-appText">نوع المستند</h4>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {TYPE_OPTIONS.map((option) => (
+                  <TypeChoice
+                    key={option.key}
+                    option={option}
+                    selected={type === option.key}
+                    onClick={() => selectType(option.key)}
+                  />
+                ))}
               </div>
-            </div>
-          ) : !uploadZoneOnly && initialType ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs text-slate-500 mb-1">نوع العقد المحدد</p>
-              <p
-                className={`text-sm font-bold ${
-                  type === "establishment"
-                    ? "text-indigo-700"
-                    : type === "amendment"
-                      ? "text-amber-700"
-                      : "text-emerald-700"
-                }`}
-              >
-                {typeLabel}
-              </p>
-            </div>
+            </section>
+          ) : selectedMeta ? (
+            <section className="rounded-lg border border-appBorder bg-appMuted p-4">
+              <p className="text-xs font-semibold text-appSubtext">نوع المستند المحدد</p>
+              <p className="mt-1 text-sm font-bold text-appText">{selectedMeta.label}</p>
+            </section>
           ) : null}
 
-          {/* Drag & Drop Zone */}
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-3">
-              ارفع الملف
-            </label>
-            <div
-              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300
-                        ${error
-                  ? "border-red-400 bg-red-50"
+          <section>
+            <h4 className="text-sm font-bold text-appText">ملف PDF</h4>
+            <button
+              type="button"
+              className={`mt-3 w-full rounded-lg border-2 border-dashed p-8 text-center ui-transition ${
+                error
+                  ? "border-danger/50 bg-danger/10"
                   : dragOver
-                    ? "border-indigo-400 bg-indigo-50"
+                    ? "border-brand bg-brand/10"
                     : file
-                      ? "border-green-400 bg-green-50"
-                      : type === "establishment"
-                        ? "border-slate-300 bg-slate-50 hover:border-indigo-500"
-                        : type === "amendment"
-                          ? "border-slate-300 bg-slate-50 hover:border-amber-500"
-                          : type === "other"
-                            ? "border-slate-300 bg-slate-50 hover:border-emerald-500"
-                            : "border-slate-300 bg-slate-50 hover:border-green-500"
-                }`}
-              onDragOver={(e) => {
-                e.preventDefault();
+                      ? "border-success/50 bg-success/10"
+                      : "border-appBorder bg-appMuted hover:border-brand/50 hover:bg-brand/5"
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault();
                 if (type) setDragOver(true);
               }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() =>
-                type
-                  ? fileInputRef.current?.click()
-                  : setError("يرجى اختيار نوع العقد أولاً")
+                type ? fileInputRef.current?.click() : setError("يرجى اختيار نوع العقد أولاً")
               }
             >
               <input
@@ -245,85 +243,63 @@ export default function UploadModal({
               />
 
               {error ? (
-                <div className="animate-fadeIn">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <p className="font-semibold text-red-700 text-sm">حدث خطأ</p>
+                <div className="flex flex-col items-center">
+                  <XCircle className="h-10 w-10 text-danger" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-bold text-danger">حدث خطأ</p>
                 </div>
               ) : file ? (
-                <div className="animate-fadeIn">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="font-semibold text-green-700 text-sm truncate px-4">
-                    {file.name}
-                  </p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFile(null);
-                      setType(
-                        uploadZoneOnly && initialType
-                          ? initialType
-                          : initialType || null
-                      );
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                    className="mt-2 text-xs text-red-500 hover:text-red-700 underline cursor-pointer"
-                  >
-                    إزالة الملف
-                  </button>
+                <div className="flex flex-col items-center">
+                  <CheckCircle2 className="h-10 w-10 text-success" aria-hidden="true" />
+                  <p className="mt-3 max-w-full truncate text-sm font-bold text-appText">{file.name}</p>
+                  <p className="mt-1 text-xs text-appSubtext">{formatFileSize(file.size)}</p>
                 </div>
               ) : (
-                <div>
-                  <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-slate-600">
-                    اسحب ملف الـ PDF هنا أو اضغط للاختيار
-                  </p>
+                <div className="flex flex-col items-center">
+                  <FolderOpen className="h-10 w-10 text-appSubtext" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-bold text-appText">اسحب ملف PDF هنا أو اضغط للاختيار</p>
+                  <p className="mt-1 text-xs text-appSubtext">يجب تحديد نوع المستند قبل الرفع.</p>
                 </div>
               )}
-            </div>
+            </button>
+
+            {file && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="mt-2 text-xs font-bold text-danger hover:underline"
+              >
+                إزالة الملف
+              </button>
+            )}
 
             {error && (
-              <div className="mt-3 flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 animate-shake">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <p className="text-xs font-bold">{error}</p>
+              <div className="mt-3 rounded-lg border border-danger/20 bg-danger/10 p-3 text-xs font-bold text-danger">
+                {error}
               </div>
             )}
-          </div>
+          </section>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-3 justify-end">
+        <div className="flex flex-col-reverse gap-3 border-t border-appBorder bg-appMuted p-4 sm:flex-row sm:justify-end">
           <button
+            type="button"
             onClick={handleClose}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 cursor-pointer"
+            disabled={uploading}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-appBorder bg-appSurface px-4 text-sm font-bold text-appText ui-transition hover:bg-appMuted disabled:cursor-not-allowed disabled:opacity-60"
           >
             إلغاء
           </button>
           <button
+            type="button"
             onClick={handleUpload}
-            disabled={!file || !type}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-l from-green-600 to-indigo-700 
-                       disabled:bg-none disabled:bg-slate-300 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer
-                       enabled:hover:shadow-xl enabled:hover:shadow-indigo-300"
+            disabled={!file || !type || uploading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-bold text-white ui-transition hover:bg-brandDeep disabled:cursor-not-allowed disabled:bg-appBorder"
           >
-            رفع العقد
+            <Upload className="h-4 w-4" aria-hidden="true" />
+            {uploading ? "جاري الرفع..." : "رفع المستند"}
           </button>
         </div>
       </div>

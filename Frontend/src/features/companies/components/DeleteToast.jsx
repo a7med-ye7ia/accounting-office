@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { RotateCcw, Trash2 } from "lucide-react";
 
 export default function DeleteToast({ contract, onUndo, onExpire }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -6,80 +7,63 @@ export default function DeleteToast({ contract, onUndo, onExpire }) {
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
-  }, []);
-
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      setIsVisible(false);
-      setTimeout(() => onExpire(contract.id), 300);
-      return;
-    }
 
     const interval = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
+      setTimeLeft((current) => Math.max(0, current - 1));
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [timeLeft, contract.id, onExpire]);
+    const expireTimer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(() => onExpire(contract.id), 220);
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(expireTimer);
+    };
+  }, [contract.id, onExpire]);
 
   const handleUndo = () => {
     setIsVisible(false);
-    setTimeout(() => onUndo(contract), 300);
+    setTimeout(() => onUndo(contract), 220);
   };
-
-  const undoClass =
-    contract.type === "establishment"
-      ? "bg-brand hover:bg-brandDeep"
-      : "bg-badgePurpleText hover:bg-brandDeep";
-
-  const barClass =
-    contract.type === "establishment" ? "bg-gradient-to-l from-brand to-brandDeep" : "bg-gradient-to-l from-badgePurpleText to-brand";
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 ui-transition ${
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+      className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 ui-transition ${
+        isVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
       }`}
       dir="rtl"
     >
-      <div className="bg-appSurface text-appText rounded-2xl border border-appBorder shadow-panel px-6 py-4 min-w-[380px] max-w-[calc(100vw-2rem)]">
-        <div className="flex items-center justify-between gap-4 mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-badgeRedBg rounded-lg flex items-center justify-center flex-shrink-0 border border-appBorder">
-              <svg className="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
+      <div className="min-w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-appBorder bg-appSurface shadow-raise">
+        <div className="flex items-center justify-between gap-4 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-danger/20 bg-danger/10 text-danger">
+              <Trash2 className="h-5 w-5" aria-hidden="true" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-appText">تم حذف العقد بنجاح</p>
-              <p className="text-xs text-appSubtext mt-0.5 truncate max-w-[200px]">"{contract.name}"</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-appText">تم حذف العقد مؤقتًا</p>
+              <p className="mt-0.5 truncate text-xs text-appSubtext">{contract.name}</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={handleUndo}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-medium ui-transition hover:scale-105 cursor-pointer shadow-panel ${undoClass}`}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-appBorder bg-appMuted px-3 text-xs font-bold text-appText ui-transition hover:border-brand/40 hover:text-brand"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
             تراجع
           </button>
         </div>
 
-        <div className="w-full h-1 bg-appBorder rounded-full overflow-hidden">
-          <div className={`h-full rounded-full animate-shrink ${barClass}`} />
+        <div className="h-1 bg-appBorder">
+          <div className="h-full rounded-full bg-danger animate-shrink" />
         </div>
 
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-appSubtext">سيتم الحذف نهائياً خلال</span>
-          <span className="text-[10px] text-appSubtext font-mono tabular-nums">{timeLeft} ثوانٍ</span>
+        <div className="flex items-center justify-between px-4 py-2 text-[11px] text-appSubtext">
+          <span>سيتم الحذف نهائيًا خلال</span>
+          <span className="font-mono tabular-nums">{timeLeft} ثوانٍ</span>
         </div>
       </div>
     </div>

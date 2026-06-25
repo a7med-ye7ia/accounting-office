@@ -576,7 +576,6 @@ function ArticleSection({
   availableArticles,
   onChangeSection,
   getCachedEmbedding, // Cach
-  company,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -947,17 +946,25 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
       : mockArticles;
 
   useEffect(() => {
-    setArticleCount(1);
-    setSections([createEmptySection(0)]);
+    const timer = setTimeout(() => {
+      setArticleCount(1);
+      setSections([createEmptySection(0)]);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [company?.id]);
 
   useEffect(() => {
-    setSections((prev) => {
-      if (prev.length === articleCount) return prev;
-      return Array.from({ length: articleCount }, (_, i) =>
-        createEmptySection(i, prev[i])
-      );
-    });
+    const timer = setTimeout(() => {
+      setSections((prev) => {
+        if (prev.length === articleCount) return prev;
+        return Array.from({ length: articleCount }, (_, i) =>
+          createEmptySection(i, prev[i])
+        );
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [articleCount]);
 
   const handleChangeSection = (index, patch) => {
@@ -1236,7 +1243,6 @@ function AmendmentAiFormFields({
             availableArticles={availableArticles}
             onChangeSection={handleChangeSection}
             getCachedEmbedding={getCachedEmbedding} // Cach
-            company={company}
           />
         ))}
       </div>

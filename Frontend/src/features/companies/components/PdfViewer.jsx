@@ -1,155 +1,151 @@
 import { useState } from "react";
+import { FileSearch, FileText, ListTree } from "lucide-react";
 import { mockArticles } from "../services/sampleArticles";
+import { getContractTypeMeta } from "../services/companyWorkflow";
 import ArticleOverlay from "./ArticleOverlay";
 
 function Field({ label, value }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-appSubtext mb-1">{label}</label>
-      <p className="text-appText bg-appMuted border border-appBorder p-3 rounded-xl">
-        {value || "غير محدد"}
-      </p>
+    <div className="rounded-lg border border-appBorder bg-appMuted p-3">
+      <p className="text-xs font-semibold text-appSubtext">{label}</p>
+      <p className="mt-1 text-sm font-bold leading-6 text-appText">{value || "غير محدد"}</p>
     </div>
+  );
+}
+
+function ViewToggle({ value, active, icon, children, onClick }) {
+  const ToggleIcon = icon;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(value)}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold ui-transition ${
+        active
+          ? "bg-appSurface text-brand shadow-sm"
+          : "text-appSubtext hover:text-appText"
+      }`}
+    >
+      <ToggleIcon className="h-4 w-4" aria-hidden="true" />
+      {children}
+    </button>
+  );
+}
+
+function EstablishmentDetails({ pdf }) {
+  return (
+    <section className="rounded-lg border border-appBorder bg-appSurface p-5 shadow-panel">
+      <div className="flex items-center gap-3 border-b border-appBorder pb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-appBorder bg-appMuted text-brand">
+          <FileText className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-appText">تفاصيل عقد التأسيس</h3>
+          <p className="text-xs text-appSubtext">بيانات مستخرجة من OCR ومحفوظة مع العقد.</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <Field label="اسم الشركة" value={pdf.company_name} />
+        <Field label="عنوان الشركة" value={pdf.company_address} />
+        <Field label="نوع الشركة" value={pdf.company_type} />
+        <Field label="رأس المال" value={pdf.company_capital} />
+        <Field label="رقم السجل التجاري" value={pdf.commercial_register_number} />
+        <Field label="تاريخ الموافقة" value={pdf.approval_date} />
+        <Field label="رقم محضر السجل العقاري" value={pdf.real_estate_registry_minutes_number} />
+        <Field label="مدة الشركة" value={pdf.company_duration} />
+        <div className="md:col-span-2">
+          <Field label="نشاط الشركة" value={pdf.company_activity} />
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <h4 className="text-sm font-bold text-appText">المواد</h4>
+        <div className="mt-3 space-y-3">
+          {pdf.articles?.length > 0 ? (
+            pdf.articles.map((article, index) => (
+              <div key={article.id || index} className="rounded-lg border border-appBorder bg-appMuted p-4">
+                <p className="text-xs font-bold text-brand">المادة {article.id || index + 1}</p>
+                <p className="mt-2 text-sm leading-7 text-appText">{article.value || article.content}</p>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-lg border border-dashed border-appBorder bg-appMuted p-4 text-sm text-appSubtext">
+              لا توجد مواد محددة.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
 export default function PdfViewer({ pdf, company, onSelectArticle }) {
   const [viewMode, setViewMode] = useState("articles");
-
   const isEstablishment = pdf.type === "establishment";
-  const activeToggle = isEstablishment ? "text-brand" : "text-badgePurpleText";
-  const inactiveToggle = "text-appSubtext hover:text-appText";
+  const meta = getContractTypeMeta(pdf.type);
 
   return (
-    <div className="animate-fadeIn">
-      <div className="text-center mb-8 space-y-1">
-        <h2 className="text-2xl font-bold text-appText">{pdf.name}</h2>
-        <p className="text-appSubtext text-sm">
-          {company.name} • {pdf.date}
-        </p>
-      </div>
-
-      <div className="flex justify-center mb-6">
-        <div className="bg-appMuted rounded-2xl p-1.5 flex gap-1 border border-appBorder">
-          <button
-            type="button"
-            onClick={() => setViewMode("articles")}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium ui-transition cursor-pointer ${
-              viewMode === "articles"
-                ? `bg-appSurface shadow-panel border border-appBorder ${activeToggle}`
-                : inactiveToggle
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
-              عرض المواد
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode("preview")}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium ui-transition cursor-pointer ${
-              viewMode === "preview"
-                ? `bg-appSurface shadow-panel border border-appBorder ${activeToggle}`
-                : inactiveToggle
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
-              معاينة المستند
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {isEstablishment ? (
-        <div className="max-w-4xl mx-auto rounded-2xl border border-appBorder bg-appSurface shadow-panel p-8" dir="rtl">
-          <h3 className="text-xl font-bold text-appText mb-6 text-center">تفاصيل عقد التأسيس</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <Field label="اسم الشركة" value={pdf.company_name} />
-            <Field label="عنوان الشركة" value={pdf.company_address} />
-            <Field label="نوع الشركة" value={pdf.company_type} />
-            <Field label="رأس المال" value={pdf.company_capital} />
-            <Field label="رقم السجل التجاري" value={pdf.commercial_register_number} />
-            <Field label="تاريخ الموافقة" value={pdf.approval_date} />
-            <Field label="رقم محضر السجل العقاري" value={pdf.real_estate_registry_minutes_number} />
-            <Field label="مدة الشركة" value={pdf.company_duration} />
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-appSubtext mb-1">نشاط الشركة</label>
-              <p className="text-appText bg-appMuted border border-appBorder p-3 rounded-xl">
-                {pdf.company_activity || "غير محدد"}
+    <div className="animate-fadeIn space-y-6">
+      <section className="rounded-lg border border-appBorder bg-appSurface p-5 shadow-panel md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-appBorder bg-appMuted text-brand">
+              <FileText className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-brand">{company.name}</p>
+              <h2 className="mt-1 truncate text-2xl font-bold text-appText">{pdf.name}</h2>
+              <p className="mt-2 text-sm text-appSubtext">
+                {meta.label}
+                {pdf.date ? ` • ${pdf.date}` : ""}
               </p>
             </div>
           </div>
 
-          <div className="mb-8">
-            <h4 className="text-lg font-semibold text-appText mb-4">المرجع القانوني</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="رقم القانون" value={pdf.law_reference?.law_number} />
-              <Field label="سنة القانون" value={pdf.law_reference?.law_year} />
+          {!isEstablishment && (
+            <div className="inline-flex rounded-lg border border-appBorder bg-appMuted p-1">
+              <ViewToggle value="articles" active={viewMode === "articles"} icon={ListTree} onClick={setViewMode}>
+                المواد
+              </ViewToggle>
+              <ViewToggle value="preview" active={viewMode === "preview"} icon={FileSearch} onClick={setViewMode}>
+                المعاينة
+              </ViewToggle>
             </div>
-          </div>
-
-          <div>
-            <h4 className="text-lg font-semibold text-appText mb-4">المواد</h4>
-            <div className="space-y-4">
-              {pdf.articles && pdf.articles.length > 0 ? (
-                pdf.articles.map((article, index) => (
-                  <div
-                    key={article.id || index}
-                    className="bg-appMuted p-4 rounded-xl border border-appBorder ui-transition hover:border-brand/25"
-                  >
-                    <h5 className="font-medium text-appText mb-2">المادة {article.id}</h5>
-                    <p className="text-appText/90 leading-relaxed">{article.value}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-appSubtext">لا توجد مواد محددة</p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
+      </section>
+
+      {isEstablishment ? (
+        <EstablishmentDetails pdf={pdf} />
       ) : viewMode === "articles" ? (
-        <div className="max-w-3xl mx-auto">
-          <div className={`flex items-center gap-2 mb-4 text-sm font-medium ${activeToggle}`}>
-            <span>اضغط على أي مادة لفتح محادثة حولها</span>
+        <section className="rounded-lg border border-appBorder bg-appSurface p-5 shadow-panel">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-appText">مواد المستند</h3>
+              <p className="mt-1 text-xs text-appSubtext">اضغط على أي مادة لفتح محادثة حولها.</p>
+            </div>
           </div>
           <ArticleOverlay articles={mockArticles} onSelectArticle={onSelectArticle} type={pdf.type} />
-        </div>
+        </section>
       ) : (
-        <div className="max-w-3xl mx-auto">
-          <div className="rounded-2xl border border-appBorder bg-appSurface shadow-panel overflow-hidden">
-            <div className="p-8 space-y-6" dir="rtl">
-              {mockArticles.map((article) => (
-                <button
-                  type="button"
-                  key={article.id}
-                  className="w-full text-right p-4 rounded-xl border border-appBorder bg-appMuted/40 hover:bg-appMuted ui-transition cursor-pointer"
-                  onClick={() => onSelectArticle(article)}
-                >
-                  <h4 className="font-bold text-appText mb-2">
-                    {article.title} - {article.subtitle}
-                  </h4>
-                  <p className="text-sm text-appSubtext leading-relaxed">{article.content}</p>
-                </button>
-              ))}
-            </div>
+        <section className="rounded-lg border border-appBorder bg-appSurface p-5 shadow-panel">
+          <div className="space-y-3" dir="rtl">
+            {mockArticles.map((article) => (
+              <button
+                type="button"
+                key={article.id}
+                className="w-full rounded-lg border border-appBorder bg-appMuted p-4 text-right ui-transition hover:border-brand/40 hover:bg-appSurface"
+                onClick={() => onSelectArticle(article)}
+              >
+                <h4 className="font-bold text-appText">
+                  {article.title} - {article.subtitle}
+                </h4>
+                <p className="mt-2 text-sm leading-6 text-appSubtext">{article.content}</p>
+              </button>
+            ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
 }
-
