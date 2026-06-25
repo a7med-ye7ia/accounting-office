@@ -517,6 +517,7 @@ export default function ContractBrowser() {
             setUploadType(null);
             setUploadZoneOnly(false);
           }}
+          companyFolderName={selectedCompany ? `${selectedCompany.id} - ${selectedCompany.name}` : ""}
           onUpload={handleUpload}
           initialType={uploadType}
           uploadZoneOnly={uploadZoneOnly}
