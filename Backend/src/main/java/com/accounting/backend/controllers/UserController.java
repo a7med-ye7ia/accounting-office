@@ -32,6 +32,8 @@ import com.accounting.backend.entities.Role;
 import com.accounting.backend.entities.User;
 import com.accounting.backend.entities.UserRole;
 import com.accounting.backend.entities.UserRoleId;
+import com.accounting.backend.enums.ActionType;
+import com.accounting.backend.enums.EntityType;
 import com.accounting.backend.enums.UserStatus;
 import com.accounting.backend.repositories.BranchRepository;
 import com.accounting.backend.repositories.DepartmentRepository;
@@ -40,6 +42,7 @@ import com.accounting.backend.repositories.RoleRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.repositories.UserRoleRepository;
 import com.accounting.backend.security.JwtService;
+import com.accounting.backend.services.ActivityLogService;
 import com.accounting.backend.services.EmailService;
 import com.accounting.backend.services.EmployeeProfileService;
 import com.accounting.backend.services.TokenCacheService;
@@ -71,6 +74,8 @@ public class UserController {
     private JwtService jwtService;
     @Autowired
     private TokenCacheService tokenCacheService;
+    @Autowired
+    private ActivityLogService activityLogService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final SecureRandom secureRandom = new SecureRandom();
@@ -143,6 +148,8 @@ public class UserController {
             return authError;
         }
 
+        Long callerId = extractUserId(authHeader);
+
         // ── 2. Build user ────────────────────────────────────────────────────
         User user = new User();
         user.setFullName(request.getFullName());
@@ -197,6 +204,18 @@ public class UserController {
             Map<String, Object> response = buildUserMap(savedUser);
             response.put("message", "User created. A temporary password has been sent to " + savedUser.getEmail());
             emailService.sendTemporaryPasswordEmail(request.getEmail(), request.getFullName(), tempPassword);
+
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("userName", savedUser.getFullName());
+            meta.put("userEmail", savedUser.getEmail());
+            if (request.getRoleId() != null) {
+                roleRepository.findById(request.getRoleId())
+                    .ifPresent(r -> meta.put("role", r.getName()));
+            }
+            activityLogService.logAction(
+                callerId, null, EntityType.USER, savedUser.getId(),
+                ActionType.CREATE, "تم إنشاء مستخدم جديد: " + savedUser.getFullName(), meta);
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -206,8 +225,20 @@ public class UserController {
 
     @PutMapping("/{id}")
     @Transactional
-    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody EmployeeCreationRequest request) {
+    public ResponseEntity<?> updateUser(
+            @RequestHeader(value = "Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody EmployeeCreationRequest request) {
+        Long callerId = extractUserId(authHeader);
         User user = userRepository.findById(id).orElseThrow();
+
+        String oldName = user.getFullName();
+        String oldEmail = user.getEmail();
+        String oldPhone = user.getPhone();
+        String oldNationalId = user.getNationalId();
+        String oldStatus = user.getStatus() != null ? user.getStatus().name() : null;
+        LocalDate oldHireDate = user.getHireDate();
+
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
@@ -223,6 +254,8 @@ public class UserController {
         User savedUser = userRepository.save(user);
 
         // Update EmployeeAssignment
+        String oldDeptName = null;
+        String oldBranchName = null;
         if (request.getDepartmentId() != null && request.getBranchId() != null) {
             Department dept = departmentRepository.findById(request.getDepartmentId())
                     .orElseThrow(() -> new RuntimeException("القسم غير موجود"));
@@ -233,6 +266,8 @@ public class UserController {
             EmployeeAssignment assignment;
             if (!existing.isEmpty()) {
                 assignment = existing.get(0);
+                oldDeptName = assignment.getDepartment().getName();
+                oldBranchName = assignment.getBranch().getName();
             } else {
                 assignment = new EmployeeAssignment();
                 assignment.setUser(savedUser);
@@ -245,12 +280,14 @@ public class UserController {
         }
 
         // Update UserRole
+        String oldRoleName = null;
         if (request.getRoleId() != null) {
             Role role = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new RuntimeException("المسمى الوظيفي غير موجود"));
 
             List<UserRole> existingRoles = userRoleRepository.findByUser_Id(id);
             if (!existingRoles.isEmpty()) {
+                oldRoleName = existingRoles.get(0).getRole().getName();
                 userRoleRepository.deleteAll(existingRoles);
                 userRoleRepository.flush();
             }
@@ -263,24 +300,63 @@ public class UserController {
             userRoleRepository.save(userRole);
         }
 
+        List<Map<String, String>> changes = new ArrayList<>();
+        addChange(changes, "الاسم", oldName, savedUser.getFullName());
+        addChange(changes, "البريد الإلكتروني", oldEmail, savedUser.getEmail());
+        addChange(changes, "رقم الهاتف", oldPhone, savedUser.getPhone());
+        addChange(changes, "الرقم القومي", oldNationalId, savedUser.getNationalId());
+        addChange(changes, "الحالة", oldStatus, savedUser.getStatus() != null ? savedUser.getStatus().name() : null);
+        addChange(changes, "تاريخ التعيين", oldHireDate != null ? oldHireDate.toString() : null,
+                savedUser.getHireDate() != null ? savedUser.getHireDate().toString() : null);
+        addChange(changes, "القسم", oldDeptName, request.getDepartmentId() != null
+                ? departmentRepository.findById(request.getDepartmentId()).map(Department::getName).orElse(null) : null);
+        addChange(changes, "الفرع", oldBranchName, request.getBranchId() != null
+                ? branchRepository.findById(request.getBranchId()).map(Branch::getName).orElse(null) : null);
+        addChange(changes, "المسمى الوظيفي", oldRoleName, request.getRoleId() != null
+                ? roleRepository.findById(request.getRoleId()).map(Role::getName).orElse(null) : null);
+
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("userName", savedUser.getFullName());
+        meta.put("changes", changes);
+        activityLogService.logAction(
+            callerId, null, EntityType.USER, savedUser.getId(),
+            ActionType.UPDATE, "تم تحديث المستخدم: " + savedUser.getFullName(), meta);
+
         return ResponseEntity.ok(buildUserMap(savedUser));
     }
 
     @DeleteMapping("/{id}")
     @Transactional
-    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
-        if (!userRepository.existsById(id)) {
+    public ResponseEntity<?> deleteUser(
+            @RequestHeader(value = "Authorization") String authHeader,
+            @PathVariable Long id) {
+        Long callerId = extractUserId(authHeader);
+        User user = userRepository.findById(id).orElse(null);
+        if (user == null) {
             return ResponseEntity.notFound().build();
         }
+        String userName = user.getFullName();
         employeeAssignmentRepository.deleteByUser_Id(id);
         userRoleRepository.deleteByUser_Id(id);
         userRepository.deleteById(id);
+
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("userName", userName);
+        activityLogService.logAction(
+            callerId, null, EntityType.USER, id,
+            ActionType.DELETE, "تم حذف المستخدم: " + userName, meta);
+
         return ResponseEntity.ok().build();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    private Long extractUserId(String authHeader) {
+        String token = authHeader.substring(7).trim();
+        return jwtService.extractUserId(token);
+    }
 
     /**
      * Checks that the request comes from an authenticated user with the "owner"
@@ -400,5 +476,15 @@ public class UserController {
         }
 
         return exists;
+    }
+
+    private void addChange(List<Map<String, String>> changes, String field, String oldVal, String newVal) {
+        if (oldVal == null && newVal == null) return;
+        if (oldVal != null && oldVal.equals(newVal)) return;
+        Map<String, String> entry = new HashMap<>();
+        entry.put("field", field);
+        entry.put("old", oldVal != null ? oldVal : "");
+        entry.put("new", newVal != null ? newVal : "");
+        changes.add(entry);
     }
 }

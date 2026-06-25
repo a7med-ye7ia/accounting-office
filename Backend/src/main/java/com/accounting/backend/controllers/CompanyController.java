@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.net.ResponseCache;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,14 +29,17 @@ import com.accounting.backend.dtos.CreateCompanyRequest;
 import com.accounting.backend.entities.Company;
 import com.accounting.backend.entities.Contract;
 import com.accounting.backend.entities.User;
+import com.accounting.backend.enums.ActionType;
 import com.accounting.backend.enums.CompanyStatus;
 import com.accounting.backend.enums.CompanyType;
 import com.accounting.backend.enums.ContractStatus;
 import com.accounting.backend.enums.ContractType;
+import com.accounting.backend.enums.EntityType;
 import com.accounting.backend.repositories.CompanyRepository;
 import com.accounting.backend.repositories.ContractRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.security.JwtService;
+import com.accounting.backend.services.ActivityLogService;
 import com.accounting.backend.services.FileService;
 
 
@@ -59,12 +64,13 @@ public class CompanyController {
     private JwtService jwtService;
 
     @Autowired
+    private ActivityLogService activityLogService;
     private FileService fileService;
 
     @GetMapping
     public List<Company> getAllCompanies() {
         List<Company> companies = companyRepository.findAll();
-        
+
         List<Contract> contracts = contractController.getAllContracts();
         for (Company company : companies) {
             company.setContracts(contracts.stream()
@@ -88,13 +94,26 @@ public class CompanyController {
     }
 
     @PostMapping
-    public Company createCompany(@RequestBody Company company) {
+    public Company createCompany(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Company company) {
         company.setCreatedAt(LocalDateTime.now());
-        return companyRepository.save(company);
+        Company saved = companyRepository.save(company);
+        Long callerId = extractUserId(authHeader);
+        if (callerId != null) {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("companyName", saved.getName());
+            activityLogService.logAction(callerId, null, EntityType.COMPANY, saved.getId(),
+                ActionType.CREATE, "تم إنشاء شركة: " + saved.getName(), meta);
+        }
+        return saved;
     }
 
     @PutMapping("/{id}")
-    public Company updateCompany(@PathVariable Long id, @RequestBody Company companyDetails) {
+    public Company updateCompany(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id,
+            @RequestBody Company companyDetails) {
         Company company = companyRepository.findById(id).orElseThrow();
         company.setName(companyDetails.getName());
         company.setCompanyType(companyDetails.getCompanyType());
@@ -102,13 +121,32 @@ public class CompanyController {
         company.setTaxId(companyDetails.getTaxId());
         company.setStatus(companyDetails.getStatus());
         company.setUpdatedAt(LocalDateTime.now());
-        return companyRepository.save(company);
+        Company saved = companyRepository.save(company);
+        Long callerId = extractUserId(authHeader);
+        if (callerId != null) {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("companyName", saved.getName());
+            activityLogService.logAction(callerId, null, EntityType.COMPANY, saved.getId(),
+                ActionType.UPDATE, "تم تحديث الشركة: " + saved.getName(), meta);
+        }
+        return saved;
     }
 
     @DeleteMapping("/{id}")
-    public void deleteCompany(@PathVariable Long id) {
-        // TODO : handle the delete logic (soft delete)
+    public void deleteCompany(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        Company company = companyRepository.findById(id).orElse(null);
+        if (company == null) return;
+        String name = company.getName();
         companyRepository.deleteById(id);
+        Long callerId = extractUserId(authHeader);
+        if (callerId != null) {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("companyName", name);
+            activityLogService.logAction(callerId, null, EntityType.COMPANY, id,
+                ActionType.DELETE, "تم حذف الشركة: " + name, meta);
+        }
     }
 
     @PostMapping(
@@ -178,11 +216,26 @@ public class CompanyController {
         savedCompany.setContracts(Collections.singletonList(contract));
         
 
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("companyName", savedCompany.getName());
+        activityLogService.logAction(
+            user.getId(), null, EntityType.COMPANY, savedCompany.getId(),
+            ActionType.CREATE, "تم إنشاء شركة بعقد: " + savedCompany.getName(), meta);
+
         return ResponseEntity.ok(savedCompany);
     }
 
     private String escapeJson(String str) {
         if (str == null) return "";
         return str.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    }
+
+    private Long extractUserId(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
+        try {
+            return jwtService.extractUserId(authHeader.substring(7).trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
