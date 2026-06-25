@@ -10,7 +10,7 @@ import TaskDetailsModel from './TaskDetailsModel';
 import { Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
-import { getTaskByAssignedToId, addTask, deleteTask, updateTask } from '../../../api/tasks';
+import { fetchTasks, addTask, deleteTask, updateTask } from '../../../api/tasks';
 
 // ─── Status Mapping ────────────────────────────────────────────────────────
 const STATUS_TO_ARABIC = {
@@ -117,9 +117,8 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         )}
 
         {task.status === 'DONE' && (
-          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium border border-appBorder ${
-            task.reviewed ? "bg-success/15 text-success" : "bg-badgePurpleBg text-badgePurpleText"
-          }`}>
+          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium border border-appBorder ${task.reviewed ? "bg-success/15 text-success" : "bg-badgePurpleBg text-badgePurpleText"
+            }`}>
             {task.reviewed ? 'تمت المراجعة' : 'بانتظار المراجعة'}
           </span>
         )}
@@ -236,11 +235,39 @@ function EmployeeTasksPage() {
 
     const loadData = async () => {
       try {
-        const [tasksData, employeesData] = await Promise.all([getTaskByAssignedToId(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1), fetchUsers()]);
-        setTasks(tasksData);
+        const [allTasks, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
+
+        const currentUserStr = localStorage.getItem('user');
+        const currentUser = JSON.parse(currentUserStr);
+        console.log("currentUser ", currentUser);
+
+        const roleRank = { owner: 4, headbranch: 3, manager: 2, employee: 1 };
+        const myRoleKey = currentUser.roleName ? currentUser.roleName.toLowerCase() : 'employee';
+        const myRank = roleRank[myRoleKey] || 1;
+
+        const empRankMap = {};
+        const empIdMap = {};
+        employeesData.forEach(emp => {
+          const empRoleKey = emp.roleName ? emp.roleName.toLowerCase() : 'employee';
+          empRankMap[emp.id] = roleRank[empRoleKey];
+          empIdMap[emp.fullName] = emp.id;
+        });
+
+        console.log("All tasks from API:", allTasks);
+
+        const filteredTasks = allTasks.filter(task => {
+          const actualAssignedToId = task.assignedToId || empIdMap[task.assignedToName];
+          if (actualAssignedToId === currentUser.id) return true;
+          const assigneeRank = empRankMap[actualAssignedToId] || 1;
+          return assigneeRank < myRank;
+        });
+
+        console.log("Filtered tasks:", filteredTasks);
+
+        setTasks(filteredTasks);
         setEmployees(employeesData);
-        console.log("debug loaded tasks ", tasksData);
-        console.log("debug loaded employees ", employeesData);
+        // console.log("debug loaded tasks ", filteredTasks);
+        // console.log("debug loaded employees ", employeesData);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -254,13 +281,13 @@ function EmployeeTasksPage() {
   useEffect(() => {
     const taskId = location.state?.openTaskId;
 
-    if(!taskId || tasks.length === 0) return;
+    if (!taskId || tasks.length === 0) return;
 
     const task = tasks.find(
       t => t.id === taskId
     );
 
-    if(task){
+    if (task) {
       setSelectedTask(task);
     }
 
@@ -296,7 +323,7 @@ function EmployeeTasksPage() {
     if (!form.title.trim() || !form.assignedToId) return;
 
     // console.log(form);
-    
+
     setSaveSubmitting(true);
 
     const newTask = {
