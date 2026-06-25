@@ -10,6 +10,7 @@ import DocumentsPage from "./features/documents/pages/DocumentsPage";
 import EmployeeManagementPage from "./features/employees/pages/EmployeeManagementPage";
 import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage";
 import EquilibriumLedgerPage from "./features/ledger/pages/EquilibriumLedgerPage";
+import ActivityHistoryPage from "./features/activityLogs/pages/ActivityHistoryPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -38,6 +39,7 @@ function App() {
         <Route path="/ContractAi" element={<ContractAiPage />} />
         <Route path="/EditContractAi" element={<EditContractAiPage />} />
         <Route path="/EquilibriumLedger" element={<EquilibriumLedgerPage />} />
+        <Route path="/ActivityHistory" element={<ActivityHistoryPage />} />
         <Route path="/ContractBrowser" element={<ContractBrowserPage />} />
         <Route path="/ContractBrowser/company/:companyId" element={<ContractBrowserPage />}/>
         <Route path="/ContractBrowser/company/:companyId/type/:type/Ai" element={<ContractBrowserPage />}/>
