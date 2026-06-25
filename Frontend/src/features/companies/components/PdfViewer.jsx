@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { mockArticles } from "../../../shared/data/mockData";
+import { mockArticles } from "../services/sampleArticles";
 import ArticleOverlay from "./ArticleOverlay";
 
 function Field({ label, value }) {
@@ -152,3 +152,4 @@ export default function PdfViewer({ pdf, company, onSelectArticle }) {
     </div>
   );
 }
+

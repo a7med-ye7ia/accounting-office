@@ -1,9 +1,3 @@
-import MainLayout from "../../../shared/layout/MainLayout";
-import ContractBrowser from "../../companiesManagment/components/ContractBrowser"
-function CompaniesDirectoryPage() {
-  return (
-    <ContractBrowser />
-  );
-}
+import CompaniesPage from "./CompaniesPage";
 
-export default CompaniesDirectoryPage;
+export default CompaniesPage;

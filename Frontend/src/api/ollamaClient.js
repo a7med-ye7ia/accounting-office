@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const OLLAMA_URL = "http://localhost:11434/api";
+const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || "http://localhost:11434/api";
 const EMBEDDING_MODEL = "qwen3-embedding:0.6b";
 const GENERATION_MODEL = "qwen-local";
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { fetchCompanies } from "../../../api/companies";
+import apiClient from "../../../api/client";
 import Breadcrumb from "./Breadcrumb";
 import CompanyList from "./CompanyList";
 import ContractViewer from "./ContractViewer";
@@ -12,9 +13,10 @@ import DeleteToast from "./DeleteToast";
 import { CreateAmendmentAiPageView } from "./CreateAmendmentAiModal";
 import AddCompanyModal from "./AddCompanyModal";
 
-const BASE_PATH = "/ContractBrowser";
 
-export default function ContractBrowser() {
+
+export default function ContractBrowser({ basePath = "/companies" }) {
+  const BASE_PATH = basePath;
   const navigate = useNavigate();
   const location = useLocation();
   const { companyId, type, pdfId } = useParams();
@@ -328,23 +330,15 @@ export default function ContractBrowser() {
   const handleGenerateAiAmendment = async (payload) => {
     console.log("🤖 AI amendment request:", payload);
     try {
-      const token = localStorage.getItem("authToken");
       const sections = (payload.sections || []).map((s) => ({
         selectedArticleTitle: s.selectedArticleTitle || "",
         beforeText: s.beforeText || "",
         afterText: s.afterText || "",
       }));
-      await fetch("http://localhost:8080/api/activity-logs/amendment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
-        body: JSON.stringify({
-          companyId: selectedCompany?.id,
-          companyName: selectedCompany?.name,
-          sections,
-        }),
+      await apiClient.post("/activity-logs/amendment", {
+        companyId: selectedCompany?.id,
+        companyName: selectedCompany?.name,
+        sections,
       });
     } catch (err) {
       console.error("Failed to log amendment activity:", err);
@@ -545,3 +539,5 @@ export default function ContractBrowser() {
     </div>
   );
 }
+
+

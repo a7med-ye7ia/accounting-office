@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react"; // Cach
-import { mockArticles } from "../../../shared/data/mockData";
+import { mockArticles } from "../services/sampleArticles";
 import companyExampleData from "../../../shared/data/companyExampleData.json";
 import { generateResponse } from "../../../api/ollamaClient.js";
 import { getEmbedding } from "../../../api/ollamaClient.js";
+import apiClient from "../../../api/client";
 import MicButton from "../../../shared/components/MicButton.jsx";
 
 
@@ -86,15 +87,11 @@ function buildCompanyIntro(data) {
 }
 
 async function generateAmendmentPdfBlobFromPayload(payload, fileName) {
-  const res = await fetch("http://localhost:8080/api/pdf/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const response = await apiClient.post("/pdf/generate", payload, {
+    responseType: "blob",
   });
 
-  if (!res.ok) throw new Error(`PDF generation failed: ${res.status}`);
-
-  const blob = await res.blob();
+  const blob = response.data;
   return { blob, fileName };
 }
 
@@ -1443,3 +1440,5 @@ export default function CreateAmendmentAiModal({
     </div>
   );
 }
+
+
