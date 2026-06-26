@@ -1,197 +1,218 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8" />
     <style>
-        /* Font is registered in PdfService via useFont(); name must match exactly */
-        html, body {
+        @page {
+            size: A4;
+            margin: 30px;
+        }
+
+        body {
             font-family: 'Noto Naskh', serif;
             direction: rtl;
+            background: #fff;
+            margin: 0;
+            padding: 95px 40px 10px 40px;
+            font-size: 16px;
             color: #000;
-            font-size: 18px;
-            line-height: 2;
-            background: white;
-            padding: 0;
-            margin: 0;
+            line-height: 1.7;
+            text-align: right;
         }
 
-        .page {
-            border-left: 8px solid #000;
-            border-right: 8px solid #000;
-            padding: 20px 40px;
+        /* Borders */
+        .border-outer {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border: 2px solid black;
+            z-index: -3;
         }
 
-        /* ===========================
-        Header
-        =========================== */
+        .border-mid {
+            position: fixed;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            border: 1px solid black;
+            z-index: -2;
+        }
 
-        .header {
+        .border-inner {
+            position: fixed;
+            top: 8px;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
+            border: 1px solid black;
+            z-index: -1;
+        }
+
+        /* Letterhead */
+        .fixed-letterhead {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            right: 30px;
             text-align: center;
-            margin-bottom: 20px;
         }
 
-        .heading {
-            margin-bottom: 12px;
-        }
-
-        .doc-title,
-        .doc-company,
-        .doc-legal {
-            display: inline-block;
-            border-bottom: 4px solid black;
-            padding-bottom: 3px;
-            margin: 0;
-        }
-
-        .doc-title {
-            font-size: 28px;
+        .lh-line1 {
             font-weight: bold;
+            font-size: 15px;
+        }
+
+        .lh-line2 {
+            clear: both;
+            text-align: right;
+            padding-right: 40px;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* Titles */
+        .doc-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .doc-title span, .section-title span {
+            border-bottom: 3px solid #000;
+            padding-bottom: 4px;
         }
 
         .doc-company {
-            font-size: 24px;
-            font-weight: bold;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            text-decoration: underline;
+            margin-bottom: 5px;
         }
 
         .doc-legal {
-            font-size: 22px;
-            font-weight: bold;
-        }
-
-        /* ===========================
-        Article labels
-        =========================== */
-
-        .article-labels {
             text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-
-        /* ===========================
-        Sections
-        =========================== */
-
-        .section {
-            margin-bottom: 35px;
-
-            /* remove card appearance */
-            border: none;
-            background: none;
-            border-radius: 0;
-            padding: 0;
-            box-shadow: none;
-        }
-
-        .section-title {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 15px;
+            font-weight: 700;
             text-decoration: underline;
-            margin-bottom: 15px;
-            text-align: right;
+            margin-bottom: 30px;
         }
 
-        .intro {
-            margin: 25px 0 35px;
-        }
-
+        /* Sections */
         .intro-title {
             text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0 0 18px;
+            font-size: 19px;
+            font-weight: 700;
+            margin: 20px 0 10px 0;
         }
-
-        .intro-body {
-            text-align: justify;
-            font-size: 20px;
-            line-height: 2;
-            margin: 0 0 18px;
-            white-space: pre-wrap;
-        }
-
-        .intro-clause {
-            font-size: 20px;
-            font-weight: bold;
+        .section-title {
             text-align: right;
-            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            margin: 20px 0 10px 0;
         }
 
         p {
-            white-space: pre-wrap;
-            text-align: justify;
-            font-size: 20px;
-            line-height: 2;
-            margin: 0;
+            margin: 0 0 15px 0;
         }
 
-        /* ===========================
-        Tables
-        =========================== */
-
+        /* Tables */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 18px;
+            margin: 10px 0;
+            font-size: 16px;
         }
 
         th,
         td {
             border: 1px solid black;
-            padding: 10px;
+            padding: 6px;
             text-align: center;
         }
 
         th {
             font-weight: bold;
-            background: white;
+            background-color: transparent;
         }
 
-        tr {
-            page-break-inside: avoid;
+        /* Signature */
+        .signature {
+            text-align: left;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 30px;
         }
-
     </style>
 </head>
+
 <body>
-<div class="page">
-    <div class="header">
 
-    <div class="heading">
-        <h1 class="doc-title" th:text="${contractTitle}">عقد تعديل المادة 5</h1>
-    </div>
+    <!-- Borders -->
+    <div class="border-outer"></div>
+    <div class="border-mid"></div>
+    <div class="border-inner"></div>
 
-    <div class="heading">
-        <h2 class="doc-company" th:text="${companyName}">شركة الرمال للتنمية والعقارات الحديثة</h2>
-    </div>
-
-    <div class="heading">
-        <h3 class="doc-legal" th:text="${companyLegalLine}">
-            شركة ذات مسئولية محدودة خاضعة لأحكام القانون رقم 159 لسنة 1981
-        </h3>
-    </div>
-
-    </div>
-
-    <div class="intro">
-        <h3 class="intro-title">تمهيد</h3>
-        <p class="intro-body" th:text="${introText}">سبق وأن تكونت الشركة خاضعة لأحكام القانون رقم 159 لسنة 1981، وتم الاتفاق على تعديل بعض مواد عقد التأسيس.</p>
-        <p class="intro-clause">أولاً: يعتبر التمهيد جزءاً لا يتجزأ من العقد.</p>
-    </div>
-
-    <div th:each="sec,iterStat : ${sections}">
-        <div class="section">
-            <h3 class="section-title" th:text="${sec.sectionTitleBefore}">الماده قبل التعديل</h3>
-            <p th:text="${sec.beforeText}">النص قبل</p>
+    <!-- Letterhead -->
+    <div class="fixed-letterhead">
+        <div class="lh-line1" style="overflow: hidden; margin-bottom: 10px;">
+            <div style="float: right; padding-right: 40px;">
+                <span th:text="${companyName}"></span>
+            </div>
+            <div style="float: left; padding-left: 30px;">
+                رأس المال: <span th:text="${companyCapital}"></span>
+            </div>
+            <div style="clear: both;"></div>
         </div>
+        <div class="lh-line2" th:text="${companyLegalLineHeader}"></div>
+        <div class="lh-line2" th:if="${companyAddress != null}" th:text="${companyAddress}"></div>
+    </div>
 
-        <div class="section">
-            <h3 class="section-title" th:text="${sec.sectionTitleAfter}">الماده بعد التعديل</h3>
-            <p th:text="${sec.afterText}">النص بعد</p>
+    <!-- Header -->
+    <div class="doc-title"><span th:text="${contractTitle}">عقد تعديل</span></div>
+    <div class="doc-title"><span th:text="${companyName}">شركة</span></div>
+    <div class="doc-title"><span th:text="${companyLegalLine}">تأسست</span></div>
+
+    <div style="margin-top: 30px; font-weight: bold; font-size: 18px;" th:text="${dateString}">
+        انه في يوم الخميس الموافق 16/3/2026
+    </div>
+
+    <div style="margin-top: 20px; margin-bottom: 30px;" th:if="${partners != null and !partners.isEmpty()}">
+        <div th:each="p : ${partners}" style="display: table; width: 100%; margin-bottom: 8px;">
+            <div style="display: table-cell; text-align: right; font-weight: bold; width: 200px; padding-right: 10px;">
+                <span th:text="${p.role}">مالك</span>
+            </div>
+            <div style="display: table-cell; text-align: right; font-weight: bold; padding-left: 10px;">
+                <span th:text="${p.title}">السيد</span>/ <span th:text="${p.name}">ادهم ايهاب</span>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- Intro -->
+    <div class="intro-title">تمهيد</div>
+    <p th:text="${introText}">سبق وأن...</p>
+
+    <p>
+        <span style="font-weight:700; text-decoration:underline;font-size:20px;font-weight: 700;">أولاً:</span>
+        يعتبر التمهيد جزءاً لا يتجزأ من العقد.
+    </p>
+
+    <!-- Sections -->
+    <div th:each="sec : ${sections}">
+        <div class="section-title"><span th:text="${sec.sectionTitleBefore}">المادة قبل التعديل</span></div>
+        <p th:text="${sec.beforeText}"></p>
+
+        <div class="section-title"><span th:text="${sec.sectionTitleAfter}">المادة بعد التعديل</span></div>
+        <p th:text="${sec.afterText}"></p>
+    </div>
+
+    <!-- Signature -->
+    <div class="signature">مدير الشركة</div>
+
 </body>
+
 </html>

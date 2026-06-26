@@ -44,6 +44,12 @@ function buildAmendmentPdfPayload(company, sections) {
       companyLegalLine:
         company?.legalLine ||
         `شركة ${merged.company_type} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`,
+      companyCapital: merged.company_capital || "",
+      contractDate: company?.contractDate || "",
+      partners: company?.partners && company.partners.length > 0 ? company.partners : [
+        { title: "السيد", name: "ادهم ايهاب", role: "مالك" },
+        { title: "السيده", name: "مريم محمد", role: "شريكه" }
+      ],
       introText: company?.preamble || introParagraph || "",
       sections: sections.map((s) => ({
         id: s.id,
@@ -173,6 +179,27 @@ function PdfReviewModal({
             type="text"
             value={reviewPayload.companyLegalLine}
             onChange={(e) => updateMeta("companyLegalLine", e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">رأس مال الشركة</label>
+          <input
+            type="text"
+            value={reviewPayload.companyCapital}
+            onChange={(e) => updateMeta("companyCapital", e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">تاريخ العقد</label>
+          <input
+            type="text"
+            value={reviewPayload.contractDate || "16/3/2026"}
+            onChange={(e) => updateMeta("contractDate", e.target.value)}
+            placeholder="مثال: 16/3/2026"
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>

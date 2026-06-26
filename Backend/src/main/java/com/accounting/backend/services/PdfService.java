@@ -26,13 +26,26 @@ public class PdfService {
             String companyName,
             String companyLegalLine,
             String introText,
+            String companyCapital,
+            String contractDate,
+            java.util.List<com.accounting.backend.dto.PartnerDto> partners,
             java.util.List<java.util.Map<String, Object>> requestSections) throws Exception {
         // 1. Build the model for Thymeleaf
         Context context = new Context();
         context.setVariable("contractTitle", contractTitle != null && !contractTitle.isBlank() ? contractTitle : "عقد تعديل");
         context.setVariable("companyName", companyName != null ? companyName : "");
         context.setVariable("companyLegalLine", companyLegalLine != null ? companyLegalLine : "");
+        context.setVariable("companyLegalLineHeader", formatCompanyLegalLine(companyLegalLine != null ? companyLegalLine : ""));
         context.setVariable("introText", introText != null ? introText : "");
+        context.setVariable("companyCapital", companyCapital != null ? companyCapital : "");
+        
+        java.time.LocalDate today = java.time.LocalDate.now();
+        String defaultDate = String.format("%d/%d/%d", today.getDayOfMonth(), today.getMonthValue(), today.getYear());
+        String finalDate = (contractDate != null && !contractDate.isBlank()) ? contractDate : defaultDate;
+        String weekDay = getArabicWeekDay(finalDate);
+        String dateString = String.format("انه في يوم %s الموافق %s", weekDay, finalDate);
+        context.setVariable("dateString", dateString);
+        context.setVariable("partners", partners != null && !partners.isEmpty() ? partners : getDefaultPartners());
 
         java.util.List<java.util.Map<String, Object>> sectionsModel = new java.util.ArrayList<>();
         java.util.List<String> articleLabels = new java.util.ArrayList<>();
@@ -105,4 +118,85 @@ public class PdfService {
             return "رقم " + idStr;
         }
     }
+
+    private String formatCompanyLegalLine(String input) {
+        if (input == null || input.isBlank()) return "";
+        String[] words = input.trim().split("\\s+");
+        StringBuilder acronyms = new StringBuilder();
+        StringBuilder restOfText = new StringBuilder();
+        boolean found = false;
+
+        for (String word : words) {
+            if (!found) {
+                if (word.equals("خاضعة") || word.equals("خاضعه")) {
+                    found = true;
+                    restOfText.append(word).append(" ");
+                } else {
+                    if (!word.isEmpty()) {
+                        acronyms.append(word.charAt(0)).append(".");
+                    }
+                }
+            } else {
+                restOfText.append(word).append(" ");
+            }
+        }
+
+        if (!found) return input; // Return original if keyword not found
+
+        if (acronyms.length() > 0 && acronyms.charAt(acronyms.length() - 1) == '.') {
+            acronyms.setLength(acronyms.length() - 1);
+        }
+
+        if (acronyms.length() > 0) {
+            return "(" + acronyms.toString() + ") " + restOfText.toString().trim();
+        } else {
+            return restOfText.toString().trim();
+        }
+    }
+
+    private String getArabicWeekDay(String dateStr) {
+        try {
+            java.time.LocalDate date;
+            if (dateStr.contains("/")) {
+                String[] parts = dateStr.split("/");
+                int d = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                date = java.time.LocalDate.of(y, m, d);
+            } else if (dateStr.contains("-")) {
+                date = java.time.LocalDate.parse(dateStr);
+            } else {
+                return "الخميس"; // Default fallback if format is strange
+            }
+            java.time.DayOfWeek day = date.getDayOfWeek();
+            switch (day) {
+                case SATURDAY: return "السبت";
+                case SUNDAY: return "الأحد";
+                case MONDAY: return "الإثنين";
+                case TUESDAY: return "الثلاثاء";
+                case WEDNESDAY: return "الأربعاء";
+                case THURSDAY: return "الخميس";
+                case FRIDAY: return "الجمعة";
+                default: return "الخميس";
+            }
+        } catch (Exception e) {
+            return "الخميس"; // Default fallback
+        }
+    }
+
+    private java.util.List<com.accounting.backend.dto.PartnerDto> getDefaultPartners() {
+        java.util.List<com.accounting.backend.dto.PartnerDto> list = new java.util.ArrayList<>();
+        com.accounting.backend.dto.PartnerDto p1 = new com.accounting.backend.dto.PartnerDto();
+        p1.setTitle("السيد");
+        p1.setName("ادهم ايهاب");
+        p1.setRole("مالك");
+        list.add(p1);
+        com.accounting.backend.dto.PartnerDto p2 = new com.accounting.backend.dto.PartnerDto();
+        p2.setTitle("السيده");
+        p2.setName("مريم محمد");
+        p2.setRole("شريكه");
+        list.add(p2);
+        return list;
+    }
 }
+
