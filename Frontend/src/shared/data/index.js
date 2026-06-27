@@ -1,4 +1,2 @@
-// Mock data exports
-export * from './mockData';
+// Shared data exports
 export * from './hrMockData';
-export * from './mockDataService';

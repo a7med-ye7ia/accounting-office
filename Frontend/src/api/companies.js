@@ -1,4 +1,3 @@
-import axios from "axios";
 import apiClient from "./client";
 
 export const fetchCompanies = async () => {
@@ -21,7 +20,7 @@ export const uploadPdfForOcr = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await axios.post('http://localhost:8080/api/ocr/extract', formData, {
+    const response = await apiClient.post('/ocr/extract', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
