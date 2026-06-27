@@ -120,16 +120,20 @@
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-databind</artifactId>
 			</dependency>
-
+			<!-- PDF to images -->
 			<dependency>
-				<groupId>com.vladsch.flexmark</groupId>
-				<artifactId>flexmark-all</artifactId>
-				<version>0.64.8</version>
+				<groupId>org.apache.pdfbox</groupId>
+				<artifactId>pdfbox</artifactId>
+				<version>3.0.2</version>
+			</dependency>
+			<!-- HTTP client to call Lightning AI -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-webflux</artifactId>
 			</dependency>
 			<dependency>
-				<groupId>org.json</groupId>
-				<artifactId>json</artifactId>
-				<version>20240303</version>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
 			</dependency>
 		</dependencies>
 
