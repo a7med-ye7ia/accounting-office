@@ -15,6 +15,10 @@ public class CreateCompanyRequest {
     private String company_duration;
     private String company_activity;
     private List<Map<String, String>> articles;
+    private String real_estate_registry_minutes_number;
+
+    public String getReal_estate_registry_minutes_number() { return real_estate_registry_minutes_number; }
+    public void setReal_estate_registry_minutes_number(String real_estate_registry_minutes_number) { this.real_estate_registry_minutes_number = real_estate_registry_minutes_number; }
 
     public String getCompany_name() { return company_name; }
     public void setCompany_name(String company_name) { this.company_name = company_name; }

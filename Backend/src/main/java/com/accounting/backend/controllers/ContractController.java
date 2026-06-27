@@ -57,7 +57,7 @@ public class ContractController {
         if (callerId != null) {
             Map<String, Object> meta = new HashMap<>();
             if (saved.getType() != null) meta.put("contractType", saved.getType().name());
-            if (saved.getCompany() != null) meta.put("companyName", saved.getCompany().getName());
+            if (saved.getCompany() != null) meta.put("companyName", saved.getCompany().getCompanyName());
             activityLogService.logAction(callerId, null, EntityType.CONTRACT, saved.getId(),
                 ActionType.CREATE, "تم إنشاء عقد", meta);
         }
@@ -81,7 +81,7 @@ public class ContractController {
         if (callerId != null) {
             Map<String, Object> meta = new HashMap<>();
             if (saved.getType() != null) meta.put("contractType", saved.getType().name());
-            if (saved.getCompany() != null) meta.put("companyName", saved.getCompany().getName());
+            if (saved.getCompany() != null) meta.put("companyName", saved.getCompany().getCompanyName());
             activityLogService.logAction(callerId, null, EntityType.CONTRACT, saved.getId(),
                 ActionType.UPDATE, "تم تحديث العقد", meta);
         }
@@ -98,7 +98,7 @@ public class ContractController {
         Long callerId = extractUserId(authHeader);
         if (callerId != null) {
             Map<String, Object> meta = new HashMap<>();
-            if (contract.getCompany() != null) meta.put("companyName", contract.getCompany().getName());
+            if (contract.getCompany() != null) meta.put("companyName", contract.getCompany().getCompanyName());
             activityLogService.logAction(callerId, null, EntityType.CONTRACT, id,
                 ActionType.DELETE, "تم حذف العقد", meta);
         }
