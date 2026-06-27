@@ -1,7 +1,6 @@
 package com.accounting.backend.controllers;
 
 import java.io.IOException;
-import java.net.ResponseCache;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +30,6 @@ import com.accounting.backend.entities.Contract;
 import com.accounting.backend.entities.User;
 import com.accounting.backend.enums.ActionType;
 import com.accounting.backend.enums.CompanyStatus;
-import com.accounting.backend.enums.CompanyType;
 import com.accounting.backend.enums.ContractStatus;
 import com.accounting.backend.enums.ContractType;
 import com.accounting.backend.enums.EntityType;
@@ -65,6 +63,7 @@ public class CompanyController {
 
     @Autowired
     private ActivityLogService activityLogService;
+    @Autowired
     private FileService fileService;
 
     @GetMapping

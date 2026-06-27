@@ -18,14 +18,19 @@ export const fetchCompanies = async () => {
 export const uploadPdfForOcr = async (file) => {
   try {
     const formData = new FormData();
-    formData.append('file', file);
 
-    const response = await apiClient.post('/ocr/extract', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    formData.append("file", file);
+    formData.append("fileId", crypto.randomUUID());
+
+    const response = await apiClient.post("/ocr/extract", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
+
     return response.data;
   } catch (error) {
-    console.error('Error uploading PDF for OCR:', error);
+    console.error("Error uploading PDF for OCR:", error);
     throw error;
   }
 };
