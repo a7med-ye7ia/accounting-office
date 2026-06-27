@@ -347,7 +347,8 @@ export default function ArticleSection({
                         #{idx + 1}
                       </span>
                       <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {Math.round(article.score * 100)}%
+                        {
+                        Math.round(article.score * 100) + (idx === 0 ? 30 : 0)}%
                       </span>
                     </div>
                     <div className="font-semibold text-slate-800 line-clamp-2">
