@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import CompaniesPage from "./features/companies/pages/CompaniesPage";
+import CompanyDetailPage from "./features/companies/pages/CompanyDetailPage";
 import DashboardPage from "./features/dashboard/pages/DashboardPage";
 import DepartmentsPage from "./features/departments/pages/DepartmentsPage";
 import DocumentsPage from "./features/documents/pages/DocumentsPage";
@@ -40,7 +41,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/Dashboard" element={<DashboardPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
-        <Route path="/companies/company/:companyId" element={<CompaniesPage />} />
+        <Route path="/companies/company/:companyId" element={<CompanyDetailPage />} />
         <Route path="/companies/company/:companyId/type/:type/Ai" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type/pdf/:pdfId" element={<CompaniesPage />} />

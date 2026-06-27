@@ -10,6 +10,32 @@ export const fetchCompanies = async () => {
   }
 };
 
+export const fetchCompanyById = async (companyId) => {
+  try {
+    const response = await apiClient.get(`/companies/${companyId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching company:', error);
+    throw error;
+  }
+};
+
+// export const fetchCompanyFileTree = async (companyId) => {
+//   try {
+//     const response = await apiClient.get(`/files/company/${companyId}/tree`);
+//     return response.data;
+//   } catch (error) {
+//     console.error('Error fetching company file tree:', error);
+//     throw error;
+//   }
+// };
+// 
+// export const getCompanyFileDownloadUrl = (companyId, relativePath) => {
+//   const encodedPath = encodeURIComponent(relativePath);
+//   return `${API_BASE_URL}/files/company/${companyId}/download?path=${encodedPath}`;
+// }
+// 
+
 /**
  * Upload a PDF file to the OCR endpoint for text extraction.
  * Currently uses a fake OCR API that returns predefined data.
