@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FilePenLine, FileText, FolderOpen, Upload, X, XCircle } from "lucide-react";
-import { uploadFileToCompanyFolder } from "../../../api/files";
+import { uploadContract } from "../../../api/contracts";
 import { getContractTypeMeta } from "../services/companyWorkflow";
 
 const TYPE_OPTIONS = [
@@ -52,7 +52,7 @@ function TypeChoice({ option, selected, onClick }) {
 export default function UploadModal({
   onClose,
   onUpload,
-  companyFolderName,
+  companyId,
   initialType = null,
   uploadZoneOnly = false,
 }) {
@@ -129,15 +129,13 @@ export default function UploadModal({
     setError("");
 
     try {
-      await uploadFileToCompanyFolder(file, companyFolderName);
+      const savedContract = await uploadContract({ companyId, type, file });
 
       onUpload({
-        id: `file-${Date.now()}`,
+        ...savedContract,
         name: file.name,
         type,
         size: formatFileSize(file.size),
-        date: new Date().toLocaleDateString("ar-SA"),
-        file,
       });
 
       handleClose();
@@ -306,3 +304,6 @@ export default function UploadModal({
     </div>
   );
 }
+
+
+

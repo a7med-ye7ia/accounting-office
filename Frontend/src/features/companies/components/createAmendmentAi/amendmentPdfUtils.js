@@ -1,12 +1,5 @@
-// ─────────────────────────────────────────────────────────
-// PDF Generation Utilities
-// ─────────────────────────────────────────────────────────
-import companyExampleData from "../../../../shared/data/companyExampleData.json";
 import apiClient from "../../../../api/client";
 
-/**
- * Builds the Arabic intro paragraph from company data fields.
- */
 export function buildCompanyIntro(data) {
   if (!data) return "";
   const {
@@ -38,74 +31,63 @@ export function buildCompanyIntro(data) {
   if (lawRef) parts.push(`خاضعة لأحكام القانون ${lawRef}`);
   if (approval_date) parts.push(`بموجب الموافقة الصادرة بتاريخ ${approval_date}`);
   if (commercial_register_number) parts.push(`والقيد برقم ${commercial_register_number} بالسجل التجاري`);
-  if (real_estate_registry_minutes_number)
+  if (real_estate_registry_minutes_number) {
     parts.push(`وبمقتضى محضر الشهر العقاري رقم ${real_estate_registry_minutes_number}`);
+  }
   if (company_address) parts.push(`ومركزها الرئيسي ${company_address}`);
   if (company_capital) parts.push(`ورأس مالها ${company_capital}`);
   if (company_duration) parts.push(`ومدة الشركة ${company_duration}`);
   if (company_activity) parts.push(`وغرضها ${company_activity}`);
 
-  return parts.join("، ") + ".";
+  return parts.length ? `${parts.join("، ")}.` : "";
 }
 
-/**
- * Builds the full PDF payload object and suggested file name from
- * company data and the array of amendment sections.
- */
 export function buildAmendmentPdfPayload(company, sections) {
   const changedArticles = sections
-    .map((s) => s.selectedArticleId || s.selectedArticleTitle)
+    .map((section) => section.selectedArticleId || section.selectedArticleTitle)
     .filter(Boolean);
-  const titleSuffix = changedArticles.length
-    ? changedArticles.join("، ")
-    : `${sections.length} مواد`;
+  const titleSuffix = changedArticles.length ? changedArticles.join("، ") : `${sections.length} مواد`;
 
   const merged = {
-    ...companyExampleData,
-    ...company,
-    name: company?.name || companyExampleData.company_name,
+    ...(company || {}),
+    company_name: company?.company_name || company?.name || "",
+    name: company?.name || company?.company_name || "",
+    law_reference: company?.law_reference || {},
   };
   const introParagraph = buildCompanyIntro(merged);
+  const legalLine =
+    company?.legalLine ||
+    (merged.company_type && merged.law_reference?.law_number && merged.law_reference?.law_year
+      ? `شركة ${merged.company_type} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`
+      : "");
 
   return {
     payload: {
       contractTitle: `عقد تعديل المادة ${titleSuffix}`,
       companyName: merged.name,
-      companyLegalLine:
-        company?.legalLine ||
-        `شركة ${merged.company_type} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`,
+      companyLegalLine: legalLine,
       introText: company?.preamble || introParagraph || "",
-      sections: sections.map((s) => ({
-        id: s.id,
-        selectedArticleId: s.selectedArticleId,
-        selectedArticleTitle: s.selectedArticleTitle,
-        beforeText: s.beforeText,
-        afterText: s.afterText || s.modelOutput,
-        modelOutput: s.modelOutput || "",
-        embeddingScore: s.embeddingScore || null,
+      sections: sections.map((section) => ({
+        id: section.id,
+        selectedArticleId: section.selectedArticleId,
+        selectedArticleTitle: section.selectedArticleTitle,
+        beforeText: section.beforeText,
+        afterText: section.afterText || section.modelOutput,
+        modelOutput: section.modelOutput || "",
+        embeddingScore: section.embeddingScore || null,
       })),
     },
-    fileName: `تعديل_${
-      changedArticles.length ? changedArticles.join("_") : "multiple_articles"
-    }.pdf`,
+    fileName: `تعديل_${changedArticles.length ? changedArticles.join("_") : "multiple_articles"}.pdf`,
   };
 }
 
-/**
- * Calls the backend to render a PDF and returns the blob.
- * Low-level — use generateAmendmentPdfBlob for the full flow.
- */
 export async function generateAmendmentPdfBlobFromPayload(payload, fileName) {
   const response = await apiClient.post("/pdf/generate", payload, {
     responseType: "blob",
   });
-  const blob = response.data;
-  return { blob, fileName };
+  return { blob: response.data, fileName };
 }
 
-/**
- * High-level helper: builds the payload then fetches the PDF blob.
- */
 export async function generateAmendmentPdfBlob(company, sections) {
   const { payload, fileName } = buildAmendmentPdfPayload(company, sections);
   const { blob } = await generateAmendmentPdfBlobFromPayload(payload, fileName);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchCompanies } from "../../../api/companies";
 
-export const COMPANY_LOAD_ERROR = "فشل تحميل الشركات. حاول مرة أخرى لاحقًا.";
+export const COMPANY_LOAD_ERROR = "فشل تحميل الشركات. حاول مرة أخرى لاحقا.";
 
 export const CONTRACT_TYPES = {
   establishment: {
@@ -13,14 +13,14 @@ export const CONTRACT_TYPES = {
   },
   amendment: {
     key: "amendment",
-    apiTypes: ["UPDATING"],
+    apiTypes: ["AMENDMENT", "UPDATING"],
     label: "عقود تعديل",
     shortLabel: "تعديل",
     emptyLabel: "لا توجد عقود تعديل",
   },
   other: {
     key: "other",
-    apiTypes: [],
+    apiTypes: ["OTHER"],
     label: "عقود وملفات أخرى",
     shortLabel: "أخرى",
     emptyLabel: "لا توجد ملفات أخرى",
@@ -48,16 +48,27 @@ export function getCompanyContractCounts(company) {
 
 export function getContractsByType(company, contractType) {
   if (!company) return [];
+  if (contractType === "establishment") return company.establishmentContracts || [];
+  if (contractType === "amendment") return company.amendmentContracts || [];
+  return company.otherContracts || [];
+}
 
-  if (contractType === "establishment") {
-    return company.establishmentContracts || [];
-  }
+function workflowTypeFromApi(apiType) {
+  const normalized = String(apiType || "").toUpperCase();
+  return Object.values(CONTRACT_TYPES).find((meta) => meta.apiTypes.includes(normalized))?.key || "other";
+}
 
-  if (contractType === "other") {
-    return company.otherContracts || [];
-  }
+function fileNameFromPath(filePath, fallback) {
+  if (!filePath) return fallback;
+  const parts = String(filePath).split(/[\\/]/).filter(Boolean);
+  return parts.at(-1) || fallback;
+}
 
-  return company.amendmentContracts || [];
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("ar-EG");
 }
 
 function fallbackOcrData(contract, company) {
@@ -66,61 +77,73 @@ function fallbackOcrData(contract, company) {
     company_type: company.companyType,
     commercial_register_number: company.commercialRegNo,
     contract_id: contract.id,
+    articles: [],
   };
 }
 
 function parseOcrData(contract, company) {
-  if (!contract.ocrData) {
-    return fallbackOcrData(contract, company);
-  }
+  if (!contract.ocrData) return fallbackOcrData(contract, company);
 
   try {
-    return JSON.parse(contract.ocrData);
+    const parsed = JSON.parse(contract.ocrData);
+    return {
+      ...fallbackOcrData(contract, company),
+      ...parsed,
+      articles: Array.isArray(parsed.articles) ? parsed.articles : [],
+    };
   } catch (error) {
     console.warn("Invalid OCR data for contract:", contract.id, error);
     return fallbackOcrData(contract, company);
   }
 }
 
-function mapContract(contract, company, type) {
-  const mappedContract = {
-    id: contract.id,
-    name: contract.filePath || `Contract ${contract.id}`,
-    type,
-    date: contract.createdAt,
-    size: "N/A",
-  };
-
-  if (type !== "establishment") {
-    return mappedContract;
-  }
-
+export function normalizeArticle(article, index, sourceName = "") {
+  const rawId = article?.id || index + 1;
+  const content = article?.content || article?.value || article?.text || "";
   return {
-    ...mappedContract,
-    ...parseOcrData(contract, company),
+    ...article,
+    id: rawId,
+    title: article?.title || `المادة ${rawId}`,
+    subtitle: article?.subtitle || sourceName,
+    content,
+    value: article?.value || content,
   };
 }
 
-function contractMatchesType(contract, typeKey) {
-  const apiTypes = CONTRACT_TYPES[typeKey]?.apiTypes || [];
-  return apiTypes.includes(contract.type);
+function mapContract(contract, company) {
+  const type = workflowTypeFromApi(contract.type);
+  const name = fileNameFromPath(contract.filePath, `Contract ${contract.id}`);
+  const mappedContract = {
+    ...contract,
+    id: contract.id,
+    name,
+    type,
+    apiType: contract.type,
+    date: formatDate(contract.createdAt),
+    rawDate: contract.createdAt,
+    size: contract.size || "N/A",
+  };
+
+  const ocrData = parseOcrData(contract, company);
+  return {
+    ...mappedContract,
+    ...ocrData,
+    articles: (ocrData.articles || []).map((article, index) => normalizeArticle(article, index, name)),
+  };
 }
 
 export function mapCompanyFromApi(company) {
-  const contracts = company.contracts || [];
+  const contracts = (company.contracts || []).map((contract) => mapContract(contract, company));
 
   return {
+    ...company,
     id: company.id,
     icon: "building",
     name: company.name,
     description: company.companyType,
-    establishmentContracts: contracts
-      .filter((contract) => contractMatchesType(contract, "establishment"))
-      .map((contract) => mapContract(contract, company, "establishment")),
-    amendmentContracts: contracts
-      .filter((contract) => contractMatchesType(contract, "amendment"))
-      .map((contract) => mapContract(contract, company, "amendment")),
-    otherContracts: [],
+    establishmentContracts: contracts.filter((contract) => contract.type === "establishment"),
+    amendmentContracts: contracts.filter((contract) => contract.type === "amendment"),
+    otherContracts: contracts.filter((contract) => contract.type === "other"),
   };
 }
 
@@ -135,7 +158,7 @@ export function useCompaniesWorkflowData() {
 
     try {
       const data = await fetchCompanies();
-      setCompanies((data || []).map(mapCompanyFromApi));
+      setCompanies((Array.isArray(data) ? data : []).map(mapCompanyFromApi));
     } catch (loadError) {
       console.error("Error fetching companies:", loadError);
       setError(COMPANY_LOAD_ERROR);

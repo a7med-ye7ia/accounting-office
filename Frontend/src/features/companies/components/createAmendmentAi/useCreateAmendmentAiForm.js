@@ -1,9 +1,8 @@
-// ─────────────────────────────────────────────────────────
-// useCreateAmendmentAiForm — shared form state hook
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// useCreateAmendmentAiForm â€” shared form state hook
 //   Used by both the modal and the full-page view.
-// ─────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { useState, useEffect, useCallback, useRef } from "react";
-import { mockArticles } from "../../services/sampleArticles";
 import { getEmbedding } from "../../../../api/ollamaClient.js";
 import { createEmptySection } from "./amendmentUtils.js";
 
@@ -13,10 +12,7 @@ export function useCreateAmendmentAiForm(company, articlesFromProps) {
   const embeddingCacheRef = useRef(new Map()); // Cach
   const pendingEmbeddingsRef = useRef(new Map()); // Cach
 
-  const availableArticles =
-    articlesFromProps && articlesFromProps.length > 0
-      ? articlesFromProps
-      : mockArticles;
+  const availableArticles = Array.isArray(articlesFromProps) ? articlesFromProps : [];
 
   // Reset form when the selected company changes
   useEffect(() => {
@@ -105,3 +101,4 @@ export function useCreateAmendmentAiForm(company, articlesFromProps) {
     getCachedEmbedding, // Cach
   };
 }
+

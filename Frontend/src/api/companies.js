@@ -2,82 +2,48 @@ import apiClient from "./client";
 
 export const fetchCompanies = async () => {
   try {
-    const response = await apiClient.get('/companies');
+    const response = await apiClient.get("/companies");
     return response.data;
   } catch (error) {
-    console.error('Error fetching companies:', error);
+    console.error("Error fetching companies:", error);
     throw error;
   }
 };
 
-/**
- * Upload a PDF file to the OCR endpoint for text extraction.
- * Currently uses a fake OCR API that returns predefined data.
- * When the real OCR is ready, only the backend endpoint implementation changes.
- */
 export const uploadPdfForOcr = async (file) => {
   try {
+    const fileId = crypto.randomUUID();
     const formData = new FormData();
-
     formData.append("file", file);
-    formData.append("fileId", crypto.randomUUID());
+    formData.append("fileId", fileId);
 
     const response = await apiClient.post("/ocr/extract", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    return response.data;
+    return {
+      ...response.data,
+      fileId,
+    };
   } catch (error) {
     console.error("Error uploading PDF for OCR:", error);
     throw error;
   }
 };
 
-/**
- * Create a company with an establishment contract using OCR-extracted data.
- * The OCR JSON is stored as-is in the contract's ocrData field.
- */
-export const createCompanyFromOcr = async (
-  companyData,
-  pdfFile,
-  ocrData
-) => {
+export const createCompanyFromOcr = async (companyData, pdfFile, ocrData) => {
   const formData = new FormData();
 
-  // CreateCompanyRequest
   formData.append(
     "company",
-    new Blob(
-      [JSON.stringify(companyData)],
-      { type: "application/json" }
-    )
+    new Blob([JSON.stringify(companyData)], { type: "application/json" })
   );
-
-  // PDF
   formData.append("pdf", pdfFile);
+  formData.append("ocrJson", JSON.stringify(ocrData, null, 2));
 
-  // OCR JSON (saved as file later)
-  formData.append(
-    "ocrJson",
-    JSON.stringify(ocrData, null, 2)
-  );
-
-  console.log("FormData contents:");
-  for (let pair of formData.entries()) {
-    console.log(pair[0] + ': ' + pair[1]);
-  }
-
-  const response = await apiClient.post(
-    "/companies/with-contract",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }
-  );
+  const response = await apiClient.post("/companies/with-contract", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 
   return response.data;
 };

@@ -166,7 +166,7 @@ public class CompanyController {
                 Long userId = jwtService.extractUserId(token);
                 user = userRepository.findById(userId).orElse(null);
             } catch (Exception e) {
-                // Token parsing failed — fall through to fallback
+                // Token parsing failed - fall through to fallback
             }
         }
         // Development fallback: if no valid auth, use the first user in the database
@@ -178,7 +178,7 @@ public class CompanyController {
         Company company = new Company();
         company.setName(request.getCompany_name());
         company.setCompanyType(request.getCompany_type());
-        company.setCommercialRegNo(request.getCommercial_register_number() + LocalDateTime.now().toString());
+        company.setCommercialRegNo(request.getCommercial_register_number());
         company.setStatus(CompanyStatus.ACTIVE);
         company.setCreatedAt(LocalDateTime.now());
         company.setUpdatedAt(LocalDateTime.now());
@@ -207,6 +207,7 @@ public class CompanyController {
         contract.setCreatedBy(user);
         contract.setStatus(ContractStatus.APPROVED);
         contract.setFilePath(companyFolder + "/CreationContract/" + pdfFile.getOriginalFilename());
+        contract.setOcrData(ocrJson);
         contract.setCreatedAt(LocalDateTime.now());
         contract.setUpdatedAt(LocalDateTime.now());
 
@@ -238,3 +239,5 @@ public class CompanyController {
         }
     }
 }
+
+

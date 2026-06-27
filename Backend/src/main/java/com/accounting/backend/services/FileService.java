@@ -1,19 +1,18 @@
 package com.accounting.backend.services;
 
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 @Service
 public class FileService {
 
-    private final String rootDirectory = "/mnt/par1/college/THE_PROJECT/temp/accounting-office/FileSystem";
-
+  final static String rootDirectory = "C:\\Users\\Amr\\Documents\\Amr\\Graduation_project\\accounting-office\\FileSystem";
     public Path createFolder(String folderName) throws IOException {
         Path folderPath = Path.of(rootDirectory, folderName);
 

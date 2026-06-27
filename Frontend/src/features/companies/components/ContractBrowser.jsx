@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import apiClient from "../../../api/client";
+import { deleteContract } from "../../../api/contracts";
 import AddCompanyModal from "./AddCompanyModal";
 import Breadcrumb from "./Breadcrumb";
 import ChatModal from "./ChatModal";
 import CompanyList from "./CompanyList";
 import ContractViewer from "./ContractViewer";
-import DeleteToast from "./DeleteToast";
 import PdfList from "./PdfList";
 import PdfViewer from "./PdfViewer";
 import UploadModal from "./UploadModal";
@@ -119,9 +119,7 @@ export default function ContractBrowser({ basePath = "/companies" }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadType, setUploadType] = useState(null);
   const [uploadZoneOnly, setUploadZoneOnly] = useState(false);
-  const [extraContracts, setExtraContracts] = useState([]);
-  const [removedIds, setRemovedIds] = useState([]);
-  const [deletedContract, setDeletedContract] = useState(null);
+  const [actionError, setActionError] = useState("");
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
 
@@ -130,19 +128,7 @@ export default function ContractBrowser({ basePath = "/companies" }) {
     return companies.find((company) => String(company.id) === String(route.companyId)) || null;
   }, [companies, route.companyId]);
 
-  const getVisibleContracts = useCallback(
-    (company, contractType) => {
-      const baseContracts = getContractsByType(company, contractType);
-      const localContracts = extraContracts.filter(
-        (contract) => contract.companyId === company?.id && contract.type === contractType
-      );
-
-      return [...baseContracts, ...localContracts].filter(
-        (contract) => !removedIds.includes(contract.id)
-      );
-    },
-    [extraContracts, removedIds]
-  );
+  const getVisibleContracts = useCallback((company, contractType) => getContractsByType(company, contractType), []);
 
   const selectedContracts = useMemo(() => {
     if (!selectedCompany || !route.normalizedType) return [];
@@ -221,16 +207,14 @@ export default function ContractBrowser({ basePath = "/companies" }) {
     navigate(`${route.basePath}/company/${selectedCompany.id}/type/${route.normalizedType}/pdf/${pdf.id}`);
   };
 
-  const handleUpload = (newContract) => {
+  const handleUpload = async (newContract) => {
     if (!selectedCompany) return;
 
-    setExtraContracts((current) => [
-      { ...newContract, companyId: selectedCompany.id },
-      ...current,
-    ]);
+    setActionError("");
     setUploadType(null);
     setShowUploadModal(false);
     setUploadZoneOnly(false);
+    await reload();
     navigate(`${route.basePath}/company/${selectedCompany.id}/type/${newContract.type}`);
   };
 
@@ -273,24 +257,21 @@ export default function ContractBrowser({ basePath = "/companies" }) {
     }
   };
 
-  const handleDelete = (contract) => {
-    setRemovedIds((current) => [...current, contract.id]);
-    setDeletedContract(contract);
-  };
+  const handleDelete = async (contract) => {
+    if (!contract?.id) return;
 
-  const handleUndoDelete = useCallback((contract) => {
-    setRemovedIds((current) => current.filter((id) => id !== contract.id));
-    setDeletedContract(null);
-  }, []);
-
-  const handleDeleteExpired = useCallback(() => {
-    setDeletedContract((contract) => {
-      if (contract) {
-        setExtraContracts((current) => current.filter((item) => item.id !== contract.id));
+    setActionError("");
+    try {
+      await deleteContract(contract.id);
+      await reload();
+      if (route.view === "pdfViewer" && selectedCompany && route.normalizedType) {
+        navigate(`${route.basePath}/company/${selectedCompany.id}/type/${route.normalizedType}`);
       }
-      return null;
-    });
-  }, []);
+    } catch (deleteError) {
+      console.error("Failed to delete contract:", deleteError);
+      setActionError("فشل حذف العقد. حاول مرة أخرى.");
+    }
+  };
 
   const breadcrumbs = useMemo(() => {
     const items = [{ label: "الرئيسية", action: () => navigate(route.basePath) }];
@@ -322,6 +303,11 @@ export default function ContractBrowser({ basePath = "/companies" }) {
 
   return (
     <div className="w-full" dir="rtl">
+      {actionError && (
+        <div className="mb-4 rounded-lg border border-danger/20 bg-danger/10 p-3 text-sm font-bold text-danger">
+          {actionError}
+        </div>
+      )}
       {route.view !== "companies" && <Breadcrumb items={breadcrumbs} type={route.normalizedType} />}
 
       {route.view === "companies" && (
@@ -385,19 +371,10 @@ export default function ContractBrowser({ basePath = "/companies" }) {
             setUploadType(null);
             setUploadZoneOnly(false);
           }}
-          companyFolderName={selectedCompany ? `${selectedCompany.id} - ${selectedCompany.name}` : ""}
+          companyId={selectedCompany?.id}
           onUpload={handleUpload}
           initialType={uploadType}
           uploadZoneOnly={uploadZoneOnly}
-        />
-      )}
-
-      {deletedContract && (
-        <DeleteToast
-          key={deletedContract.id}
-          contract={deletedContract}
-          onUndo={handleUndoDelete}
-          onExpire={handleDeleteExpired}
         />
       )}
 
@@ -413,3 +390,5 @@ export default function ContractBrowser({ basePath = "/companies" }) {
     </div>
   );
 }
+
+

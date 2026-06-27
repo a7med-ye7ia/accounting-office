@@ -18,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin(origins = "*")
 public class FilesController {
 
-  final static String FILE_SYSTEM_PATH = "/mnt/par1/college/THE_PROJECT/temp/accounting-office/FileSystem";
+  final static String FILE_SYSTEM_PATH = "C:\\Users\\Amr\\Documents\\Amr\\Graduation_project\\accounting-office\\FileSystem";
   
   // @PostMapping("/upload")
   // public ResponseEntity<String> uploadFile(

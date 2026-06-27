@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { FileSearch, FileText, ListTree } from "lucide-react";
-import { mockArticles } from "../services/sampleArticles";
 import { getContractTypeMeta } from "../services/companyWorkflow";
 import ArticleOverlay from "./ArticleOverlay";
 
@@ -20,14 +19,20 @@ function ViewToggle({ value, active, icon, children, onClick }) {
       type="button"
       onClick={() => onClick(value)}
       className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold ui-transition ${
-        active
-          ? "bg-appSurface text-brand shadow-sm"
-          : "text-appSubtext hover:text-appText"
+        active ? "bg-appSurface text-brand shadow-sm" : "text-appSubtext hover:text-appText"
       }`}
     >
       <ToggleIcon className="h-4 w-4" aria-hidden="true" />
       {children}
     </button>
+  );
+}
+
+function EmptyArticlesMessage() {
+  return (
+    <p className="rounded-lg border border-dashed border-appBorder bg-appMuted p-4 text-sm text-appSubtext">
+      لا توجد مواد محفوظة لهذا المستند.
+    </p>
   );
 }
 
@@ -69,9 +74,7 @@ function EstablishmentDetails({ pdf }) {
               </div>
             ))
           ) : (
-            <p className="rounded-lg border border-dashed border-appBorder bg-appMuted p-4 text-sm text-appSubtext">
-              لا توجد مواد محددة.
-            </p>
+            <EmptyArticlesMessage />
           )}
         </div>
       </div>
@@ -83,6 +86,7 @@ export default function PdfViewer({ pdf, company, onSelectArticle }) {
   const [viewMode, setViewMode] = useState("articles");
   const isEstablishment = pdf.type === "establishment";
   const meta = getContractTypeMeta(pdf.type);
+  const articles = Array.isArray(pdf.articles) ? pdf.articles : [];
 
   return (
     <div className="animate-fadeIn space-y-6">
@@ -125,24 +129,32 @@ export default function PdfViewer({ pdf, company, onSelectArticle }) {
               <p className="mt-1 text-xs text-appSubtext">اضغط على أي مادة لفتح محادثة حولها.</p>
             </div>
           </div>
-          <ArticleOverlay articles={mockArticles} onSelectArticle={onSelectArticle} type={pdf.type} />
+          {articles.length > 0 ? (
+            <ArticleOverlay articles={articles} onSelectArticle={onSelectArticle} type={pdf.type} />
+          ) : (
+            <EmptyArticlesMessage />
+          )}
         </section>
       ) : (
         <section className="rounded-lg border border-appBorder bg-appSurface p-5 shadow-panel">
           <div className="space-y-3" dir="rtl">
-            {mockArticles.map((article) => (
-              <button
-                type="button"
-                key={article.id}
-                className="w-full rounded-lg border border-appBorder bg-appMuted p-4 text-right ui-transition hover:border-brand/40 hover:bg-appSurface"
-                onClick={() => onSelectArticle(article)}
-              >
-                <h4 className="font-bold text-appText">
-                  {article.title} - {article.subtitle}
-                </h4>
-                <p className="mt-2 text-sm leading-6 text-appSubtext">{article.content}</p>
-              </button>
-            ))}
+            {articles.length > 0 ? (
+              articles.map((article) => (
+                <button
+                  type="button"
+                  key={article.id}
+                  className="w-full rounded-lg border border-appBorder bg-appMuted p-4 text-right ui-transition hover:border-brand/40 hover:bg-appSurface"
+                  onClick={() => onSelectArticle(article)}
+                >
+                  <h4 className="font-bold text-appText">
+                    {article.title} - {article.subtitle}
+                  </h4>
+                  <p className="mt-2 text-sm leading-6 text-appSubtext">{article.content}</p>
+                </button>
+              ))
+            ) : (
+              <EmptyArticlesMessage />
+            )}
           </div>
         </section>
       )}
