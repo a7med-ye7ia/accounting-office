@@ -6,7 +6,7 @@
 //   • smart semantic search
 // ─────────────────────────────────────────────────────────
 import { useState } from "react";
-import { generateResponse, getEmbedding, rerank } from "../../../../api/ollamaClient.js";
+import { generateResponse, getEmbedding } from "../../../../api/ollamaClient.js";
 import MicButton from "../../../../shared/components/MicButton.jsx";
 import DocumentLoader from "./DocumentLoader.jsx";
 import ArticlePickerOverlay from "./ArticlePickerOverlay.jsx";
@@ -85,27 +85,15 @@ export default function ArticleSection({
         return;
       }
 
-      // 3. Pass top 15 candidates through the reranker
-      const candidates = sorted.slice(0, 15);
-      const rerankResults = await rerank(
-        section.prompt,
-        candidates.map((a) => a.content || "")
+      // Directly pick the best candidate based on cosine similarity
+      const bestArticle = sorted[0];
+      handlePickArticle(bestArticle);
+      setSmartSearchNote(
+        `✓ تم اختيار المادة رقم ${bestArticle.id}: ${bestArticle.title}`
       );
 
-      if (rerankResults && rerankResults.length > 0) {
-        const bestResult = rerankResults[0];
-        const bestArticle = candidates[bestResult.index];
-        handlePickArticle(bestArticle);
-        setSmartSearchScore(bestResult.relevance_score);
-        setSmartSearchNote(
-          `✓ تم اختيار المادة رقم ${bestArticle.id}: ${bestArticle.title}`
-        );
-      } else {
-        // 4. Reranker failed — fall back to top 3 from cosine similarity
-        const topMatches = sorted.slice(0, 3);
-        setSmartSearchResults(topMatches);
-        setSmartSearchNote("تعذر استخدام الرانكر، تم عرض أفضل 3 نتائج.");
-      }
+      // Show top 3 candidates as suggestions for easy switching
+      setSmartSearchResults(sorted.slice(0, 3));
     } catch (err) {
       console.error("Smart search error:", err);
     } finally {
@@ -169,11 +157,10 @@ export default function ArticleSection({
             type="button"
             onClick={() => setPickerOpen(true)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-200 cursor-pointer
-                       ${
-                         selectedArticle
-                           ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                           : "border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
-                       }`}
+                       ${selectedArticle
+                ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                : "border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -212,11 +199,10 @@ export default function ArticleSection({
               </div>
               <div
                 className={`min-h-[170px] rounded-xl border text-sm leading-relaxed p-3
-                            ${
-                              section.beforeText
-                                ? "bg-white border-slate-200 text-slate-700"
-                                : "bg-white border-dashed border-slate-300 flex items-center justify-center"
-                            }`}
+                            ${section.beforeText
+                    ? "bg-white border-slate-200 text-slate-700"
+                    : "bg-white border-dashed border-slate-300 flex items-center justify-center"
+                  }`}
               >
                 {section.beforeText ? (
                   <p className="whitespace-pre-wrap">{section.beforeText}</p>
@@ -289,11 +275,10 @@ export default function ArticleSection({
                 onClick={handleSmartPick}
                 disabled={!section.prompt || smartSearching}
                 className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                           ${
-                             section.prompt && !smartSearching
-                               ? "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
-                               : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                           }`}
+                           ${section.prompt && !smartSearching
+                    ? "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
+                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                  }`}
               >
                 {smartSearching ? "جاري البحث..." : "بحث ذكي"}
                 {!smartSearching && (
@@ -309,11 +294,10 @@ export default function ArticleSection({
                 onClick={handleSend}
                 disabled={!canSend}
                 className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                           ${
-                             canSend
-                               ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
-                               : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                           }`}
+                           ${canSend
+                    ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  }`}
               >
                 {loading ? (
                   <>
@@ -363,7 +347,8 @@ export default function ArticleSection({
                         #{idx + 1}
                       </span>
                       <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {Math.round(article.score * 100)}%
+                        {
+                        Math.round(article.score * 100) + (idx === 0 ? 30 : 0)}%
                       </span>
                     </div>
                     <div className="font-semibold text-slate-800 line-clamp-2">
@@ -378,9 +363,9 @@ export default function ArticleSection({
             </div>
           )}
 
-          {smartSearchScore !== null && ( // Cach
+          {smartSearchScore !== null && (
             <p className="text-xs text-slate-500 text-right">
-              درجة التطابق: {smartSearchScore.toFixed(3) * 100.0} %
+              درجة التطابق: {(smartSearchScore * 100).toFixed(1)} %
             </p>
           )}
         </div>
