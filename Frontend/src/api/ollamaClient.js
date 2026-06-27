@@ -3,7 +3,7 @@ import axios from "axios";
 const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || "http://localhost:11434/api";
 const EMBEDDING_MODEL = "qwen3-embedding:0.6b";
 const GENERATION_MODEL = "qwen-local";
-const RERANKER_MODEL = import.meta.env.VITE_RERANKER_MODEL || "pdurugyan/qwen3-reranker-0.6b-q8_0";
+const RERANKER_MODEL = "qwen2.5:0.5b";
 
 // وظيفة جلب الـ Embeddings (للبحث)
 export const getEmbedding = async (text) => {
