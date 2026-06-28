@@ -5,27 +5,8 @@
     <meta charset="UTF-8" />
     <style>
         @page {
-            margin-top: 160px; /* must be >= letterhead height */
-            margin-bottom: 60px;
-            margin-left: 50px;
-            margin-right: 50px;
-
-            @top-center {
-                content: element(letterhead);
-            }
-        }
-
-        .fixed-letterhead {
-            position: running(letterhead); /* pulled out of flow, repeats on every page */
-            width: 100%;
-            text-align: center;
-            top: 30px;
-        }
-
-        /* If your header uses @top-center or position:fixed, make sure it has a fixed height */
-        #header, .page-header {
-            position: running(header);
-            height: 100px; /* match margin-top above */
+            size: A4;
+            margin: 30px;
         }
 
         body {
@@ -33,7 +14,7 @@
             direction: rtl;
             background: #fff;
             margin: 0;
-            padding: 10px 0px 10px 0px; /* remove the 95px top padding */
+            padding: 95px 40px 10px 40px;
             font-size: 16px;
             color: #000;
             line-height: 1.7;
@@ -43,21 +24,41 @@
         /* Borders */
         .border-outer {
             position: fixed;
-            top: 0; bottom: 0; left: 0; right: 0;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
             border: 2px solid black;
             z-index: -3;
         }
+
         .border-mid {
             position: fixed;
-            top: 4px; bottom: 4px; left: 4px; right: 4px;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
             border: 1px solid black;
             z-index: -2;
         }
+
         .border-inner {
             position: fixed;
-            top: 8px; bottom: 8px; left: 8px; right: 8px;
+            top: 8px;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
             border: 1px solid black;
             z-index: -1;
+        }
+
+        /* Letterhead */
+        .fixed-letterhead {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            right: 30px;
+            text-align: center;
         }
 
         .lh-line1 {
@@ -120,29 +121,23 @@
         }
 
         /* Tables */
-      table {
-            border-collapse: collapse;
+        table {
             width: 100%;
-            direction: rtl;          /* keeps text RTL */
+            border-collapse: collapse;
             margin: 10px 0;
-            font-family: 'Noto Naskh', serif;
-            table-layout: fixed;
+            font-size: 16px;
         }
 
-        th, td {
-            border: 1px solid #444;
-            padding: 6px 10px;
-            text-align: right;       /* text inside cells is RTL */
-            direction: rtl;
+        th,
+        td {
+            border: 1px solid black;
+            padding: 6px;
+            text-align: center;
         }
 
         th {
-            background-color: #e0e0e0;
             font-weight: bold;
-        }
-
-        tr:nth-child(even) {
-            background-color: #f5f5f5;
+            background-color: transparent;
         }
 
         /* Signature */
@@ -207,20 +202,12 @@
     </p>
 
     <!-- Sections -->
-   <div th:each="sec : ${sections}">
-
-        <!-- العنوان التمهيدي — shown before the before-section -->
-        <div th:if="${sec.preliminaryTitle != null and !#strings.isEmpty(sec.preliminaryTitle)}"
-            style="font-weight: bold; font-size: 17px; margin: 20px 0 8px 0; text-decoration: underline;">
-            <span th:text="${sec.preliminaryTitle}"></span>
-        </div>
-
+    <div th:each="sec : ${sections}">
         <div class="section-title"><span th:text="${sec.sectionTitleBefore}">المادة قبل التعديل</span></div>
-        <div th:utext="${sec.beforeText}"></div>
+        <p th:text="${sec.beforeText}"></p>
 
         <div class="section-title"><span th:text="${sec.sectionTitleAfter}">المادة بعد التعديل</span></div>
-        <div th:utext="${sec.afterText}"></div>
-
+        <p th:text="${sec.afterText}"></p>
     </div>
 
     <!-- Signature -->
