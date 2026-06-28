@@ -3,6 +3,7 @@ package com.accounting.backend.controllers;
 import com.accounting.backend.entities.ContractDocument;
 import com.accounting.backend.services.AssemblyService;
 import com.accounting.backend.services.OcrService;
+import com.accounting.backend.services.ContracteService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,6 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
+
 @RestController
 @RequestMapping("/api/ocr")
 @CrossOrigin(origins = "*")
@@ -18,10 +21,28 @@ public class OcrController {
 
     private final OcrService ocrService;
     private final AssemblyService assemblyService;
+    private final ContracteService contractService;
 
-    public OcrController(OcrService ocrService, AssemblyService assemblyService) {
+    public OcrController(OcrService ocrService, AssemblyService assemblyService, ContracteService contractService) {
         this.ocrService      = ocrService;
         this.assemblyService = assemblyService;
+        this.contractService = contractService;
+    }
+
+    @PostMapping("/extract2")
+    public ResponseEntity<ContractDocument> extractOcrData2(@RequestParam("file") MultipartFile file, @RequestParam("fileId") String fileId) {
+        
+        // get random json temp
+        int randomNum = (int) (Math.random() * 6) + 1; // Generates a random number between 1 and 3
+        String fileName = "file_00" + randomNum;
+        ContractDocument result = null;
+        try {
+            result = contractService.getcontracte(fileName);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/extract")

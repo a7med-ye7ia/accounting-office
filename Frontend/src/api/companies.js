@@ -17,9 +17,12 @@ export const uploadPdfForOcr = async (file) => {
     formData.append("file", file);
     formData.append("fileId", fileId);
 
-    const response = await apiClient.post("/ocr/extract", formData, {
+    const response = await apiClient.post("/ocr/extract2", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+    // const response = await apiClient.post("/ocr/extract", formData, {
+    //   headers: { "Content-Type": "multipart/form-data" },
+    // });
 
     return {
       ...response.data,
