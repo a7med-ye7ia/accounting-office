@@ -30,10 +30,10 @@ public class OcrController {
     }
 
     @PostMapping("/extract2")
-    public ResponseEntity<ContractDocument> extractOcrData2(@RequestParam("file") MultipartFile file, @RequestParam("fileId") String fileId) {
+    public ResponseEntity<ContractDocument> extractOcrData2(@RequestParam("file") MultipartFile file, @RequestParam("fileId") String fileId) throws InterruptedException {
         
         // get random json temp
-        int randomNum = (int) (Math.random() * 6) + 1; // Generates a random number between 1 and 3
+        int randomNum = (int) (Math.random() * 30) + 1; // Generates a random number between 1 and 3
         String fileName = "file_00" + randomNum;
         ContractDocument result = null;
         try {

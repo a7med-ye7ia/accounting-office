@@ -158,9 +158,9 @@ function DashboardPage() {
 
         {/* Row A — primary volumes */}
         <section aria-label="مؤشرات رئيسية">
-          <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
+          {/* <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
             الصف أ — الحجم والنطاق
-          </h2>
+          </h2> */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
             <PageStatCard
               icon={Users}
@@ -195,9 +195,9 @@ function DashboardPage() {
 
         {/* Row B — health & pipeline */}
         <section aria-label="مؤشرات الصحة">
-          <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
+          {/* <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
             الصف ب — النشاط والالتزام
-          </h2>
+          </h2> */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
             <PageStatCard
               icon={UserCheck}
@@ -228,7 +228,7 @@ function DashboardPage() {
               loading={loading}
             />
           </div>
-          <p className="mt-3 text-xs leading-relaxed text-appSubtext">
+          {/* <p className="mt-3 text-xs leading-relaxed text-appSubtext">
             «مستخدمون بلا قسم» (حاليًا{" "}
             <span className="font-mono text-brand">{metrics.usersMissingDept}</span>
             ) يعتمد على وجود <span className="font-mono">departmentId</span> في استجابة المستخدمين. مهام
@@ -236,14 +236,14 @@ function DashboardPage() {
             <span className="font-mono text-brand">{metrics.overdueTasks}</span> — أدوار النظام:{" "}
             <span className="font-mono text-brand">{metrics.rolesTotal}</span> — عقود نشطة (غير محذوفة):{" "}
             <span className="font-mono text-brand">{metrics.contractsTotal}</span>.
-          </p>
+          </p> */}
         </section>
 
         {/* Row C — recent activity */}
         <section aria-label="النشاط الأخير">
-          <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
+          {/* <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
             الصف ج — آخر النشاط
-          </h2>
+          </h2> */}
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div className={tableShell}>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-appBorder px-5 py-4 sm:px-6">

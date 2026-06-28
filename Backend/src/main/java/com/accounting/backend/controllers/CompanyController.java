@@ -1,6 +1,7 @@
 package com.accounting.backend.controllers;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,7 +117,7 @@ public class CompanyController {
         Company company = companyRepository.findById(id).orElseThrow();
         company.setName(companyDetails.getName());
         company.setCompanyType(companyDetails.getCompanyType());
-        company.setCommercialRegNo(companyDetails.getCommercialRegNo());
+        company.setCommercialRegNo(companyDetails.getCommercialRegNo() + LocalDate.now().toString());
         company.setTaxId(companyDetails.getTaxId());
         company.setStatus(companyDetails.getStatus());
         company.setUpdatedAt(LocalDateTime.now());
@@ -178,7 +179,7 @@ public class CompanyController {
         Company company = new Company();
         company.setName(request.getCompany_name());
         company.setCompanyType(request.getCompany_type());
-        company.setCommercialRegNo(request.getCommercial_register_number());
+        company.setCommercialRegNo(request.getCommercial_register_number() + LocalDate.now().toString());
         company.setStatus(CompanyStatus.ACTIVE);
         company.setCreatedAt(LocalDateTime.now());
         company.setUpdatedAt(LocalDateTime.now());
