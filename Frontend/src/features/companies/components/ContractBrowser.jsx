@@ -12,6 +12,7 @@ import PdfList from "./PdfList";
 import PdfViewer from "./PdfViewer";
 import UploadModal from "./UploadModal";
 import { CreateAmendmentAiPageView } from "./CreateAmendmentAiModal";
+import { saveAmendmentContract } from "./createAmendmentAi/amendmentPdfUtils";
 import {
   getContractTypeMeta,
   getContractsByType,
@@ -237,6 +238,10 @@ export default function ContractBrowser({ basePath = "/companies" }) {
 
   const handleGenerateAiAmendment = async (payload) => {
     try {
+      setActionError("");
+      await saveAmendmentContract(selectedCompany.id, payload.company, payload.sections);
+      await reload();
+
       const sections = (payload.sections || []).map((section) => ({
         selectedArticleTitle: section.selectedArticleTitle || "",
         beforeText: section.beforeText || "",
@@ -248,8 +253,9 @@ export default function ContractBrowser({ basePath = "/companies" }) {
         companyName: selectedCompany?.name,
         sections,
       });
-    } catch (activityError) {
-      console.error("Failed to log amendment activity:", activityError);
+    } catch (error) {
+      console.error("Failed to generate and save amendment contract:", error);
+      setActionError("فشل إنشاء عقد التعديل وحفظه. حاول مرة أخرى.");
     }
 
     if (selectedCompany) {

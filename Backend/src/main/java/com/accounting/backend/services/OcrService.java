@@ -1,7 +1,6 @@
 package com.accounting.backend.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Value;
@@ -79,7 +78,7 @@ public OcrService() {
     private List<byte[]> pdfToImages(MultipartFile pdfFile) throws Exception {
         List<byte[]> images = new ArrayList<>();
     
-        try (PDDocument document = Loader.loadPDF(pdfFile.getBytes())) {
+        try (PDDocument document = PDDocument.load(pdfFile.getBytes())) {
             PDFRenderer renderer = new PDFRenderer(document);
             int pageCount = document.getNumberOfPages();
     

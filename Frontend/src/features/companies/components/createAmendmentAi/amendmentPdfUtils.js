@@ -93,3 +93,13 @@ export async function generateAmendmentPdfBlob(company, sections) {
   const { blob } = await generateAmendmentPdfBlobFromPayload(payload, fileName);
   return { blob, fileName, payload };
 }
+
+export async function saveAmendmentContract(companyId, company, sections) {
+  const { payload, fileName } = buildAmendmentPdfPayload(company, sections);
+  const response = await apiClient.post("/contracts/amendments/generate", {
+    companyId,
+    fileName,
+    pdf: payload,
+  });
+  return response.data;
+}

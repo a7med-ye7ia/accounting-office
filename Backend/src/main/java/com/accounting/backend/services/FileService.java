@@ -56,4 +56,21 @@ public class FileService {
 
         return filePath;
     }
+
+    public Path saveBytes(String relativePath, String fileName, byte[] content) throws IOException {
+        Path folderPath = Path.of(rootDirectory, relativePath);
+
+        Files.createDirectories(folderPath);
+
+        Path filePath = folderPath.resolve(fileName);
+
+        Files.write(
+            filePath,
+            content,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
+
+        return filePath;
+    }
 }

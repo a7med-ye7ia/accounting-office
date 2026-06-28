@@ -2,6 +2,7 @@ package com.accounting.backend.controllers;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.accounting.backend.entities.Company;
 import com.accounting.backend.entities.Contract;
 import com.accounting.backend.entities.User;
@@ -36,6 +39,7 @@ import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.security.JwtService;
 import com.accounting.backend.services.ActivityLogService;
 import com.accounting.backend.services.FileService;
+import com.accounting.backend.services.PdfService;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -54,6 +58,9 @@ public class ContractController {
     private ActivityLogService activityLogService;
     @Autowired
     private FileService fileService;
+    @Autowired
+    private PdfService pdfService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
     public List<Contract> getAllContracts() {
@@ -144,6 +151,70 @@ public class ContractController {
         return ResponseEntity.ok(saved);
     }
 
+    @PostMapping("/amendments/generate")
+    public ResponseEntity<?> generateAndSaveAmendmentContract(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody GenerateAmendmentContractRequest request) {
+
+        if (request == null || request.getCompanyId() == null || request.getPdf() == null) {
+            return ResponseEntity.badRequest().body("companyId and pdf payload are required");
+        }
+
+        Company company = companyRepository.findById(request.getCompanyId()).orElse(null);
+        if (company == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        User user = resolveUser(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
+        }
+
+        try {
+            PdfController.PdfRequest pdfRequest = request.getPdf();
+            byte[] pdfBytes = pdfService.generateAmendmentPdf(
+                pdfRequest.getContractTitle(),
+                pdfRequest.getCompanyName(),
+                pdfRequest.getCompanyLegalLine(),
+                pdfRequest.getIntroText(),
+                pdfRequest.getCompanyCapital(),
+                pdfRequest.getContractDate(),
+                pdfRequest.getPartners(),
+                toPdfSections(pdfRequest.getSections())
+            );
+
+            String companyFolder = company.getId() + " - " + company.getName();
+            String contractFolder = "EditingContracts";
+            String fileName = safePdfFileName(request.getFileName());
+            String relativeFolder = companyFolder + "/" + contractFolder;
+            fileService.createFolder(companyFolder);
+            fileService.createFolder(relativeFolder);
+            fileService.saveBytes(relativeFolder, fileName, pdfBytes);
+
+            Contract contract = new Contract();
+            contract.setType(ContractType.UPDATING);
+            contract.setCompany(company);
+            contract.setCreatedBy(user);
+            contract.setStatus(ContractStatus.APPROVED);
+            contract.setFilePath(relativeFolder + "/" + fileName);
+            contract.setOcrData(objectMapper.writeValueAsString(pdfRequest));
+            contract.setCreatedAt(LocalDateTime.now());
+            contract.setUpdatedAt(LocalDateTime.now());
+
+            Contract saved = contractRepository.save(contract);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("contractType", saved.getType().name());
+            meta.put("companyName", company.getName());
+            meta.put("filePath", saved.getFilePath());
+            activityLogService.logAction(user.getId(), null, EntityType.CONTRACT, saved.getId(),
+                ActionType.CREATE, "Generated amendment contract", meta);
+
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Failed to generate amendment contract");
+        }
+    }
     @PutMapping("/{id}")
     public Contract updateContract(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -184,6 +255,34 @@ public class ContractController {
         }
     }
 
+    private List<Map<String, Object>> toPdfSections(List<PdfController.PdfRequest.SectionRequest> sections) {
+        List<Map<String, Object>> sectionsForService = new java.util.ArrayList<>();
+        if (sections == null) return sectionsForService;
+
+        for (PdfController.PdfRequest.SectionRequest s : sections) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", s.getId());
+            m.put("selectedArticleId", s.getSelectedArticleId());
+            m.put("selectedArticleTitle", s.getSelectedArticleTitle());
+            m.put("beforeText", s.getBeforeText());
+            m.put("afterText", s.getAfterText());
+            m.put("modelOutput", s.getModelOutput());
+            m.put("embeddingScore", s.getEmbeddingScore());
+            sectionsForService.add(m);
+        }
+        return sectionsForService;
+    }
+
+    private String safePdfFileName(String fileName) {
+        String safe = fileName == null ? "" : fileName.replaceAll("[\\\\/]+", "_").trim();
+        if (safe.isBlank()) {
+            safe = "amendment_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".pdf";
+        }
+        if (!safe.toLowerCase().endsWith(".pdf")) {
+            safe = safe + ".pdf";
+        }
+        return safe;
+    }
     private Long extractUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
         try {
@@ -199,6 +298,20 @@ public class ContractController {
         return userRepository.findById(userId).orElse(null);
     }
 
+    public static class GenerateAmendmentContractRequest {
+        private Long companyId;
+        private String fileName;
+        private PdfController.PdfRequest pdf;
+
+        public Long getCompanyId() { return companyId; }
+        public void setCompanyId(Long companyId) { this.companyId = companyId; }
+
+        public String getFileName() { return fileName; }
+        public void setFileName(String fileName) { this.fileName = fileName; }
+
+        public PdfController.PdfRequest getPdf() { return pdf; }
+        public void setPdf(PdfController.PdfRequest pdf) { this.pdf = pdf; }
+    }
     private ContractType parseContractType(String type) {
         String normalized = type == null ? "" : type.trim().toUpperCase();
         return switch (normalized) {
