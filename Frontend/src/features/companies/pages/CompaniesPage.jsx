@@ -117,7 +117,7 @@ export default function CompaniesViewer() {
       );
     });
   }, [activeCompanies, activeFilter, search]);
-
+console.log("filteredCompanies", filteredCompanies);
   return (
     <MainLayout title="الشركات والعقود" subtitle="إدارة الشركات">
       <div className="space-y-8">
@@ -216,7 +216,7 @@ export default function CompaniesViewer() {
                           {company.companyType || "غير محدد"}
                         </span>
                         <h2 className="mt-4 text-xl font-semibold text-appText sm:text-2xl">
-                          {company.companyName || "اسم الشركة"}
+                          {company.name || "اسم الشركة"}
                         </h2>
                         <p className="mt-2 text-sm leading-relaxed text-appSubtext">
                           آخر تحديث: {formatDateTimeShort(company.updatedAt)}

@@ -571,7 +571,6 @@ export default function CompanyDetailPage() {
                     اختر المجلد الرئيسي
                   </button>
                 </div>
-                <span className="w-full text-xs text-appSubtext">(Windows File Style)</span>
               </div>
               <div className="space-y-1">
                 {otherContractsTree.length === 0 ? (

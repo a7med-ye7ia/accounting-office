@@ -1,10 +1,19 @@
 package com.accounting.backend.entities;
 
-import com.accounting.backend.enums.CompanyStatus;
-import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.accounting.backend.enums.CompanyStatus;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "companies")
@@ -14,38 +23,17 @@ public class Company {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "company_name", nullable = false, columnDefinition = "TEXT")
-    private String companyName;
-
-    @Column(name = "company_address", columnDefinition = "TEXT")
-    private String companyAddress;
+    @Column(nullable = false)
+    private String name;
 
     @Column(name = "company_type", nullable = false)
     private String companyType;
 
-    @Column(name = "law_number")
-    private String lawNumber;
+    @Column(name = "commercial_reg_no", unique = true)
+    private String commercialRegNo;
 
-    @Column(name = "law_year")
-    private String lawYear;
-
-    @Column(name = "company_capital", columnDefinition = "TEXT")
-    private String companyCapital;
-
-    @Column(name = "commercial_register_number")
-    private String commercialRegisterNumber;
-
-    @Column(name = "approval_date")
-    private String approvalDate;
-
-    @Column(name = "real_estate_registry_minutes_number", columnDefinition = "TEXT")
-    private String realEstateRegistryMinutesNumber;
-
-    @Column(name = "company_duration", columnDefinition = "TEXT")
-    private String companyDuration;
-
-    @Column(name = "company_activity", columnDefinition = "TEXT")
-    private String companyActivity;
+    @Column(name = "tax_id", unique = true)
+    private String taxId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -60,12 +48,14 @@ public class Company {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    // @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval =
+    // true)
+    // private List<Contract> contracts = new ArrayList<>();
+
     @Transient
     private List<Contract> contracts;
 
-    // ==========================
-    // Getters & Setters
-    // ==========================
+    // Getters and setters
 
     public Long getId() {
         return id;
@@ -75,20 +65,12 @@ public class Company {
         this.id = id;
     }
 
-    public String getCompanyName() {
-        return companyName;
+    public String getName() {
+        return name;
     }
 
-    public void setCompanyName(String companyName) {
-        this.companyName = companyName;
-    }
-
-    public String getCompanyAddress() {
-        return companyAddress;
-    }
-
-    public void setCompanyAddress(String companyAddress) {
-        this.companyAddress = companyAddress;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getCompanyType() {
@@ -99,68 +81,20 @@ public class Company {
         this.companyType = companyType;
     }
 
-    public String getLawNumber() {
-        return lawNumber;
+    public String getCommercialRegNo() {
+        return commercialRegNo;
     }
 
-    public void setLawNumber(String lawNumber) {
-        this.lawNumber = lawNumber;
+    public void setCommercialRegNo(String commercialRegNo) {
+        this.commercialRegNo = commercialRegNo;
     }
 
-    public String getLawYear() {
-        return lawYear;
+    public String getTaxId() {
+        return taxId;
     }
 
-    public void setLawYear(String lawYear) {
-        this.lawYear = lawYear;
-    }
-
-    public String getCompanyCapital() {
-        return companyCapital;
-    }
-
-    public void setCompanyCapital(String companyCapital) {
-        this.companyCapital = companyCapital;
-    }
-
-    public String getCommercialRegisterNumber() {
-        return commercialRegisterNumber;
-    }
-
-    public void setCommercialRegisterNumber(String commercialRegisterNumber) {
-        this.commercialRegisterNumber = commercialRegisterNumber;
-    }
-
-    public String getApprovalDate() {
-        return approvalDate;
-    }
-
-    public void setApprovalDate(String approvalDate) {
-        this.approvalDate = approvalDate;
-    }
-
-    public String getRealEstateRegistryMinutesNumber() {
-        return realEstateRegistryMinutesNumber;
-    }
-
-    public void setRealEstateRegistryMinutesNumber(String realEstateRegistryMinutesNumber) {
-        this.realEstateRegistryMinutesNumber = realEstateRegistryMinutesNumber;
-    }
-
-    public String getCompanyDuration() {
-        return companyDuration;
-    }
-
-    public void setCompanyDuration(String companyDuration) {
-        this.companyDuration = companyDuration;
-    }
-
-    public String getCompanyActivity() {
-        return companyActivity;
-    }
-
-    public void setCompanyActivity(String companyActivity) {
-        this.companyActivity = companyActivity;
+    public void setTaxId(String taxId) {
+        this.taxId = taxId;
     }
 
     public CompanyStatus getStatus() {
@@ -205,20 +139,9 @@ public class Company {
 
     @Override
     public String toString() {
-        return "Company{" +
-                "id=" + id +
-                ", companyName='" + companyName + '\'' +
-                ", companyAddress='" + companyAddress + '\'' +
-                ", companyType='" + companyType + '\'' +
-                ", lawNumber='" + lawNumber + '\'' +
-                ", lawYear='" + lawYear + '\'' +
-                ", companyCapital='" + companyCapital + '\'' +
-                ", commercialRegisterNumber='" + commercialRegisterNumber + '\'' +
-                ", approvalDate='" + approvalDate + '\'' +
-                ", realEstateRegistryMinutesNumber='" + realEstateRegistryMinutesNumber + '\'' +
-                ", companyDuration='" + companyDuration + '\'' +
-                ", companyActivity='" + companyActivity + '\'' +
-                ", status=" + status +
-                '}';
+        return "Company [id=" + id + ", name=" + name + ", companyType=" + companyType + ", commercialRegNo="
+                + commercialRegNo + ", taxId=" + taxId + ", status=" + status + ", createdAt=" + createdAt
+                + ", updatedAt=" + updatedAt + ", deletedAt=" + deletedAt + ", contracts=" + contracts + "]";
     }
+
 }

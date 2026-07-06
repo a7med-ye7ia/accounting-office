@@ -1,6 +1,7 @@
 package com.accounting.backend.controllers;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,8 +64,7 @@ public class CompanyController {
 
     @Autowired
     private ActivityLogService activityLogService;
-
-    @Autowired  
+    @Autowired
     private FileService fileService;
 
     @GetMapping
@@ -89,7 +89,7 @@ public class CompanyController {
             .filter(contract -> contract.getCompany().getId().equals(company.getId()))
             .toList());
 
-        System.out.println(company);
+        // System.out.println(company);
         return Optional.of(company);
     }
 
@@ -102,9 +102,9 @@ public class CompanyController {
         Long callerId = extractUserId(authHeader);
         if (callerId != null) {
             Map<String, Object> meta = new HashMap<>();
-            meta.put("companyName", saved.getCompanyName());
+            meta.put("companyName", saved.getName());
             activityLogService.logAction(callerId, null, EntityType.COMPANY, saved.getId(),
-                ActionType.CREATE, "تم إنشاء شركة: " + saved.getCompanyName(), meta);
+                ActionType.CREATE, "تم إنشاء شركة: " + saved.getName(), meta);
         }
         return saved;
     }
@@ -115,30 +115,19 @@ public class CompanyController {
             @PathVariable Long id,
             @RequestBody Company companyDetails) {
         Company company = companyRepository.findById(id).orElseThrow();
-        
-        company.setCompanyName(companyDetails.getCompanyName());
-        company.setCompanyAddress(companyDetails.getCompanyAddress());
+        company.setName(companyDetails.getName());
         company.setCompanyType(companyDetails.getCompanyType());
-        company.setLawNumber(companyDetails.getLawNumber());
-        company.setLawYear(companyDetails.getLawYear());
-        company.setCompanyCapital(companyDetails.getCompanyCapital());
-        company.setCommercialRegisterNumber(companyDetails.getCommercialRegisterNumber());
-        company.setApprovalDate(companyDetails.getApprovalDate());
-        company.setRealEstateRegistryMinutesNumber(
-                companyDetails.getRealEstateRegistryMinutesNumber());
-        company.setCompanyDuration(companyDetails.getCompanyDuration());
-        company.setCompanyActivity(companyDetails.getCompanyActivity());
+        company.setCommercialRegNo(companyDetails.getCommercialRegNo() + LocalDate.now().toString());
+        company.setTaxId(companyDetails.getTaxId());
         company.setStatus(companyDetails.getStatus());
-        company.setUpdatedAt(LocalDateTime.now());
-
         company.setUpdatedAt(LocalDateTime.now());
         Company saved = companyRepository.save(company);
         Long callerId = extractUserId(authHeader);
         if (callerId != null) {
             Map<String, Object> meta = new HashMap<>();
-            meta.put("companyName", saved.getCompanyName());
+            meta.put("companyName", saved.getName());
             activityLogService.logAction(callerId, null, EntityType.COMPANY, saved.getId(),
-                ActionType.UPDATE, "تم تحديث الشركة: " + saved.getCompanyName(), meta);
+                ActionType.UPDATE, "تم تحديث الشركة: " + saved.getName(), meta);
         }
         return saved;
     }
@@ -149,7 +138,7 @@ public class CompanyController {
             @PathVariable Long id) {
         Company company = companyRepository.findById(id).orElse(null);
         if (company == null) return;
-        String name = company.getCompanyName();
+        String name = company.getName();
         companyRepository.deleteById(id);
         Long callerId = extractUserId(authHeader);
         if (callerId != null) {
@@ -178,7 +167,7 @@ public class CompanyController {
                 Long userId = jwtService.extractUserId(token);
                 user = userRepository.findById(userId).orElse(null);
             } catch (Exception e) {
-                // Token parsing failed — fall through to fallback
+                // Token parsing failed - fall through to fallback
             }
         }
         // Development fallback: if no valid auth, use the first user in the database
@@ -188,28 +177,15 @@ public class CompanyController {
 
         // Create and save the company
         Company company = new Company();
-        
-        company.setCompanyName(request.getCompany_name());
-        company.setCompanyAddress(request.getCompany_address());
+        company.setName(request.getCompany_name());
         company.setCompanyType(request.getCompany_type());
-        if (request.getLaw_reference() != null) {
-            company.setLawNumber(request.getLaw_reference().get("law_number"));
-            company.setLawYear(request.getLaw_reference().get("law_year"));
-        }
-        company.setCompanyCapital(request.getCompany_capital());
-        company.setCommercialRegisterNumber(
-                request.getCommercial_register_number());
-        company.setApprovalDate(request.getApproval_date());
-        company.setRealEstateRegistryMinutesNumber(
-                request.getReal_estate_registry_minutes_number());
-        company.setCompanyDuration(request.getCompany_duration());
-        company.setCompanyActivity(request.getCompany_activity());
+        company.setCommercialRegNo(request.getCommercial_register_number() + LocalDate.now().toString());
         company.setStatus(CompanyStatus.ACTIVE);
         company.setCreatedAt(LocalDateTime.now());
         company.setUpdatedAt(LocalDateTime.now());
         Company savedCompany = companyRepository.save(company);
 
-        String companyFolder = savedCompany.getId() + " - " + savedCompany.getCompanyName();
+        String companyFolder = savedCompany.getId() + " - " + savedCompany.getName();
         // TODO: remove the opration from the database if folder creation fails
         try {
 
@@ -232,6 +208,7 @@ public class CompanyController {
         contract.setCreatedBy(user);
         contract.setStatus(ContractStatus.APPROVED);
         contract.setFilePath(companyFolder + "/CreationContract/" + pdfFile.getOriginalFilename());
+        contract.setOcrData(ocrJson);
         contract.setCreatedAt(LocalDateTime.now());
         contract.setUpdatedAt(LocalDateTime.now());
 
@@ -241,12 +218,17 @@ public class CompanyController {
         
 
         Map<String, Object> meta = new HashMap<>();
-        meta.put("companyName", savedCompany.getCompanyName());
+        meta.put("companyName", savedCompany.getName());
         activityLogService.logAction(
             user.getId(), null, EntityType.COMPANY, savedCompany.getId(),
-            ActionType.CREATE, "تم إنشاء شركة بعقد: " + savedCompany.getCompanyName(), meta);
+            ActionType.CREATE, "تم إنشاء شركة بعقد: " + savedCompany.getName(), meta);
 
         return ResponseEntity.ok(savedCompany);
+    }
+
+    private String escapeJson(String str) {
+        if (str == null) return "";
+        return str.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     private Long extractUserId(String authHeader) {
@@ -258,3 +240,4 @@ public class CompanyController {
         }
     }
 }
+
