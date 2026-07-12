@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class FileService {
 
-  final static String rootDirectory = "C:\\Users\\Amr\\Documents\\Amr\\Graduation_project\\accounting-office\\FileSystem";
+  final static String rootDirectory = "../FileSystem";
     public Path createFolder(String folderName) throws IOException {
         Path folderPath = Path.of(rootDirectory, folderName);
 

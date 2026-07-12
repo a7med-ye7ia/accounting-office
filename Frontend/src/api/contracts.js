@@ -20,6 +20,17 @@ export const getContractById = async (id) => {
   }
 };
 
+export const getCreatingContractByCompanyId = async (companyId) => {
+  try {
+    const response = await apiClient.get(`/contracts/creating/${companyId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching creating contract:", error);
+    throw error;
+  }
+};
+
+
 export const addContract = async (contract) => {
   try {
     const response = await apiClient.post("/contracts", contract);

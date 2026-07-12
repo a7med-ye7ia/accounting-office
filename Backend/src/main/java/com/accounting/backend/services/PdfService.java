@@ -69,12 +69,14 @@ public class PdfService {
 
         // --- Parse model output JSON ---
         String modelOutputRaw = s.get("modelOutput") != null ? String.valueOf(s.get("modelOutput")) : "";
+        String afterTextRaw   = s.get("afterText")   != null ? String.valueOf(s.get("afterText"))   : "";
         String preliminaryTitle = ""; // العنوان التمهيدي
         String afterRaw = "";
-
+        
+        String source = !afterTextRaw.isBlank() ? afterTextRaw : modelOutputRaw;
         try {
             // Strip markdown code fences if present
-            String cleaned = modelOutputRaw.trim()
+            String cleaned = source.trim()
                 .replaceAll("^```json\\s*", "")
                 .replaceAll("^```\\s*", "")
                 .replaceAll("```$", "")
@@ -101,11 +103,11 @@ public class PdfService {
                 }
             } else {
                 // Not JSON, use as-is
-                afterRaw = modelOutputRaw;
+                afterRaw = source;
             }
         } catch (Exception ex) {
             // Fallback: use raw string
-            afterRaw = modelOutputRaw;
+            afterRaw = source;
         }
 
         String after = markdownToHtml(afterRaw, mdParser, mdRenderer);

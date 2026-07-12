@@ -1,7 +1,11 @@
 import apiClient from "../../../../api/client";
+import { getCreatingContractByCompanyId } from "../../../../api/contracts";
 
-export function buildCompanyIntro(data) {
+export function buildCompanyIntro(data, ocrData) {
   if (!data) return "";
+  console.log("the data ", data)
+  console.log("the ocrData ", ocrData)
+
   const {
     company_name,
     company_type,
@@ -13,7 +17,7 @@ export function buildCompanyIntro(data) {
     real_estate_registry_minutes_number,
     company_duration,
     company_activity,
-  } = data;
+  } = ocrData || data || {};
 
   const lawRef =
     law_reference?.law_number && law_reference?.law_year
@@ -42,7 +46,7 @@ export function buildCompanyIntro(data) {
   return parts.length ? `${parts.join("، ")}.` : "";
 }
 
-export function buildAmendmentPdfPayload(company, sections) {
+export function buildAmendmentPdfPayload(company, sections, ocrData) {
   const changedArticles = sections
     .map((section) => section.selectedArticleId || section.selectedArticleTitle)
     .filter(Boolean);
@@ -54,7 +58,7 @@ export function buildAmendmentPdfPayload(company, sections) {
     name: company?.name || company?.company_name || "",
     law_reference: company?.law_reference || {},
   };
-  const introParagraph = buildCompanyIntro(merged);
+  const introParagraph = buildCompanyIntro(merged, ocrData);
   const legalLine =
     company?.legalLine ||
     (merged.company_type && merged.law_reference?.law_number && merged.law_reference?.law_year
@@ -66,7 +70,7 @@ export function buildAmendmentPdfPayload(company, sections) {
       contractTitle: `عقد تعديل المادة ${titleSuffix}`,
       companyName: merged.name,
       companyLegalLine: legalLine,
-      introText: company?.preamble || introParagraph || "",
+      introText: introParagraph || company?.preamble || "",
       sections: sections.map((section) => ({
         id: section.id,
         selectedArticleId: section.selectedArticleId,
@@ -89,7 +93,9 @@ export async function generateAmendmentPdfBlobFromPayload(payload, fileName) {
 }
 
 export async function generateAmendmentPdfBlob(company, sections) {
-  const { payload, fileName } = buildAmendmentPdfPayload(company, sections);
+  const shit = await getCreatingContractByCompanyId(company.id);
+  const ocrData = JSON.parse(shit?.ocrData) || {};
+  const { payload, fileName } = buildAmendmentPdfPayload(company, sections, ocrData);
   const { blob } = await generateAmendmentPdfBlobFromPayload(payload, fileName);
   return { blob, fileName, payload };
 }

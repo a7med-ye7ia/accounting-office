@@ -72,6 +72,11 @@ public class ContractController {
         return contractRepository.findById(id);
     }
 
+    @GetMapping("/creating/{companyId}")
+    public Optional<Contract> getContractByCompanyId(@PathVariable Long companyId) {
+        return contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING);
+    }
+
     @PostMapping
     public Contract createContract(
             @RequestHeader(value = "Authorization", required = false) String authHeader,

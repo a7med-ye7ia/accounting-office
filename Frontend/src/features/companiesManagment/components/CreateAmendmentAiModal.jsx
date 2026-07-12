@@ -43,14 +43,14 @@ function buildAmendmentPdfPayload(company, sections) {
       companyName: merged.name,
       companyLegalLine:
         company?.legalLine ||
-        `شركة ${merged.company_type} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`,
+        `شركة ${merged.companyType} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`,
       companyCapital: merged.company_capital || "",
       contractDate: company?.contractDate || "",
       partners: company?.partners && company.partners.length > 0 ? company.partners : [
         { title: "السيد", name: "ادهم ايهاب", role: "مالك" },
         { title: "السيده", name: "مريم محمد", role: "شريكه" }
       ],
-      introText: company?.preamble || introParagraph || "",
+      introText: introParagraph || company?.preamble || "",
       sections: sections.map((s) => ({
         id: s.id,
         selectedArticleId: s.selectedArticleId,
