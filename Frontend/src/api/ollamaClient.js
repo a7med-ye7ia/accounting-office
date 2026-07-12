@@ -20,20 +20,24 @@ export const getEmbedding = async (text) => {
 
 // وظيفة التوليد (كودك الأصلي)
 export const generateResponse = async (prompt, oldText) => {
-  // const userContent = `المهمة: ${prompt}\n\nالنص الحالي:\n${oldText}`;
-  // try {
-  //   const response = await axios.post(`${OLLAMA_URL}/generate`, {
-  //     model: GENERATION_MODEL,
-  //     prompt: userContent,
-  //     stream: false,
-  //   });
+  const fackResbonse = false;
+  
+  if (fackResbonse) { 
+    return "this is the model responce";
+  }
 
-  //   return response.data.response || "لم يتم الحصول على رد من النموذج.";
-  // } catch (error) {
-  //   console.error("Generation error:", error);
-  //   return "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً. تم الاحتفاظ بالنص الحالي بدون تعديل.";
-  // }
+  const userContent = `المهمة: ${prompt}\n\nالنص الحالي:\n${oldText}`;
+  try {
+    const response = await axios.post(`${OLLAMA_URL}/generate`, {
+      model: GENERATION_MODEL,
+      prompt: userContent,
+      stream: false,
+    });
 
-  return "this is the model responce";
+    return response.data.response || "لم يتم الحصول على رد من النموذج.";
+  } catch (error) {
+    console.error("Generation error:", error);
+    return "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً. تم الاحتفاظ بالنص الحالي بدون تعديل.";
+  }
 };
 
