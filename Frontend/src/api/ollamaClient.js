@@ -20,7 +20,7 @@ export const getEmbedding = async (text) => {
 
 // وظيفة التوليد (كودك الأصلي)
 export const generateResponse = async (prompt, oldText) => {
-  const fackResbonse = false;
+  const fackResbonse = true;
   
   if (fackResbonse) { 
     return "this is the model responce";

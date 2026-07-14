@@ -10,6 +10,7 @@ import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import AssignedTasksDashboard from "./features/tasks/pages/AssignedTasksDashboard";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PdfPage from "./features/companies/components/PdfPage";
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -43,6 +44,8 @@ function App() {
         <Route path="/companies/company/:companyId" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type/Ai" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type" element={<CompaniesPage />} />
+        {/* <Route path="/companies/company/:companyId/type/establishment/pdf/:pdfId" element={<CompaniesPage />} /> */}
+        <Route path="/companies/company/:companyId/type/amendment/pdf/:pdfId" element={<PdfPage />} />
         <Route path="/companies/company/:companyId/type/:type/pdf/:pdfId" element={<CompaniesPage />} />
         <Route path="/CompaniesDirectory" element={<Navigate replace to="/companies" />} />
         <Route path="/CompanyProfile" element={<Navigate replace to="/companies" />} />

@@ -19,6 +19,7 @@ import {
   isKnownContractType,
   useCompaniesWorkflowData,
 } from "../services/companyWorkflow";
+import PdfPage from "./PdfPage";
 
 
 function CompaniesLoadingSkeleton() {
@@ -123,6 +124,7 @@ export default function ContractBrowser({ basePath = "/companies" }) {
   const [actionError, setActionError] = useState("");
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
+  const [floatingPdf, setFloatingPdf] = useState(null);
 
   const selectedCompany = useMemo(() => {
     if (!route.companyId) return null;
@@ -205,6 +207,13 @@ export default function ContractBrowser({ basePath = "/companies" }) {
 
   const handleSelectPdf = (pdf) => {
     if (!selectedCompany || !route.normalizedType) return;
+
+    if (route.normalizedType === "amendment") {
+      setFloatingPdf(pdf);
+      // return;
+    }
+
+  
     navigate(`${route.basePath}/company/${selectedCompany.id}/type/${route.normalizedType}/pdf/${pdf.id}`);
   };
 
@@ -351,6 +360,10 @@ export default function ContractBrowser({ basePath = "/companies" }) {
           onUploadClick={() => openUploadForType(route.normalizedType)}
           onCreateAiClick={handleCreateAiContract}
         />
+      )}
+
+      {floatingPdf && (
+        <PdfPage />
       )}
 
       {route.view === "pdfViewer" && selectedPdf && selectedCompany && route.normalizedType && (
