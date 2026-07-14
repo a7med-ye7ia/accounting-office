@@ -34,7 +34,7 @@ public class OcrController {
         
         // get random json temp
         int randomNum = (int) (Math.random() * 30) + 1; // Generates a random number between 1 and 3
-        String fileName = "file_00" + randomNum;
+        String fileName = String.format("file_%d", randomNum);
         ContractDocument result = null;
         try {
             result = contractService.getcontracte(fileName);
