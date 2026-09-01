@@ -78,6 +78,7 @@ export function buildAmendmentPdfPayload(company, sections, ocrData) {
         beforeText: section.beforeText,
         afterText: section.afterText || section.modelOutput,
         modelOutput: section.modelOutput || "",
+        amendmentTitle: section.amendmentTitle || section.amendment_title || "",
         embeddingScore: section.embeddingScore || null,
       })),
     },
