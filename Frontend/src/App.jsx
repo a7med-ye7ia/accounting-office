@@ -12,6 +12,7 @@ import AttendancePage from "./features/attendance/AttendancePage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PdfPage from "./features/companies/components/PdfPage";
+import EmployeeGuidePage from "./features/guides/pages/EmployeeGuidePage";
 
 function AttendanceRouteGuard() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -72,6 +73,10 @@ function App() {
         <Route path="/ContractBrowser/company/:companyId/type/:type/pdf/:pdfId" element={<LegacyContractBrowserRedirect />} />
         <Route path="/AssignedTasks" element={<AssignedTasksDashboard />} />
         <Route path="/attendance" element={<AttendanceRouteGuard />} />
+        <Route path="/EmployeeGuide" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/:id" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/admin" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/admin/:id" element={<EmployeeGuidePage />} />
       </Route>
     </Routes>
   );

@@ -31,6 +31,7 @@ const navItems = [
   // { label: "العقود", path: "/ContractAi", icon: FileSignature },
   // { label: " السجل المالي", path: "/EquilibriumLedger", icon: BookOpen },
   { label: "سجل النشاطات", path: "/ActivityHistory", icon: History },
+  { label: "دليل الموظف", path: "/EmployeeGuide", icon: BookOpen },
 ];
 
 function Sidebar() {
