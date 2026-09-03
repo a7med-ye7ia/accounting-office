@@ -22,6 +22,7 @@ const navItems = [
   { label: "الشركات", path: "/ContractBrowser", icon: Building },
   // { label: "المستندات", path: "/Documents", icon: FileText },
   { label: "الموظفون", path: "/EmployeeManagement", icon: Users },
+  { label: "الحضور", path: "/attendance", icon: History },
   { label: "مهام الموظفين", path: "/EmployeeTasks", icon: ClipboardList },
   { label: "مهمات قيد التشغيل", path: "/AssignedTasks", icon: ClipboardList },
   { label: "الأقسام", path: "/Departments", icon: Building2 },
@@ -138,9 +139,14 @@ function Sidebar() {
         >
           {navItems.map((item) => {
             const user = JSON.parse(localStorage.getItem("user"));
+            const roleName = String(user?.roleName || "").toLowerCase();
             if ( user?.roleName === "employee" 
             &&  (item.path === "/EmployeeManagement" || item.path === "/Departments" || item.path === "/AssignedTasks")) {
               return null; // Skip rendering this item for employees
+            }
+            // Attendance management is restricted to owners and branch managers.
+            if (item.path === '/attendance' && !["owner", "headbranch"].includes(roleName)) {
+              return null;
             }
             const Icon = item.icon;
             return (

@@ -8,9 +8,18 @@ import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage"
 import ActivityHistoryPage from "./features/activityLogs/pages/ActivityHistoryPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import AssignedTasksDashboard from "./features/tasks/pages/AssignedTasksDashboard";
+import AttendancePage from "./features/attendance/AttendancePage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PdfPage from "./features/companies/components/PdfPage";
+
+function AttendanceRouteGuard() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const roleName = String(user?.roleName || "").toLowerCase();
+  return ["owner", "headbranch"].includes(roleName)
+    ? <AttendancePage />
+    : <Navigate replace to="/Dashboard" />;
+}
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -62,6 +71,7 @@ function App() {
         <Route path="/ContractBrowser/company/:companyId/type/:type" element={<LegacyContractBrowserRedirect />} />
         <Route path="/ContractBrowser/company/:companyId/type/:type/pdf/:pdfId" element={<LegacyContractBrowserRedirect />} />
         <Route path="/AssignedTasks" element={<AssignedTasksDashboard />} />
+        <Route path="/attendance" element={<AttendanceRouteGuard />} />
       </Route>
     </Routes>
   );

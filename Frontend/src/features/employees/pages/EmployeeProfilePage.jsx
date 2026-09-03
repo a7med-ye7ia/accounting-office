@@ -12,6 +12,8 @@ import {
   updateUser,
   deleteUser,
 } from '../../../api/users';
+import { getMyToday, getMyHistory, startAttendance, endAttendance } from '../../../api/attendance';
+import AttendanceLocationLink from '../../attendance/AttendanceLocationLink';
 import { fetchDepartments } from '../../../api/departments';
 import { fetchBranches } from '../../../api/branches';
 import { fetchRoles } from '../../../api/roles';
@@ -73,6 +75,31 @@ function formatDateTime(value) {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-GB');
 }
 
+function formatAttendanceDate(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('ar-EG', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatAttendanceTime(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatWorkedMinutes(minutes) {
+  if (minutes == null) return '—';
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} دقيقة`;
+  if (!rest) return `${hours} ساعات`;
+  return `${hours} ساعات و ${rest} دقيقة`;
+}
+
+function attendanceStatusLabel(status) {
+  return { NOT_STARTED: 'لم يبدأ', WORKING: 'يعمل الآن', COMPLETED: 'تم الانتهاء' }[status] || 'غير متاح';
+}
+
 function mapStatusToEnum(arabicStatus) {
   switch (arabicStatus) {
     case 'نشط': return 'ACTIVE';
@@ -99,6 +126,17 @@ function EmployeeProfilePage() {
   const [saving, setSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [assignedByTasks, setAssignedByTasks] = useState([]);
+  const [attendanceStatus, setAttendanceStatus] = useState(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [showAttendanceHistory, setShowAttendanceHistory] = useState(false);
+  const [attendanceHistory, setAttendanceHistory] = useState([]);
+
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+  const currentUserRole = String(currentUser?.roleName || '').toLowerCase();
+  const canRecordAttendance = currentUser
+    && Number(currentUser.id) === Number(id)
+    && ['employee', 'headdepartment'].includes(currentUserRole);
 
   const loadEmployee = useCallback(async () => {
     if (!id) {
@@ -121,6 +159,17 @@ function EmployeeProfilePage() {
       setEmployee(profileData);
       setAssignedByTasks(Array.isArray(profileData.assignedByTasks) ? profileData.assignedByTasks : []);
       setFormData({});
+      try {
+        if (canRecordAttendance) {
+          setAttendanceLoading(true);
+          const today = await getMyToday();
+          setAttendanceStatus(today.status);
+        }
+      } catch (e) {
+        console.error('Failed to load attendance', e);
+      } finally {
+        setAttendanceLoading(false);
+      }
     } catch (err) {
       setError('خطأ في تحميل بيانات الموظف');
       console.error('Error loading employee profile:', err);
@@ -128,7 +177,7 @@ function EmployeeProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, canRecordAttendance]);
 
   useEffect(() => {
     loadEmployee();
@@ -261,6 +310,74 @@ function EmployeeProfilePage() {
     }
   };
 
+  const getLocation = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('المتصفح لا يدعم تحديد الموقع'));
+      return;
+    }
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setGettingLocation(false);
+      resolve(pos.coords);
+    }, (err) => {
+      setGettingLocation(false);
+      reject(err);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  });
+
+  const handleStartWork = async () => {
+    setError(null);
+    try {
+      const coords = await getLocation();
+      const payload = { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy };
+      setAttendanceLoading(true);
+      await startAttendance(payload);
+      setAttendanceStatus('WORKING');
+      setSuccessMessage('تم تسجيل بداية الدوام');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error(err);
+      if (err && err.code === 1) {
+        setError('يرجى السماح بالوصول إلى الموقع لتسجيل الحضور.');
+      } else {
+        setError(err?.response?.status === 403 ? 'ليس لديك صلاحية لتسجيل الحضور.' : 'تعذر تسجيل الحضور.');
+      }
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const handleEndWork = async () => {
+    setError(null);
+    try {
+      const coords = await getLocation();
+      const payload = { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy };
+      setAttendanceLoading(true);
+      await endAttendance(payload);
+      setAttendanceStatus('COMPLETED');
+      setSuccessMessage('تم تسجيل نهاية الدوام');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error(err);
+      if (err && err.code === 1) {
+        setError('يرجى السماح بالوصول إلى الموقع لتسجيل الحضور.');
+      } else {
+        setError(err?.response?.status === 403 ? 'ليس لديك صلاحية لتسجيل الحضور.' : 'تعذر إنهاء الحضور.');
+      }
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const openAttendanceHistory = async () => {
+    try {
+      setAttendanceHistory(await getMyHistory());
+      setShowAttendanceHistory(true);
+    } catch {
+      setError('تعذر تحميل سجل الحضور.');
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout title="ملف الموظف" subtitle="الموارد البشرية">
@@ -337,6 +454,35 @@ function EmployeeProfilePage() {
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
             <AlertCircle size={20} className="text-red-600" />
             <p className="text-red-700 font-semibold text-sm">{error}</p>
+          </div>
+        )}
+
+        {canRecordAttendance && (
+          <div className="bg-appSurface border border-brand/20 rounded-2xl p-6 shadow-panel" dir="rtl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-appText">الحضور والانصراف</h3>
+                <p className="text-sm text-appSubtext mt-1">
+                  الحالة: {attendanceStatus === 'WORKING' ? 'يعمل الآن' : attendanceStatus === 'COMPLETED' ? 'تم إنهاء العمل اليوم' : 'لم يبدأ'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {attendanceStatus === 'WORKING' ? (
+                  <button type="button" onClick={handleEndWork} disabled={attendanceLoading || gettingLocation} className="px-5 py-3 bg-danger text-white rounded-xl font-semibold">
+                    {gettingLocation ? 'جارٍ تحديد الموقع...' : 'إنهاء العمل'}
+                  </button>
+                ) : attendanceStatus === 'COMPLETED' ? (
+                  <span className="px-5 py-3 rounded-xl bg-success/10 text-success font-semibold">تم إنهاء العمل اليوم</span>
+                ) : (
+                  <button type="button" onClick={handleStartWork} disabled={attendanceLoading || gettingLocation} className="px-5 py-3 bg-brand text-white rounded-xl font-semibold">
+                    {gettingLocation ? 'جارٍ تحديد الموقع...' : 'بدء العمل'}
+                  </button>
+                )}
+                <button type="button" onClick={openAttendanceHistory} className="px-5 py-3 border border-appBorder rounded-xl text-appText font-semibold hover:bg-appMuted">
+                  سجل الحضور
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -427,7 +573,7 @@ function EmployeeProfilePage() {
               </div>
             </div>
 
-            <div className="bg-appSurface border border-appBorder rounded-2xl p-6 space-y-3">
+              <div className="bg-appSurface border border-appBorder rounded-2xl p-6 space-y-3">
               <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-appSubtext flex items-center gap-2 mb-2">
                 <ListTodo size={16} /> المهام التي قمت بتعينها
               </h3>
@@ -618,6 +764,34 @@ function EmployeeProfilePage() {
             <br />
             لا يمكن التراجع عن هذا الإجراء.
           </p>
+        </Modal>
+      )}
+
+      {showAttendanceHistory && (
+        <Modal title="سجل الحضور" onClose={() => setShowAttendanceHistory(false)} size="xl">
+          {attendanceHistory.length === 0 ? (
+            <p className="text-appSubtext" dir="rtl">لا يوجد سجل حضور.</p>
+          ) : (
+            <div className="overflow-x-auto" dir="rtl">
+              <table className="w-full text-sm min-w-[900px]">
+                <thead><tr className="text-appSubtext text-xs">
+                  <th>التاريخ</th><th>وقت بدء العمل</th><th>موقع بدء العمل</th><th>وقت انتهاء العمل</th>
+                  <th>موقع انتهاء العمل</th><th>مدة العمل</th><th>الحالة</th>
+                </tr></thead>
+                <tbody>{attendanceHistory.map(row => (
+                  <tr key={row.id} className="border-t border-appBorder">
+                    <td>{formatAttendanceDate(row.workDate)}</td>
+                    <td>{formatAttendanceTime(row.startTime)}</td>
+                    <td><AttendanceLocationLink latitude={row.startLatitude} longitude={row.startLongitude} accuracy={row.startAccuracy} /></td>
+                    <td>{formatAttendanceTime(row.endTime)}</td>
+                    <td><AttendanceLocationLink latitude={row.endLatitude} longitude={row.endLongitude} accuracy={row.endAccuracy} /></td>
+                    <td>{formatWorkedMinutes(row.workedMinutes)}</td>
+                    <td>{attendanceStatusLabel(row.status)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
         </Modal>
       )}
 
