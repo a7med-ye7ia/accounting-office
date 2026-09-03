@@ -8,6 +8,7 @@ import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage"
 import ActivityHistoryPage from "./features/activityLogs/pages/ActivityHistoryPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import AssignedTasksDashboard from "./features/tasks/pages/AssignedTasksDashboard";
+import AttendancePage from "./features/attendance/AttendancePage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PdfPage from "./features/companies/components/PdfPage";
@@ -16,6 +17,14 @@ import BranchReviewPage from "./features/branches/pages/BranchReviewPage";
 
 import { ROLES } from "./utils/roles";
 
+
+function AttendanceRouteGuard() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const roleName = String(user?.roleName || "").toLowerCase();
+  return ["owner", "headbranch"].includes(roleName)
+    ? <AttendancePage />
+    : <Navigate replace to="/Dashboard" />;
+}
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -73,6 +82,7 @@ function App() {
       <Route element={<ProtectedRoute allowedRoles={[ROLES.OWNER, ROLES.BRANCH_MANAGER, ROLES.DEPARTMENT_MANAGER]} />}>
         <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
         <Route path="/AssignedTasks" element={<AssignedTasksDashboard />} />
+        <Route path="/attendance" element={<AttendanceRouteGuard />} />
       </Route>
 
       {/* Departments management: Owner and Branch Manager only */}
