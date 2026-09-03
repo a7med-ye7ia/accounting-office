@@ -17,6 +17,7 @@ import BranchReviewPage from "./features/branches/pages/BranchReviewPage";
 
 import { ROLES } from "./utils/roles";
 
+import EmployeeGuidePage from "./features/guides/pages/EmployeeGuidePage";
 
 function AttendanceRouteGuard() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -83,6 +84,10 @@ function App() {
         <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
         <Route path="/AssignedTasks" element={<AssignedTasksDashboard />} />
         <Route path="/attendance" element={<AttendanceRouteGuard />} />
+        <Route path="/EmployeeGuide" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/:id" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/admin" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/admin/:id" element={<EmployeeGuidePage />} />
       </Route>
 
       {/* Departments management: Owner and Branch Manager only */}
