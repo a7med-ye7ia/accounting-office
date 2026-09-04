@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
+import { isEmployee, canManageDepartments } from "../../utils/roles";
 import {
   LayoutDashboard,
   Building,
@@ -137,10 +138,12 @@ function Sidebar() {
           }`}
         >
           {navItems.map((item) => {
-            const user = JSON.parse(localStorage.getItem("user"));
-            if ( user?.roleName === "employee" 
-            &&  (item.path === "/EmployeeManagement" || item.path === "/Departments" || item.path === "/AssignedTasks")) {
-              return null; // Skip rendering this item for employees
+            const user = JSON.parse(localStorage.getItem("user") || "null");
+            if (isEmployee(user) && (item.path === "/EmployeeManagement" || item.path === "/Departments" || item.path === "/AssignedTasks")) {
+              return null; // Skip rendering these items for employees
+            }
+            if (!canManageDepartments(user) && item.path === "/Departments") {
+              return null; // Only Owner and Branch Manager manage departments
             }
             const Icon = item.icon;
             return (

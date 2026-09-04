@@ -19,6 +19,7 @@ import {
   isKnownContractType,
   useCompaniesWorkflowData,
 } from "../services/companyWorkflow";
+import { canCreateCompany } from "../../../utils/roles";
 import PdfPage from "./PdfPage";
 
 
@@ -335,7 +336,11 @@ export default function ContractBrowser({ basePath = "/companies" }) {
             <CompanyList
               companies={companies}
               onSelectCompany={handleSelectCompany}
-              onAddCompany={() => setShowAddCompanyModal(true)}
+              onAddCompany={
+                canCreateCompany(JSON.parse(localStorage.getItem("user") || "null"))
+                  ? () => setShowAddCompanyModal(true)
+                  : null
+              }
             />
           )}
         </>

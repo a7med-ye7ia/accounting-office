@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ClipboardList, Plus, AlertTriangle,
   CheckCircle2, Circle, Loader2
@@ -10,7 +10,20 @@ import TaskDetailsModel from './TaskDetailsModel';
 import { Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
-import { fetchTasks, addTask, deleteTask, updateTask } from '../../../api/tasks';
+import { fetchTasks, addTask, deleteTask, updateTask, updateTaskStatus } from '../../../api/tasks';
+import { fetchCompanies } from '../../../api/companies';
+import { fetchBranches } from '../../../api/branches';
+import { fetchDepartments } from '../../../api/departments';
+import {
+  isOwner,
+  isBranchManager,
+  isDepartmentManager,
+  isEmployee,
+  canCreateTask,
+  canEditTask,
+  canDeleteTask,
+  canChangeTaskStatus
+} from '../../../utils/roles';
 
 // ─── Status Mapping ────────────────────────────────────────────────────────
 const STATUS_TO_ARABIC = {
@@ -71,7 +84,12 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
       className="bg-appSurface rounded-2xl border border-appBorder shadow-panel p-4 hover:border-brand/20 hover:-translate-y-0.5 ui-transition cursor-grab active:cursor-grabbing group relative"
     >
       {/* Title */}
-      <p className="text-sm font-semibold text-appText mb-2.5 leading-snug pr-2">{task.title}</p>
+      <p className="text-sm font-semibold text-appText mb-1 leading-snug pr-2">{task.title}</p>
+      {task.companyName && (
+        <p className="text-xs text-brand font-medium mb-2 truncate">
+          🏢 {task.companyName}
+        </p>
+      )}
 
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
@@ -169,7 +187,7 @@ function KanbanColumn({ status, tasks, onMove, onDelete, loading, setSelectedTas
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 const EMPTY_TASK = {
-  title: '', assignedToId: '', dueDate: '', status: 'PENDING', description: ''
+  title: '', assignedToId: '', companyId: '', targetBranchId: '', targetDepartmentId: '', dueDate: '', status: 'PENDING', description: ''
 };
 
 function AddCommentBox({ task, setTasks }) {
@@ -228,46 +246,45 @@ function EmployeeTasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_TASK);
   const [employees, setEmployees] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [saveSubmitting, setSaveSubmitting] = useState(false);
 
-  useEffect(() => {
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch (e) {
+      return null;
+    }
+  })();
 
+  useEffect(() => {
     const loadData = async () => {
       try {
-        const [allTasks, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
+        const [allTasks, employeesData, companiesData, branchesData, departmentsData] = await Promise.all([
+          fetchTasks(),
+          fetchUsers(),
+          fetchCompanies().catch(err => {
+            console.error('Error loading companies:', err);
+            return [];
+          }),
+          fetchBranches().catch(err => {
+            console.error('Error loading branches:', err);
+            return [];
+          }),
+          fetchDepartments().catch(err => {
+            console.error('Error loading departments:', err);
+            return [];
+          })
+        ]);
 
-        const currentUserStr = localStorage.getItem('user');
-        const currentUser = JSON.parse(currentUserStr);
-        console.log("currentUser ", currentUser);
-
-        const roleRank = { owner: 4, headbranch: 3, manager: 2, employee: 1 };
-        const myRoleKey = currentUser.roleName ? currentUser.roleName.toLowerCase() : 'employee';
-        const myRank = roleRank[myRoleKey] || 1;
-
-        const empRankMap = {};
-        const empIdMap = {};
-        employeesData.forEach(emp => {
-          const empRoleKey = emp.roleName ? emp.roleName.toLowerCase() : 'employee';
-          empRankMap[emp.id] = roleRank[empRoleKey];
-          empIdMap[emp.fullName] = emp.id;
-        });
-
-        console.log("All tasks from API:", allTasks);
-
-        const filteredTasks = allTasks.filter(task => {
-          const actualAssignedToId = task.assignedToId || empIdMap[task.assignedToName];
-          if (actualAssignedToId === currentUser.id) return true;
-          const assigneeRank = empRankMap[actualAssignedToId] || 1;
-          return assigneeRank < myRank;
-        });
-
-        console.log("Filtered tasks:", filteredTasks);
-
-        setTasks(filteredTasks);
-        setEmployees(employeesData);
-        // console.log("debug loaded tasks ", filteredTasks);
-        // console.log("debug loaded employees ", employeesData);
+        setTasks(allTasks || []);
+        setEmployees(employeesData || []);
+        setCompanies(companiesData || []);
+        setBranches(branchesData || []);
+        setDepartments(departmentsData || []);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -294,20 +311,14 @@ function EmployeeTasksPage() {
   }, [tasks, location.state]);
 
   const moveTask = async (id, newStatus) => {
-    const newTask = {
-      status: newStatus
-    };
     try {
-      const res = await updateTask(id, newTask);
-      console.log("debug moveTask response ", res);
+      await updateTaskStatus(id, newStatus);
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
     } catch (error) {
       console.error('Error updating task status:', error);
-      // ! optionally show a notification/error state here
-      return;
+      alert(error.response?.data?.message || 'غير مسموح لك بتغيير حالة هذه المهمة');
     }
-
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
-  }
+  };
 
   const removeTask = async (id) => {
     try {
@@ -315,14 +326,15 @@ function EmployeeTasksPage() {
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch (error) {
       console.error('Error deleting task:', error);
-      // ! optionally show a notification/error state here
+      alert(error.response?.data?.message || 'فشل حذف المهمة');
     }
-  }
+  };
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.assignedToId) return;
-
-    // console.log(form);
+    if (!form.title.trim() || !form.assignedToId || !form.companyId) {
+      alert('يرجى تحديد عنوان المهمة والشركة التابعة لها والموظف المسؤول');
+      return;
+    }
 
     setSaveSubmitting(true);
 
@@ -331,20 +343,78 @@ function EmployeeTasksPage() {
       description: form.description,
       status: form.status,
       dueDate: form.dueDate || null,
-      assignedToId: parseInt(form.assignedToId),
-      createdById: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1, // ! hardcoded fallback
+      assignedToId: parseInt(form.assignedToId, 10),
+      companyId: parseInt(form.companyId, 10),
     };
 
     try {
       const savedTask = await addTask(newTask);
       setTasks(prev => [...prev, savedTask]);
       setShowForm(false);
+      setForm(EMPTY_TASK);
     } catch (error) {
       console.error('Error saving task:', error);
-      // ! optionally show a notification/error state here
+      alert(error.response?.data?.message || 'فشل إضافة المهمة');
     } finally {
       setSaveSubmitting(false);
     }
+  };
+
+  // Available Branches for task assignment
+  const availableBranches = useMemo(() => {
+    if (isOwner(currentUser)) {
+      return branches;
+    }
+    if (currentUser?.branchId) {
+      return branches.filter(b => b.id === currentUser.branchId);
+    }
+    return branches;
+  }, [branches, currentUser]);
+
+  // Available Departments based on selected target branch
+  const availableDepartments = useMemo(() => {
+    if (!form.targetBranchId) return [];
+    let list = departments.filter(d => (d.branch?.id || d.branchId) === Number(form.targetBranchId));
+    if (isDepartmentManager(currentUser)) {
+      if (Array.isArray(currentUser.managedDepartmentIds) && currentUser.managedDepartmentIds.length > 0) {
+        list = list.filter(d => currentUser.managedDepartmentIds.includes(d.id));
+      } else if (currentUser.departmentId) {
+        list = list.filter(d => d.id === currentUser.departmentId);
+      }
+    }
+    return list;
+  }, [departments, form.targetBranchId, currentUser]);
+
+  // Available Employees based on target branch & target department
+  const availableEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      if (form.targetBranchId) {
+        const empBranchId = emp.branchId || emp.branch?.id;
+        if (empBranchId !== Number(form.targetBranchId)) return false;
+      }
+      if (form.targetDepartmentId) {
+        const empDeptId = emp.departmentId || emp.department?.id;
+        if (empDeptId !== Number(form.targetDepartmentId)) return false;
+      }
+      return true;
+    });
+  }, [employees, form.targetBranchId, form.targetDepartmentId]);
+
+  const openCreateTask = () => {
+    let initBranch = '';
+    let initDept = '';
+    if (isBranchManager(currentUser) || isDepartmentManager(currentUser)) {
+      initBranch = currentUser?.branchId ? String(currentUser.branchId) : '';
+    }
+    if (isDepartmentManager(currentUser)) {
+      initDept = currentUser?.departmentId ? String(currentUser.departmentId) : '';
+    }
+    setForm({
+      ...EMPTY_TASK,
+      targetBranchId: initBranch,
+      targetDepartmentId: initDept,
+    });
+    setShowForm(true);
   };
 
   const KANBAN_STAGES = ['PENDING', 'IN_PROGRESS', /*'REVIEW',*/ 'DONE'];
@@ -357,7 +427,7 @@ function EmployeeTasksPage() {
 
   const actions = (
     <button
-      onClick={() => { setForm(EMPTY_TASK); setShowForm(true); }}
+      onClick={openCreateTask}
       className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white text-sm font-semibold rounded-xl shadow-panel hover:bg-brandDeep active:scale-[0.98] ui-transition"
     >
       <Plus size={15} /> اضافة مهمة جديدة
@@ -365,7 +435,7 @@ function EmployeeTasksPage() {
   );
 
   return (
-    <MainLayout title="مهامي" subtitle="" actions={JSON.parse(localStorage.getItem('user')).roleName === "employee" ? null : actions}>
+    <MainLayout title="مهامي" subtitle="" actions={!canCreateTask(currentUser) ? null : actions}>
       <div className="space-y-5">
 
         {/* Quick Stats */}
@@ -444,13 +514,65 @@ function EmployeeTasksPage() {
                 rows={3}
               />
             </div>
-            {/* <div className="grid grid-cols-2 gap-3"> */}
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الموظف المسؤل عن المهمة</label>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الشركة التابعة لها المهمة *</label>
+              <select className={inputCls} value={form.companyId}
+                onChange={e => setForm(p => ({ ...p, companyId: e.target.value }))}>
+                <option value="">اختر الشركة</option>
+                {companies.map(c => <option key={c.id} value={c.id}>{c.company_name || c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
+                الفرع المستهدف (لتحديد الموظف فقط - لا يغير فرع الشركة)
+              </label>
+              <select
+                className={inputCls}
+                value={form.targetBranchId}
+                disabled={isBranchManager(currentUser) || isDepartmentManager(currentUser)}
+                onChange={e => setForm(p => ({
+                  ...p,
+                  targetBranchId: e.target.value,
+                  targetDepartmentId: '',
+                  assignedToId: '',
+                }))}
+              >
+                <option value="">{isOwner(currentUser) ? "جميع الفروع / اختر فرع" : "اختر الفرع"}</option>
+                {availableBranches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
+                القسم المستهدف (لتحديد الموظف فقط)
+              </label>
+              <select
+                className={inputCls}
+                value={form.targetDepartmentId}
+                disabled={!form.targetBranchId && !isDepartmentManager(currentUser)}
+                onChange={e => setForm(p => ({
+                  ...p,
+                  targetDepartmentId: e.target.value,
+                  assignedToId: '',
+                }))}
+              >
+                <option value="">اختر القسم</option>
+                {availableDepartments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">الموظف المسؤول عن المهمة *</label>
               <select className={inputCls} value={form.assignedToId}
                 onChange={e => setForm(p => ({ ...p, assignedToId: e.target.value }))}>
                 <option value="">اختر موظف</option>
-                {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.fullName}</option>)}
+                {availableEmployees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.fullName} {emp.departmentName ? `(${emp.departmentName})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -469,6 +591,12 @@ function EmployeeTasksPage() {
           setTasks={setTasks}
           setSelectedTask={setSelectedTask}
           onClose={() => setSelectedTask(null)}
+          onDelete={async () => {
+            if (window.confirm("هل أنت متأكد من حذف هذه المهمة؟")) {
+              await removeTask(selectedTask.id);
+              setSelectedTask(null);
+            }
+          }}
         />
       )}
     </MainLayout>

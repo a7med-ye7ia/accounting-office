@@ -108,6 +108,7 @@ public class AuthController {
         }
 
         UserDto userDto = new UserDto(userOptional.get());
+        authService.enrichUserDto(userDto, userOptional.get().getId());
         return ResponseEntity.ok(new AuthResponse(true, "Current user retrieved", userDto, token));
     }
 

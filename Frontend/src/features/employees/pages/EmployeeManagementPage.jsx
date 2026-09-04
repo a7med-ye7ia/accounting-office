@@ -19,6 +19,12 @@ import { fetchRoles } from "../../../api/roles";
 import { fetchUsers, addUser, updateUser, deleteUser } from "../../../api/users";
 import { toDateInputValue } from "../../../utils/dateFormat";
 import { getApiErrorMessage } from "../../../utils/apiError";
+import {
+  isOwner,
+  isBranchManager,
+  isDepartmentManager,
+  canManageEmployees
+} from "../../../utils/roles";
 
 const UI_MAP = {
   owner: "صاحب العمل",
@@ -157,9 +163,22 @@ function EmployeeManagementPage() {
     loadData();
   }, []);
 
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const displayedEmployees = useMemo(() => {
+    if (isOwner(currentUser)) return employees;
+    return employees.filter(e => !isOwner(e) && (!e.roleName || e.roleName.toLowerCase() !== 'owner'));
+  }, [employees, currentUser]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return employees.filter((e) => {
+    return displayedEmployees.filter((e) => {
       const name = (e.fullName || e.name || "").toLowerCase();
       const email = (e.email || "").toLowerCase();
       const matchName = !q || name.includes(q) || email.includes(q);
@@ -170,10 +189,72 @@ function EmployeeManagementPage() {
       const matchStatus = statusFilter === STATUS_FILTER_ALL || st === statusFilter;
       return matchName && matchDept && matchStatus;
     });
-  }, [employees, search, deptFilter, statusFilter]);
+  }, [displayedEmployees, search, deptFilter, statusFilter]);
+
+  // Filter available branches for selection based on role
+  const availableBranches = useMemo(() => {
+    if (isOwner(currentUser)) {
+      return branches;
+    }
+    if (currentUser?.branchId) {
+      return branches.filter((b) => b.id === currentUser.branchId);
+    }
+    return branches;
+  }, [branches, currentUser]);
+
+  // Filter available departments based on selected form.branchId
+  const availableDepartments = useMemo(() => {
+    if (!form.branchId) return [];
+    let list = departments.filter((d) => (d.branch?.id || d.branchId) === Number(form.branchId));
+    if (isDepartmentManager(currentUser)) {
+      if (Array.isArray(currentUser.managedDepartmentIds) && currentUser.managedDepartmentIds.length > 0) {
+        list = list.filter((d) => currentUser.managedDepartmentIds.includes(d.id));
+      } else if (currentUser.departmentId) {
+        list = list.filter((d) => d.id === currentUser.departmentId);
+      }
+    }
+    return list;
+  }, [departments, form.branchId, currentUser]);
+
+  // Filter assignable roles based on current user role
+  const assignableRoles = useMemo(() => {
+    if (isOwner(currentUser)) {
+      return roles;
+    }
+    if (isBranchManager(currentUser)) {
+      // BM cannot grant owner or headBranch
+      return roles.filter((r) => {
+        const name = (r.name || '').toLowerCase();
+        return name !== 'owner' && name !== 'headbranch';
+      });
+    }
+    if (isDepartmentManager(currentUser)) {
+      // DM can only assign employee
+      return roles.filter((r) => (r.name || '').toLowerCase() === 'employee');
+    }
+    return roles;
+  }, [roles, currentUser]);
 
   const openCreate = () => {
-    setForm(EMPTY_EMP);
+    let initialBranch = "";
+    let initialDept = "";
+    if (isBranchManager(currentUser) || isDepartmentManager(currentUser)) {
+      initialBranch = currentUser?.branchId ? String(currentUser.branchId) : "";
+    }
+    if (isDepartmentManager(currentUser)) {
+      initialDept = currentUser?.departmentId ? String(currentUser.departmentId) : "";
+    }
+    let initialRoleId = "";
+    if (isDepartmentManager(currentUser)) {
+      const empRole = roles.find((r) => (r.name || "").toLowerCase() === "employee");
+      if (empRole) initialRoleId = String(empRole.id);
+    }
+    setForm({
+      ...EMPTY_EMP,
+      branchId: initialBranch,
+      departmentId: initialDept,
+      roleId: initialRoleId,
+    });
     setEditEmp(null);
     setFieldErrors({});
     setFormError(null);
@@ -271,21 +352,23 @@ function EmployeeManagementPage() {
     }
   };
 
-  const activeCount = employees.filter((e) => e.status === "ACTIVE").length;
-  const leaveCount = employees.filter((e) => e.status === "SUSPENDED").length;
+  const activeCount = displayedEmployees.filter((e) => e.status === "ACTIVE").length;
+  const leaveCount = displayedEmployees.filter((e) => e.status === "SUSPENDED").length;
 
   return (
     <MainLayout
       title="دليل الموظفين"
       subtitle="الموارد البشرية"
       actions={
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-b from-brand to-brandDeep px-4 py-2.5 text-sm font-bold text-white shadow-panel ui-transition hover:brightness-110 active:scale-[0.98]"
-        >
-          <Plus size={15} /> إضافة موظف
-        </button>
+        canManageEmployees(currentUser) ? (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-b from-brand to-brandDeep px-4 py-2.5 text-sm font-bold text-white shadow-panel ui-transition hover:brightness-110 active:scale-[0.98]"
+          >
+            <Plus size={15} /> إضافة موظف
+          </button>
+        ) : null
       }
     >
       <div className="space-y-5">
@@ -336,7 +419,7 @@ function EmployeeManagementPage() {
           <PageStatCard
             icon={Users}
             label="إجمالي الموظفين"
-            value={employees.length}
+            value={displayedEmployees.length}
             colorClass="bg-badgeBlueBg text-badgeBlueText"
             loading={loading}
           />
@@ -553,10 +636,11 @@ function EmployeeManagementPage() {
                 <select
                   className={inputCls(false)}
                   value={form.roleId}
+                  disabled={isDepartmentManager(currentUser)}
                   onChange={(e) => setForm((p) => ({ ...p, roleId: e.target.value }))}
                 >
                   <option value="">اختر المسمى</option>
-                  {roles.map((r) => (
+                  {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>
                       {translate(r.name)}
                     </option>
@@ -567,34 +651,48 @@ function EmployeeManagementPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext">
-                  القسم
+                  الفرع
                 </label>
                 <select
                   className={inputCls(!!fieldErrors.assignment)}
-                  value={form.departmentId}
-                  onChange={(e) => setForm((p) => ({ ...p, departmentId: e.target.value }))}
+                  value={form.branchId}
+                  disabled={isBranchManager(currentUser) || isDepartmentManager(currentUser)}
+                  onChange={(e) => {
+                    const newBranchId = e.target.value;
+                    setForm((p) => {
+                      const deptValid = newBranchId && departments.some(
+                        (d) => (d.branch?.id || d.branchId) === Number(newBranchId) && String(d.id) === String(p.departmentId)
+                      );
+                      return {
+                        ...p,
+                        branchId: newBranchId,
+                        departmentId: deptValid ? p.departmentId : "",
+                      };
+                    });
+                  }}
                 >
-                  <option value="">اختر القسم</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {translate(d.name)}
+                  <option value="">اختر الفرع</option>
+                  {availableBranches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {translate(b.name)}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext">
-                  الفرع
+                  القسم
                 </label>
                 <select
                   className={inputCls(!!fieldErrors.assignment)}
-                  value={form.branchId}
-                  onChange={(e) => setForm((p) => ({ ...p, branchId: e.target.value }))}
+                  value={form.departmentId}
+                  disabled={!form.branchId || (isDepartmentManager(currentUser) && availableDepartments.length <= 1)}
+                  onChange={(e) => setForm((p) => ({ ...p, departmentId: e.target.value }))}
                 >
-                  <option value="">اختر الفرع</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {translate(b.name)}
+                  <option value="">{form.branchId ? "اختر القسم" : "اختر الفرع أولاً"}</option>
+                  {availableDepartments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {translate(d.name)}
                     </option>
                   ))}
                 </select>
