@@ -59,3 +59,13 @@ export const getTaskByCreatedById = async (userId) => {
     throw error;
   }
 };
+
+export const updateTaskStatus = async (id, status) => {
+  try {
+    const response = await apiClient.patch(`/tasks/${id}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating task status:', error);
+    throw error;
+  }
+};

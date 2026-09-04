@@ -59,10 +59,7 @@ function AddCommentBox({ task, setTasks, setSelectedTask }) {
 function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept, setSelectedTask }) {
   if (!selectedTask) return null;
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  // console.log('Current user:', user);
-  console.log('Selected task:', selectedTask);
-  const isOwner = user ? user.roleName === 'owner' : false;
-
+  const isCreator = Boolean(user && selectedTask.createdById && selectedTask.createdById === user.id);
 
   return (
     <Modal
@@ -70,24 +67,13 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept,
       onClose={onClose}
       footer={
         <>
-          {isOwner && (
-            <>
-              <button
-                onClick={onDelete}
-                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 ui-transition shadow-panel"
-              >
-                حذف المهمة
-              </button>
-              
-              {selectedTask.status === 'DONE' && (
-                <button
-                  onClick={onAccept}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 ui-transition shadow-panel"
-                >
-                  قبول المهمة
-                </button>
-              )}
-            </>
+          {isCreator && onDelete && (
+            <button
+              onClick={onDelete}
+              className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 ui-transition shadow-panel"
+            >
+              حذف المهمة
+            </button>
           )}
 
           <button
@@ -107,12 +93,30 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept,
           </p>
         </div>
 
-        {isOwner && (<div>
-          <p className="text-xs text-appSubtext">الموظف المسؤال</p>
+        {selectedTask.companyName && (
+          <div>
+            <p className="text-xs text-appSubtext">الشركة التابعة لها</p>
+            <p className="text-sm text-appText font-medium">
+              🏢 {selectedTask.companyName}
+            </p>
+          </div>
+        )}
+
+        <div>
+          <p className="text-xs text-appSubtext">الموظف المسؤل</p>
           <p className="text-sm text-appText">
             {selectedTask.assignedToName || 'غير محدد'}
           </p>
-        </div>)}
+        </div>
+
+        {selectedTask.createdBy && (
+          <div>
+            <p className="text-xs text-appSubtext">تم الإنشاء بواسطة</p>
+            <p className="text-sm text-appText">
+              {selectedTask.createdBy}
+            </p>
+          </div>
+        )}
 
         <div>
           <p className="text-xs text-appSubtext">موعد التسليم</p>

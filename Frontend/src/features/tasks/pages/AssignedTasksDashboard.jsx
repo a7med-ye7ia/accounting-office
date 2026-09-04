@@ -12,6 +12,7 @@ import {
 import MainLayout from "../../../shared/layout/MainLayout";
 import TaskDetailsModel from "./TaskDetailsModel";
 import { getTaskByCreatedById, deleteTask, updateTask } from "../../../api/tasks";
+import { isEmployee } from "../../../utils/roles";
 
 const STATUS_AR = {
   PENDING: "في الانتظار",
@@ -34,7 +35,7 @@ export default function AssignedTasksDashboard() {
     }
 
     const user = JSON.parse(userStr);
-    if (user.roleName === 'employee') {
+    if (isEmployee(user)) {
       navigate('/dashboard');
       return;
     }

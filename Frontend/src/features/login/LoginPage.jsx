@@ -18,23 +18,36 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (loading) return;
+    
     setLoading(true);
     setError('');
 
     try {
       console.log('Logging in with:', formData);
+
       const userData = await login({
         email: formData.username,
         password: formData.password
       });
 
+      // Store the token BEFORE making any authenticated requests
+      localStorage.setItem('authToken', userData.token);
+
+      // Now the Axios interceptor can attach:
+      // Authorization: Bearer <token>
       const userProfile = await getEmployeeProfile(userData.user.id);
 
-      localStorage.setItem('authToken', userData.token);
       localStorage.setItem('user', JSON.stringify(userProfile));
 
       navigate('/Dashboard');
     } catch (err) {
+      // Remove token if login succeeded but the authenticated
+      // profile request failed
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+
       setError('اسم المستخدم أو كلمة المرور غير صحيحة');
       alert('Login failed: ' + err.message);
     } finally {
@@ -81,14 +94,18 @@ const LoginPage = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-brand rounded-2xl shadow-lg shadow-brand/20 mb-4">
             <LogIn className="text-white" size={32} />
           </div>
-          <h1 className="text-2xl font-extrabold font-display text-appText">تسجيل الدخول</h1>
-          <p className="text-appSubtext text-sm mt-2">مرحباً بك مجدداً في نظام إدارة المهام</p>
+          <h1 className="text-2xl font-extrabold font-display text-appText">
+            تسجيل الدخول
+          </h1>
+          <p className="text-appSubtext text-sm mt-2">
+            مرحباً بك مجدداً في نظام إدارة المهام
+          </p>
         </div>
 
         {/* Main Card */}
         <div className="bg-appSurface rounded-2xl border border-appBorder p-8 shadow-panel">
           <form onSubmit={handleSubmit} className="space-y-5">
-            
+
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs animate-in fade-in slide-in-from-top-1">
                 <AlertCircle size={14} />
@@ -101,10 +118,12 @@ const LoginPage = () => {
               <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-2 mr-1">
                 اسم المستخدم
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-appSubtext">
                   <User size={18} />
                 </div>
+
                 <input
                   type="text"
                   name="username"
@@ -122,10 +141,12 @@ const LoginPage = () => {
               <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-2 mr-1">
                 كلمة المرور
               </label>
+
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-appSubtext">
                   <Lock size={18} />
                 </div>
+
                 <input
                   type="password"
                   name="password"
@@ -138,13 +159,22 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Remember Me / Forgot Pass (Optional UI helpers) */}
+            {/* Remember Me / Forgot Pass */}
             <div className="flex items-center justify-between px-1">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-appBorder text-brand focus:ring-brand" />
-                <span className="text-xs text-appSubtext">تذكرني</span>
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-appBorder text-brand focus:ring-brand"
+                />
+                <span className="text-xs text-appSubtext">
+                  تذكرني
+                </span>
               </label>
-              <button type="button" className="text-xs font-medium text-brand hover:underline">
+
+              <button
+                type="button"
+                className="text-xs font-medium text-brand hover:underline"
+              >
                 نسيت كلمة المرور؟
               </button>
             </div>
@@ -153,7 +183,6 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              onClick={handleSubmit}
               className={`
                 w-full py-3.5 bg-brand text-white text-sm font-bold rounded-xl 
                 shadow-sm hover:bg-brandDeep active:scale-[0.98] 
@@ -167,6 +196,7 @@ const LoginPage = () => {
                 'تسجيل الدخول'
               )}
             </button>
+
           </form>
         </div>
 

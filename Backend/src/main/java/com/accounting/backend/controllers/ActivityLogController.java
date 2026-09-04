@@ -21,18 +21,22 @@ public class ActivityLogController {
     private final ActivityLogRepository activityLogRepository;
     private final ActivityLogService activityLogService;
     private final JwtService jwtService;
+    private final com.accounting.backend.services.AuthorizationService authorizationService;
 
     public ActivityLogController(ActivityLogRepository activityLogRepository,
                                  ActivityLogService activityLogService,
-                                 JwtService jwtService) {
+                                 JwtService jwtService,
+                                 com.accounting.backend.services.AuthorizationService authorizationService) {
         this.activityLogRepository = activityLogRepository;
         this.activityLogService = activityLogService;
         this.jwtService = jwtService;
+        this.authorizationService = authorizationService;
     }
 
     @GetMapping
     public ResponseEntity<List<ActivityLog>> getAllLogs(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        authorizationService.requireAuthenticatedUser(authHeader);
         List<ActivityLog> logs = activityLogRepository.findAllByOrderByCreatedAtDesc();
         return ResponseEntity.ok(logs);
     }
@@ -41,7 +45,7 @@ public class ActivityLogController {
     public ResponseEntity<List<ActivityLog>> getCompanyLogs(
             @PathVariable Long companyId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-
+        authorizationService.requireAuthenticatedUser(authHeader);
         List<ActivityLog> logs = activityLogRepository.findByCompanyIdOrderByCreatedAtDesc(companyId);
         return ResponseEntity.ok(logs);
     }
