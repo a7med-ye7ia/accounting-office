@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Modal } from '../../../shared/components/HrShared';
 import { addCommentToTask } from '../../../api/comments';
+import { startSubTask, completeSubTask, claimSubTask } from '../../../api/tasks';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 function AddCommentBox({ task, setTasks, setSelectedTask }) {
   const [text, setText] = useState('');
@@ -56,12 +58,57 @@ function AddCommentBox({ task, setTasks, setSelectedTask }) {
   );
 }
 
-function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept, setSelectedTask }) {
+const MANAGER_ROLES = ['owner', 'manager', 'headbranch', 'headdepartment'];
+const SUBTASK_STATUS_LABELS = {
+  PENDING: 'في الانتظار',
+  IN_PROGRESS: 'قيد التنفيذ',
+  DONE: 'مكتمل',
+};
+
+function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, onAccept, setSelectedTask }) {
+  const [subtaskActionId, setSubtaskActionId] = useState(null);
+  const [subtaskActionError, setSubtaskActionError] = useState('');
+
   if (!selectedTask) return null;
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   // console.log('Current user:', user);
   console.log('Selected task:', selectedTask);
-  const isOwner = user ? user.roleName === 'owner' : false;
+  const canManage = user ? MANAGER_ROLES.includes(String(user.roleName || '').toLowerCase()) : false;
+  const subtasks = selectedTask.subtasks || [];
+  const currentUserId = user ? String(user.id) : '';
+  const workingUserIds = (selectedTask.workingEmployees || []).map((worker) => String(worker.id));
+
+  const handleSubtaskAction = async (subtask, action) => {
+    setSubtaskActionError('');
+    setSubtaskActionId(subtask.id);
+    try {
+      const updatedTask = action === 'start'
+        ? await startSubTask(selectedTask.id, subtask.id)
+        : await completeSubTask(selectedTask.id, subtask.id);
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      setSelectedTask(updatedTask);
+    } catch (error) {
+      console.error('Error updating subtask:', error);
+      setSubtaskActionError(getApiErrorMessage(error, 'تعذر تنفيذ العملية.'));
+    } finally {
+      setSubtaskActionId(null);
+    }
+  };
+
+  const handleClaimSubtask = async (subtask) => {
+    setSubtaskActionError('');
+    setSubtaskActionId(subtask.id);
+    try {
+      const updatedTask = await claimSubTask(selectedTask.id, subtask.id);
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      setSelectedTask(updatedTask);
+    } catch (error) {
+      console.error('Error claiming subtask:', error);
+      setSubtaskActionError(getApiErrorMessage(error, 'تعذر استلام المهمة الفرعية.'));
+    } finally {
+      setSubtaskActionId(null);
+    }
+  };
 
 
   return (
@@ -70,8 +117,16 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept,
       onClose={onClose}
       footer={
         <>
-          {isOwner && (
+          {canManage && (
             <>
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel"
+                >
+                  تعديل المهمة
+                </button>
+              )}
               <button
                 onClick={onDelete}
                 className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 ui-transition shadow-panel"
@@ -90,12 +145,6 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept,
             </>
           )}
 
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-white bg-slate-600 rounded-xl hover:bg-slate-700 ui-transition shadow-panel"
-          >
-            اغلاق
-          </button>
         </>
       }
     >
@@ -107,8 +156,8 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept,
           </p>
         </div>
 
-        {isOwner && (<div>
-          <p className="text-xs text-appSubtext">الموظف المسؤال</p>
+        {canManage && (<div>
+          <p className="text-xs text-appSubtext">الموظف المسؤل</p>
           <p className="text-sm text-appText">
             {selectedTask.assignedToName || 'غير محدد'}
           </p>
@@ -121,6 +170,92 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onAccept,
               ? new Date(selectedTask.dueDate).toLocaleString()
               : 'غير محدد'}
           </p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="text-xs text-appSubtext">المهام الفرعية</p>
+            {subtasks.length > 0 && (
+              <span className="text-[11px] px-2 py-1 rounded-lg bg-badgeBlueBg text-badgeBlueText border border-appBorder">
+                {subtasks.filter((s) => s.status === 'DONE').length}/{subtasks.length} مكتملة
+              </span>
+            )}
+          </div>
+
+          {subtaskActionError && (
+            <p className="text-xs text-danger bg-badgeRedBg border border-appBorder rounded-xl px-3 py-2 mb-2">
+              {subtaskActionError}
+            </p>
+          )}
+
+          {subtasks.length === 0 ? (
+            <p className="text-xs text-appSubtext bg-appMuted p-2 rounded-lg">
+              لا توجد مهام فرعية
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {subtasks.map((subtask) => {
+                const isMine = user && String(subtask.assignedToId) === currentUserId;
+                const isBusy = subtaskActionId === subtask.id;
+                const canClaimFreeSubtask =
+                  user &&
+                  !canManage &&
+                  !subtask.assignedToId &&
+                  subtask.status !== 'DONE' &&
+                  (selectedTask.free || workingUserIds.includes(currentUserId));
+                return (
+                  <div
+                    key={subtask.id}
+                    className="border border-appBorder rounded-xl p-3 bg-appMuted/40"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-appText">
+                          {subtask.title}
+                        </p>
+                        {subtask.description && (
+                          <p className="text-xs text-appSubtext mt-1">
+                            {subtask.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-3 mt-2 text-xs text-appSubtext">
+                          <span>الموظف: {subtask.assignedToName || 'غير محدد'}</span>
+                          <span>
+                            التسليم: {subtask.dueDate ? new Date(subtask.dueDate).toLocaleString() : 'غير محدد'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className="text-[11px] px-2 py-1 rounded-lg bg-appSurface text-appSubtext border border-appBorder">
+                          {SUBTASK_STATUS_LABELS[subtask.status] || subtask.status}
+                        </span>
+                        {isMine && subtask.status !== 'DONE' && (
+                          <button
+                            type="button"
+                            onClick={() => handleSubtaskAction(subtask, subtask.status === 'PENDING' ? 'start' : 'complete')}
+                            disabled={isBusy}
+                            className="px-2 py-1 text-[11px] font-semibold text-white bg-brand rounded-lg hover:bg-brandDeep disabled:opacity-50 ui-transition"
+                          >
+                            {isBusy ? '...' : subtask.status === 'PENDING' ? 'بدء العمل' : 'إنهاء'}
+                          </button>
+                        )}
+                        {canClaimFreeSubtask && (
+                          <button
+                            type="button"
+                            onClick={() => handleClaimSubtask(subtask)}
+                            disabled={isBusy}
+                            className="px-2 py-1 text-[11px] font-semibold text-white bg-brand rounded-lg hover:bg-brandDeep disabled:opacity-50 ui-transition"
+                          >
+                            {isBusy ? '...' : 'استلام'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div>
