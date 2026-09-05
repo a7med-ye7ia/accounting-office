@@ -300,4 +300,48 @@ public class Phase1AuthorizationTest {
         );
         assertTrue(ex.getReason().contains("لا ينتمي إلى الفرع المختار"), "Mismatched department must be rejected");
     }
+
+    // ==========================================
+    // 6. ACTIVITY LOG / HISTORY VISIBILITY Tests
+    // ==========================================
+
+    @Test
+    @DisplayName("Activity History: Employee sees only own activity")
+    void testEmployeeActivityHistoryVisibility() {
+        assertTrue(authorizationService.canViewUserActivity(empBranchAId, empBranchAId), "Employee sees own activity");
+        assertFalse(authorizationService.canViewUserActivity(empBranchAId, empBranchBId), "Employee cannot see other employee activity");
+        assertFalse(authorizationService.canViewUserActivity(empBranchAId, dmDept1Id), "Employee cannot see DM activity");
+        assertFalse(authorizationService.canViewUserActivity(empBranchAId, bmBranchAId), "Employee cannot see BM activity");
+        assertFalse(authorizationService.canViewUserActivity(empBranchAId, ownerId), "Employee cannot see Owner activity");
+    }
+
+    @Test
+    @DisplayName("Activity History: Department Manager sees own and managed employees' activity only")
+    void testDepartmentManagerActivityHistoryVisibility() {
+        assertTrue(authorizationService.canViewUserActivity(dmDept1Id, dmDept1Id), "DM sees own activity");
+        assertTrue(authorizationService.canViewUserActivity(dmDept1Id, empBranchAId), "DM sees managed dept employee activity");
+        assertFalse(authorizationService.canViewUserActivity(dmDept1Id, empBranchBId), "DM cannot see other branch/dept employee activity");
+        assertFalse(authorizationService.canViewUserActivity(dmDept1Id, bmBranchAId), "DM cannot see BM activity");
+        assertFalse(authorizationService.canViewUserActivity(dmDept1Id, ownerId), "DM cannot see Owner activity");
+    }
+
+    @Test
+    @DisplayName("Activity History: Branch Manager sees own and branch users' activity only")
+    void testBranchManagerActivityHistoryVisibility() {
+        assertTrue(authorizationService.canViewUserActivity(bmBranchAId, bmBranchAId), "BM sees own activity");
+        assertTrue(authorizationService.canViewUserActivity(bmBranchAId, dmDept1Id), "BM sees branch DM activity");
+        assertTrue(authorizationService.canViewUserActivity(bmBranchAId, empBranchAId), "BM sees branch employee activity");
+        assertFalse(authorizationService.canViewUserActivity(bmBranchAId, empBranchBId), "BM cannot see other branch employee activity");
+        assertFalse(authorizationService.canViewUserActivity(bmBranchAId, ownerId), "BM cannot see Owner activity");
+    }
+
+    @Test
+    @DisplayName("Activity History: Owner sees all users' activity")
+    void testOwnerActivityHistoryVisibility() {
+        assertTrue(authorizationService.canViewUserActivity(ownerId, ownerId), "Owner sees own activity");
+        assertTrue(authorizationService.canViewUserActivity(ownerId, bmBranchAId), "Owner sees BM activity");
+        assertTrue(authorizationService.canViewUserActivity(ownerId, dmDept1Id), "Owner sees DM activity");
+        assertTrue(authorizationService.canViewUserActivity(ownerId, empBranchAId), "Owner sees employee Branch A activity");
+        assertTrue(authorizationService.canViewUserActivity(ownerId, empBranchBId), "Owner sees employee Branch B activity");
+    }
 }

@@ -256,6 +256,51 @@ public class AuthorizationService {
     }
 
     /**
+     * Determines whether the caller can view target user's activity log / history.
+     * Rules:
+     * - Every user can view their own activity logs.
+     * - Owner can view all users' activity logs.
+     * - Subordinates (BM, DM, Employee) can NEVER view Owner's activity logs.
+     * - Branch Manager can view activity logs of all users (DMs, employees) within their own branch.
+     * - Department Manager can view activity logs of employees within their managed departments.
+     *   (DM cannot view Branch Manager or other Department Managers).
+     * - Employee can ONLY view their own activity logs.
+     */
+    public boolean canViewUserActivity(Long callerId, Long targetUserId) {
+        if (callerId == null || targetUserId == null) return false;
+        if (callerId.equals(targetUserId)) return true;
+        if (isOwner(callerId)) return true;
+
+        // Subordinate roles can NEVER view Owner activity logs
+        if (isOwner(targetUserId)) {
+            return false;
+        }
+
+        SystemRole callerRole = getUserRole(callerId);
+
+        if (callerRole == SystemRole.BRANCH_MANAGER) {
+            // BM cannot view other BMs
+            if (isBranchManager(targetUserId)) {
+                return false;
+            }
+            Long callerBranch = getUserBranchId(callerId);
+            Long targetBranch = getUserBranchId(targetUserId);
+            return callerBranch != null && callerBranch.equals(targetBranch);
+        }
+
+        if (callerRole == SystemRole.DEPARTMENT_MANAGER) {
+            // DM cannot view BMs or other DMs (only employees under them)
+            if (isBranchManager(targetUserId) || isDepartmentManager(targetUserId)) {
+                return false;
+            }
+            Long targetDept = getUserDepartmentId(targetUserId);
+            return targetDept != null && getManagedDepartmentIds(callerId).contains(targetDept);
+        }
+
+        return false;
+    }
+
+    /**
      * Determines whether the caller can manage (update/delete) target user.
      */
     public boolean canManageUser(Long callerId, Long targetUserId) {
