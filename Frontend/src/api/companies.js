@@ -50,3 +50,43 @@ export const createCompanyFromOcr = async (companyData, pdfFile, ocrData) => {
 
   return response.data;
 };
+
+export const getCompanyById = async (id) => {
+  try {
+    const response = await apiClient.get(`/companies/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching company:", error);
+    throw error;
+  }
+};
+
+export const createCompany = async (company) => {
+  try {
+    const response = await apiClient.post("/companies", company);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating company:", error);
+    throw error;
+  }
+};
+
+export const updateCompany = async (id, company) => {
+  try {
+    const response = await apiClient.put(`/companies/${id}`, company);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating company:", error);
+    throw error;
+  }
+};
+
+export const deleteCompany = async (id) => {
+  try {
+    const response = await apiClient.delete(`/companies/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting company:", error);
+    throw error;
+  }
+};

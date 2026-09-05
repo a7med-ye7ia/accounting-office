@@ -28,6 +28,7 @@ import {
   formatDateTimeShort,
   dateValueToMs,
 } from "../../../utils/dashboardFormat";
+import { isOwner } from "../../../utils/roles";
 
 function asArray(v) {
   return Array.isArray(v) ? v : [];
@@ -96,8 +97,21 @@ function DashboardPage() {
     };
   }, []);
 
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const displayedUsers = useMemo(() => {
+    if (isOwner(currentUser)) return users;
+    return users.filter((u) => !isOwner(u) && (!u.roleName || u.roleName.toLowerCase() !== 'owner'));
+  }, [users, currentUser]);
+
   const metrics = useMemo(() => {
-    const activeUsers = users.filter((x) => x.status === "ACTIVE").length;
+    const activeUsers = displayedUsers.filter((x) => x.status === "ACTIVE").length;
     const activeCompanies = companies.filter(isActiveCompany).length;
     const liveContracts = contracts.filter(isActiveContract);
     const openTasks = tasks.filter(
@@ -110,8 +124,8 @@ function DashboardPage() {
       const ms = dateValueToMs(x.dueDate);
       return ms > 0 && ms < now;
     }).length;
-    const usersWithDept = users.filter((x) => x.departmentId != null).length;
-    const usersMissingDept = users.length - usersWithDept;
+    const usersWithDept = displayedUsers.filter((x) => x.departmentId != null).length;
+    const usersMissingDept = displayedUsers.length - usersWithDept;
 
     const recentTasks = [...tasks]
       .sort((a, b) => (b.id || 0) - (a.id || 0))
@@ -122,7 +136,7 @@ function DashboardPage() {
       .slice(0, 6);
 
     return {
-      usersTotal: users.length,
+      usersTotal: displayedUsers.length,
       activeUsers,
       usersMissingDept,
       departmentsTotal: departments.length,
@@ -137,7 +151,7 @@ function DashboardPage() {
       recentTasks,
       recentContracts,
     };
-  }, [users, departments, branches, roles, companies, tasks, contracts]);
+  }, [displayedUsers, departments, branches, roles, companies, tasks, contracts]);
 
   const tableShell =
     "overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-raise";

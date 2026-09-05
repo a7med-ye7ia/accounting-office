@@ -27,87 +27,108 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.server.ResponseStatusException;
+import com.accounting.backend.services.AuthorizationService;
+
 @RestController
 @RequestMapping("/api/files")
 @CrossOrigin(origins = "*")
 public class FilesController {
 
-  final static String FILE_SYSTEM_PATH = "../FileSystem";
-  
-  // @PostMapping("/upload")
-  // public ResponseEntity<String> uploadFile(
-  //   @RequestParam("file") MultipartFile file) {
+    final static String FILE_SYSTEM_PATH = "../FileSystem";
 
-  //   try {
-  //     String uploadDir = "/mnt/par1/college/THE_PROJECT/temp/accounting-office/FileSystem";
-  //     Path uploadPath = Path.of(uploadDir);
+    @Autowired
+    private AuthorizationService authorizationService;
 
-  //     if (!Files.exists(uploadPath)) {
-  //         Files.createDirectories(uploadPath);
-  //     }
+    @PostMapping("/uploadToCompanyFolder")
+    public ResponseEntity<String> uploadFileToCompanyFolder(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("companyFolder") String companyFolder) {
 
-  //     Path filePath = uploadPath.resolve(file.getOriginalFilename());
+        authorizationService.requireAuthenticatedUser(authHeader);
 
-  //     Files.copy(
-  //             file.getInputStream(),
-  //             filePath,
-  //             StandardCopyOption.REPLACE_EXISTING
-  //     );
+        try {
+            // Sanitize inputs against path traversal
+            String safeCompanyFolder = companyFolder.replace("\\", "/").replaceAll("/+", "/");
+            if (safeCompanyFolder.contains("..") || safeCompanyFolder.startsWith("/")) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid company folder path");
+            }
 
-  //     return ResponseEntity.ok("File uploaded");
-  //   } catch (IOException e) {
-  //       return ResponseEntity.internalServerError().body("Upload failed");
-  //   }
-  // }
+            Path basePath = Paths.get(FILE_SYSTEM_PATH).toAbsolutePath().normalize();
+            Path uploadPath = basePath.resolve(safeCompanyFolder).resolve("OtherTypesContracts").normalize();
 
-  @PostMapping("/uploadToCompanyFolder")
-  public ResponseEntity<String> uploadFileToCompanyFolder(
-    @RequestParam("file") MultipartFile file,
-    @RequestParam("companyFolder") String companyFolder) {
+            if (!uploadPath.startsWith(basePath)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Path traversal attempt detected");
+            }
 
-    try {
-      String uploadDir = companyFolder;
-      Path uploadPath = Path.of(FILE_SYSTEM_PATH, uploadDir, "OtherTypesContracts");
+            if (!Files.exists(uploadPath)) {
+                return ResponseEntity.badRequest().body("Company folder does not exist");
+            }
 
-      if (!Files.exists(uploadPath)) {
-          // Files.createDirectories(uploadPath);
-          return ResponseEntity.badRequest().body("Company folder does not exist");
-      }
+            String originalName = file.getOriginalFilename();
+            String safeFileName = (originalName != null) ? Paths.get(originalName).getFileName().toString() : "uploaded_file";
+            Path filePath = uploadPath.resolve(safeFileName).normalize();
 
-      Path filePath = uploadPath.resolve(file.getOriginalFilename());
+            if (!filePath.startsWith(uploadPath)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Path traversal attempt detected in filename");
+            }
 
-      Files.copy(
-              file.getInputStream(),
-              filePath,
-              StandardCopyOption.REPLACE_EXISTING
-      );
+            Files.copy(
+                    file.getInputStream(),
+                    filePath,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
 
-      return ResponseEntity.ok("File uploaded to company folder");
-    } catch (IOException e) {
-        return ResponseEntity.internalServerError().body("Upload failed");
+            return ResponseEntity.ok("File uploaded to company folder");
+        } catch (ResponseStatusException rse) {
+            throw rse;
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().body("Upload failed");
+        }
     }
-  }
 
-  @GetMapping("/pdf")
-  public ResponseEntity<Resource> getPdf(
-          @RequestParam("path") String filePath) {
+    @GetMapping("/pdf")
+    public ResponseEntity<Resource> getPdf(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam("path") String filePath) {
 
-      try {
-          Path pdfPath = Paths.get(FILE_SYSTEM_PATH).resolve(filePath).normalize();
-        System.out.println("Resolved path: " + pdfPath);
-          if (!Files.exists(pdfPath) || !Files.isReadable(pdfPath)) {
-              return ResponseEntity.notFound().build();
-          }
+        authorizationService.requireAuthenticatedUser(authHeader);
 
-          Resource resource = new UrlResource(pdfPath.toUri());
+        try {
+            Path basePath = Paths.get(FILE_SYSTEM_PATH).toAbsolutePath().normalize();
+            
+            // Normalize slashes and prevent traversal
+            String cleanRelative = filePath.replace("\\", "/").replaceAll("/+", "/");
+            if (cleanRelative.startsWith("/")) {
+                cleanRelative = cleanRelative.substring(1);
+            }
 
-          return ResponseEntity.ok()
-                  .contentType(MediaType.APPLICATION_PDF)
-                  .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
-                  .body(resource);
+            Path pdfPath = basePath.resolve(cleanRelative).normalize();
 
-      } catch (MalformedURLException e) {
-          return ResponseEntity.badRequest().build();
-      }
-  }
+            // Strict path traversal check
+            if (!pdfPath.startsWith(basePath)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Path traversal attempt detected");
+            }
+
+            if (!Files.exists(pdfPath) || !Files.isReadable(pdfPath)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Resource resource = new UrlResource(pdfPath.toUri());
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                    .body(resource);
+
+        } catch (ResponseStatusException rse) {
+            throw rse;
+        } catch (MalformedURLException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }
