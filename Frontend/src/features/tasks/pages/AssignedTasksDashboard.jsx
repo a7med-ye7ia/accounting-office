@@ -21,6 +21,21 @@ const STATUS_AR = {
   ACCEPTED: "معتمدة",
 };
 
+const StatCard = ({ title, value, icon: IconComponent, color }) => (
+  <div className="bg-appSurface border border-appBorder rounded-2xl p-4 flex items-center gap-3">
+    <div
+      className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}
+    >
+      {React.createElement(IconComponent, { size: 18 })}
+    </div>
+
+    <div>
+      <p className="text-2xl font-bold text-appText">{value}</p>
+      <p className="text-xs text-appSubtext">{title}</p>
+    </div>
+  </div>
+);
+
 export default function AssignedTasksDashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
 
@@ -78,8 +93,11 @@ export default function AssignedTasksDashboard() {
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchesSearch =
-        task.title.toLowerCase().includes(search.toLowerCase()) ||
-        task.assignedToName.toLowerCase().includes(search.toLowerCase());
+        (task.title || '').toLowerCase().includes(search.toLowerCase()) ||
+        (task.assignedToName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (task.workingEmployees || []).some((worker) =>
+          (worker.fullName || '').toLowerCase().includes(search.toLowerCase()),
+        );
 
       const matchesStatus =
         statusFilter === "ALL" || task.status === statusFilter;
@@ -131,21 +149,6 @@ export default function AssignedTasksDashboard() {
     }
   };
 
-  const StatCard = ({ title, value, Icon, color }) => (
-    <div className="bg-appSurface border border-appBorder rounded-2xl p-4 flex items-center gap-3">
-      <div
-        className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}
-      >
-        <Icon size={18} />
-      </div>
-
-      <div>
-        <p className="text-2xl font-bold text-appText">{value}</p>
-        <p className="text-xs text-appSubtext">{title}</p>
-      </div>
-    </div>
-  );
-
   return (
     <MainLayout
       title="متابعة المهام"
@@ -177,7 +180,7 @@ export default function AssignedTasksDashboard() {
                     onClick={() => setSelectedTask(task)}
                     className="w-full flex items-center justify-between p-3 rounded-xl bg-white hover:bg-gray-50 border"
                   >
-                    <span>{task.assignedToName}</span>
+                    <span>{task.assignedToName || 'غير محدد'}</span>
                     <span className="font-medium">{task.title}</span>
                   </button>
                 ))}
@@ -192,35 +195,35 @@ export default function AssignedTasksDashboard() {
           <StatCard
             title="إجمالي المهام"
             value={stats.total}
-            Icon={ClipboardList}
+            icon={ClipboardList}
             color="bg-badgeBlueBg text-badgeBlueText"
           />
 
           <StatCard
             title="في الانتظار"
             value={stats.pending}
-            Icon={Clock3}
+            icon={Clock3}
             color="bg-appMuted text-appSubtext"
           />
 
           <StatCard
             title="قيد التنفيذ"
             value={stats.progress}
-            Icon={Loader2}
+            icon={Loader2}
             color="bg-badgeBlueBg text-badgeBlueText"
           />
 
           <StatCard
             title="بانتظار المراجعة"
             value={stats.review}
-            Icon={AlertTriangle}
+            icon={AlertTriangle}
             color="bg-yellow-100 text-yellow-700"
           />
 
           <StatCard
             title="معتمدة"
             value={stats.approved}
-            Icon={CheckCircle2}
+            icon={CheckCircle2}
             color="bg-success/15 text-success"
           />
         </div>
@@ -286,7 +289,7 @@ export default function AssignedTasksDashboard() {
                     </td>
 
                     <td className="p-4">
-                      {task.assignedToName}
+                      {task.assignedToName || 'غير محدد'}
                     </td>
 
                     <td className="p-4">

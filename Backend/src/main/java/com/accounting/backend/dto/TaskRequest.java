@@ -2,6 +2,7 @@ package com.accounting.backend.dto;
 
 import com.accounting.backend.enums.TaskStatus;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class TaskRequest {
 
@@ -12,6 +13,7 @@ public class TaskRequest {
     private Long companyId;
     private TaskStatus status;
     private LocalDateTime dueDate;
+    private List<SubTaskRequest> subtasks;
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -33,6 +35,10 @@ public class TaskRequest {
 
     public LocalDateTime getDueDate() { return dueDate; }
     public void setDueDate(LocalDateTime dueDate) { this.dueDate = dueDate; }
+
+    public List<SubTaskRequest> getSubtasks() { return subtasks; }
+    public void setSubtasks(List<SubTaskRequest> subtasks) { this.subtasks = subtasks; }
+
     @Override
     public String toString() {
         return "CreateTaskRequest [title=" + title + ", description=" + description + ", assignedToId=" + assignedToId

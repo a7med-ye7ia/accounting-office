@@ -81,7 +81,7 @@ public class EmployeeProfileService {
         }
 
         List<Map<String, Object>> taskMaps = new ArrayList<>();
-        for (Task t : taskRepository.findByAssignedTo_Id(userId)) {
+        for (Task t : taskRepository.findVisibleToAssignee(userId)) {
             if (t.getDeletedAt() != null) {
                 continue;
             }
