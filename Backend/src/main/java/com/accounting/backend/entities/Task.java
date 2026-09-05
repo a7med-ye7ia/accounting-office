@@ -21,7 +21,7 @@ public class Task {
     private String description;
 
     @ManyToOne
-    @JoinColumn(name = "assigned_to", nullable = false)
+    @JoinColumn(name = "assigned_to")
     private User assignedTo;
 
     @ManyToOne
@@ -45,9 +45,15 @@ public class Task {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Version
+    private Long version;
+
     // ! change the fetch type from eager to lazy to avoid loading all comments when fetching a task
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<TaskComment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SubTask> subTasks = new ArrayList<>();
 
     // Getters and setters
 
@@ -83,4 +89,10 @@ public class Task {
 
     public List<TaskComment> getComments() { return comments; }
     public void setComments(List<TaskComment> comments) { this.comments = comments; }
+
+    public List<SubTask> getSubTasks() { return subTasks; }
+    public void setSubTasks(List<SubTask> subTasks) { this.subTasks = subTasks; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }
