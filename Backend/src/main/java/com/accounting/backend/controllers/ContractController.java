@@ -73,8 +73,21 @@ public class ContractController {
     }
 
     @GetMapping("/creating/{companyId}")
-    public Optional<Contract> getContractByCompanyId(@PathVariable Long companyId) {
-        return contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING);
+    public ResponseEntity<Contract> getCreatingContractByCompanyId(@PathVariable Long companyId) {
+        List<Contract> contracts = contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING);
+        if (contracts.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(contracts.get(0));
+    }
+
+    @GetMapping("/updating/{companyId}")
+    public ResponseEntity<List<Contract>> getUpdatingContractByCompanyId(@PathVariable Long companyId) {
+        List<Contract> contracts = contractRepository.findByCompany_IdAndType(companyId, ContractType.UPDATING);
+        if (contracts.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(contracts);
     }
 
     @PostMapping

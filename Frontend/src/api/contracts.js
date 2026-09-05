@@ -30,6 +30,16 @@ export const getCreatingContractByCompanyId = async (companyId) => {
   }
 };
 
+export const getUpdatingContractByCompanyId = async (companyId) => {
+  try {
+    const response = await apiClient.get(`/contracts/updating/${companyId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching updating contract:", error);
+    throw error;
+  }
+};
+
 
 export const addContract = async (contract) => {
   try {
@@ -45,12 +55,26 @@ export const uploadContract = async ({ companyId, type, file }) => {
   const formData = new FormData();
   formData.append("companyId", companyId);
   formData.append("type", type);
-  formData.append("file", file);
+  if (type === "UPDATING") {
+    let fileName = file.title;
+    for(const mod of file.modifications) {
+      fileName += `_${Number(mod.articleId) + 1}`;
+    }
+    const jsonBlob = new Blob(
+      [JSON.stringify(file, null, 2)],
+      { type: "application/json" }
+    );
+    formData.append("file", jsonBlob, `${fileName}.json`);
+    console.log("fileName =", fileName);
+  } else {
+    formData.append("file", file);
+  }
+  
 
   try {
-    const response = await apiClient.post("/contracts/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await apiClient.post("/contracts/upload", formData
+      // , {headers: { "Content-Type": "multipart/form-data" },}
+    );
     return response.data;
   } catch (error) {
     console.error("Error uploading contract:", error);

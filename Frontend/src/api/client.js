@@ -4,9 +4,12 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:80
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // ! removed because there was a problem when sending 
+  // ! the request to save the updating json file
+  
+  // headers: {
+  //   'Content-Type': 'application/json',
+  // },
 });
 
 // Automatically attach the auth token to every request

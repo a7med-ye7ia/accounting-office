@@ -20,7 +20,8 @@ import {
 
 const navItems = [
   { label: "لوحة التحكم", path: "/Dashboard", icon: LayoutDashboard },
-  { label: "الشركات", path: "/ContractBrowser", icon: Building },
+  { label: "الشركات الوحشة", path: "/ContractBrowser", icon: Building },
+  { label: "الشركات الحلوة", path: "/companies2", icon: Building },
   // { label: "المستندات", path: "/Documents", icon: FileText },
   { label: "الموظفون", path: "/EmployeeManagement", icon: Users },
   { label: "الحضور", path: "/attendance", icon: History },

@@ -43,6 +43,33 @@ public class FilesController {
     @Autowired
     private AuthorizationService authorizationService;
 
+    // @PostMapping("/upload")
+    // public ResponseEntity<String> uploadFile(
+    // @RequestParam("file") MultipartFile file) {
+
+    // try {
+    // String uploadDir =
+    // "/mnt/par1/college/THE_PROJECT/temp/accounting-office/FileSystem";
+    // Path uploadPath = Path.of(uploadDir);
+
+    // if (!Files.exists(uploadPath)) {
+    // Files.createDirectories(uploadPath);
+    // }
+
+    // Path filePath = uploadPath.resolve(file.getOriginalFilename());
+
+    // Files.copy(
+    // file.getInputStream(),
+    // filePath,
+    // StandardCopyOption.REPLACE_EXISTING
+    // );
+
+    // return ResponseEntity.ok("File uploaded");
+    // } catch (IOException e) {
+    // return ResponseEntity.internalServerError().body("Upload failed");
+    // }
+    // }
+
     @PostMapping("/uploadToCompanyFolder")
     public ResponseEntity<String> uploadFileToCompanyFolder(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -68,9 +95,14 @@ public class FilesController {
             if (!Files.exists(uploadPath)) {
                 return ResponseEntity.badRequest().body("Company folder does not exist");
             }
+            if (!Files.exists(uploadPath)) {
+                // Files.createDirectories(uploadPath);
+                return ResponseEntity.badRequest().body("Company folder does not exist");
+            }
 
             String originalName = file.getOriginalFilename();
-            String safeFileName = (originalName != null) ? Paths.get(originalName).getFileName().toString() : "uploaded_file";
+            String safeFileName = (originalName != null) ? Paths.get(originalName).getFileName().toString()
+                    : "uploaded_file";
             Path filePath = uploadPath.resolve(safeFileName).normalize();
 
             if (!filePath.startsWith(uploadPath)) {
@@ -80,8 +112,11 @@ public class FilesController {
             Files.copy(
                     file.getInputStream(),
                     filePath,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+                    StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(
+                    file.getInputStream(),
+                    filePath,
+                    StandardCopyOption.REPLACE_EXISTING);
 
             return ResponseEntity.ok("File uploaded to company folder");
         } catch (ResponseStatusException rse) {
@@ -91,8 +126,8 @@ public class FilesController {
         }
     }
 
-    @GetMapping("/pdf")
-    public ResponseEntity<Resource> getPdf(
+    @GetMapping("/file")
+    public ResponseEntity<Resource> getFile(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestParam("path") String filePath) {
 
@@ -100,7 +135,7 @@ public class FilesController {
 
         try {
             Path basePath = Paths.get(FILE_SYSTEM_PATH).toAbsolutePath().normalize();
-            
+
             // Normalize slashes and prevent traversal
             String cleanRelative = filePath.replace("\\", "/").replaceAll("/+", "/");
             if (cleanRelative.startsWith("/")) {
@@ -120,14 +155,21 @@ public class FilesController {
 
             Resource resource = new UrlResource(pdfPath.toUri());
 
+            String contentType = Files.probeContentType(pdfPath);
+
+            if (contentType == null) {
+                contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            }
+
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                    .contentType(MediaType.parseMediaType(contentType))
                     .body(resource);
 
         } catch (ResponseStatusException rse) {
             throw rse;
         } catch (MalformedURLException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
     }

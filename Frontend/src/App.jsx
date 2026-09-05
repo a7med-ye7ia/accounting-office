@@ -12,6 +12,11 @@ import AttendancePage from "./features/attendance/AttendancePage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PdfPage from "./features/companies/components/PdfPage";
+import CompanyList from "./features/companies2/components/CompanyList";
+import CompanyDetailsPage from "./features/companies2/components/CompanyDetailsPage";
+import CreatingContracte from "./features/companies2/components/CreatingContracte";
+import UpdatingContracte from "./features/companies2/components/UpdateingConracte";
+import CreateUpdatingContractPage from "./features/companies2/components/CreateUpdatingContractPage";
 import BranchesPage from "./features/branches/pages/BranchesPage";
 import BranchReviewPage from "./features/branches/pages/BranchReviewPage";
 
@@ -63,12 +68,17 @@ function App() {
         <Route path="/companies/company/:companyId" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type/Ai" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type" element={<CompaniesPage />} />
+        <Route path="/companies2" element={<CompanyList />} />
+        <Route path="/companies2/:id" element={<CompanyDetailsPage />} />
+        <Route path="/companies2/:id/creating" element={<CreatingContracte />} />
+        <Route path="/companies2/:id/updating" element={<UpdatingContracte />} />
+        <Route path="/companies2/:companyId/updating/new" element={<CreateUpdatingContractPage />} />
         <Route path="/companies/company/:companyId/type/amendment/pdf/:pdfId" element={<PdfPage />} />
         <Route path="/companies/company/:companyId/type/:type/pdf/:pdfId" element={<CompaniesPage />} />
         <Route path="/CompaniesDirectory" element={<Navigate replace to="/companies" />} />
         <Route path="/CompanyProfile" element={<Navigate replace to="/companies" />} />
         <Route path="/Documents" element={<DocumentsPage />} />
-        <Route path="/profile/:id" element={<EmployeeProfilePage />} />
+        <Route path="/profile/:id" element={<EmployeeProfilePage />} /> 
         <Route path="/EmployeeProfile/:id" element={<LegacyEmployeeProfileRedirect />} />
         <Route path="/EmployeeTasks" element={<EmployeeTasksPage />} />
         <Route path="/ActivityHistory" element={<ActivityHistoryPage />} />

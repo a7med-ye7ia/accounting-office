@@ -45,7 +45,7 @@ for (const [key, value] of formData.entries()) {
 };
 
 export const getFileFromPath = async (filePath) => {
-  const response = await apiClient.get("/files/pdf", {
+  const response = await apiClient.get("/files/file", {
     params: {
       path: filePath,
     },
