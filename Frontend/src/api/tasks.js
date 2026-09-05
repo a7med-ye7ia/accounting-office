@@ -16,7 +16,7 @@ export const addTask = async (task) => {
     return response.data;
   } catch (error) {
     console.error('Error adding task:', error);
-    throw error;
+    throw new Error(apiError(error, 'تعذر إضافة المهمة'));
   }
 };
 
@@ -26,7 +26,7 @@ export const deleteTask = async (id) => {
     return response.data;
   } catch (error) {
     console.error('Error deleting task:', error);
-    throw error;
+    throw new Error(apiError(error, 'تعذر حذف المهمة'));
   }
 };
 
@@ -36,7 +36,7 @@ export const updateTask = async (id, newTask) => {
     return response.data;
   } catch (error) {
     console.error('Error updating task: ', error);
-    throw error;
+    throw new Error(apiError(error, 'تعذر تحديث المهمة'));
   }
 };
 
@@ -60,12 +60,85 @@ export const getTaskByCreatedById = async (userId) => {
   }
 };
 
-export const updateTaskStatus = async (id, status) => {
+const apiError = (error, fallback) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback;
+
+export const addSubTask = async (taskId, subtask) => {
   try {
-    const response = await apiClient.patch(`/tasks/${id}/status`, { status });
+    const response = await apiClient.post(`/tasks/${taskId}/subtasks`, subtask);
     return response.data;
   } catch (error) {
-    console.error('Error updating task status:', error);
-    throw error;
+    console.error('Error adding subtask:', error);
+    throw new Error(apiError(error, 'تعذر إضافة المهمة الفرعية'));
+  }
+};
+
+export const updateSubTask = async (taskId, subTaskId, subtask) => {
+  try {
+    const response = await apiClient.put(`/tasks/${taskId}/subtasks/${subTaskId}`, subtask);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating subtask:', error);
+    throw new Error(apiError(error, 'تعذر تحديث المهمة الفرعية'));
+  }
+};
+
+export const deleteSubTask = async (taskId, subTaskId) => {
+  try {
+    const response = await apiClient.delete(`/tasks/${taskId}/subtasks/${subTaskId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting subtask:', error);
+    throw new Error(apiError(error, 'تعذر حذف المهمة الفرعية'));
+  }
+};
+
+export const startSubTask = async (taskId, subTaskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/subtasks/${subTaskId}/start`);
+    return response.data;
+  } catch (error) {
+    console.error('Error starting subtask:', error);
+    throw new Error(apiError(error, 'تعذر بدء المهمة الفرعية'));
+  }
+};
+
+export const completeSubTask = async (taskId, subTaskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/subtasks/${subTaskId}/complete`);
+    return response.data;
+  } catch (error) {
+    console.error('Error completing subtask:', error);
+    throw new Error(apiError(error, 'تعذر إنهاء المهمة الفرعية'));
+  }
+};
+
+export const claimTask = async (taskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/claim`);
+    return response.data;
+  } catch (error) {
+    console.error('Error claiming task:', error);
+    throw new Error(apiError(error, 'تعذر استلام المهمة'));
+  }
+};
+
+export const claimSubTask = async (taskId, subTaskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/subtasks/${subTaskId}/claim`);
+    return response.data;
+  } catch (error) {
+    console.error('Error claiming subtask:', error);
+    throw new Error(apiError(error, 'تعذر استلام المهمة الفرعية'));
+  }
+};
+
+export const leaveTask = async (taskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/leave`);
+    return response.data;
+  } catch (error) {
+    console.error('Error leaving task:', error);
+    throw new Error(apiError(error, 'تعذر مغادرة المهمة'));
   }
 };
