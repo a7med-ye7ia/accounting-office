@@ -45,6 +45,19 @@ function isActiveContract(c) {
 }
 
 function DashboardPage() {
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  })();
+
+  // Boolean indicating whether the currently logged-in user is the Owner.
+  // Keep this name different from the imported isOwner() function.
+  const currentUserIsOwner =
+    currentUser?.roleName?.toLowerCase() === "owner";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [users, setUsers] = useState([]);
@@ -57,9 +70,11 @@ function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       setLoading(true);
       setError(null);
+
       try {
         const [u, d, b, r, co, t, ct] = await Promise.all([
           fetchUsers(),
@@ -70,7 +85,9 @@ function DashboardPage() {
           fetchTasks(),
           fetchContracts(),
         ]);
+
         if (cancelled) return;
+
         setUsers(asArray(u));
         setDepartments(asArray(d));
         setBranches(asArray(b));
@@ -79,52 +96,85 @@ function DashboardPage() {
         setTasks(asArray(t));
         setContracts(asArray(ct));
       } catch (e) {
-        if (!cancelled) setError(getApiErrorMessage(e, "تعذر تحميل بيانات لوحة التحكم."));
+        if (!cancelled) {
+          setError(
+            getApiErrorMessage(
+              e,
+              "تعذر تحميل بيانات لوحة التحكم."
+            )
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const currentUser = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch (e) {
-      return null;
-    }
-  })();
-
   const displayedUsers = useMemo(() => {
     if (isOwner(currentUser)) return users;
-    return users.filter((u) => !isOwner(u) && (!u.roleName || u.roleName.toLowerCase() !== 'owner'));
+
+    return users.filter(
+      (u) =>
+        !isOwner(u) &&
+        (!u.roleName ||
+          u.roleName.toLowerCase() !== "owner")
+    );
   }, [users, currentUser]);
 
   const metrics = useMemo(() => {
-    const activeUsers = displayedUsers.filter((x) => x.status === "ACTIVE").length;
-    const activeCompanies = companies.filter(isActiveCompany).length;
-    const liveContracts = contracts.filter(isActiveContract);
+    const activeUsers = displayedUsers.filter(
+      (x) => x.status === "ACTIVE"
+    ).length;
+
+    const activeCompanies =
+      companies.filter(isActiveCompany).length;
+
+    const liveContracts =
+      contracts.filter(isActiveContract);
+
     const openTasks = tasks.filter(
-      (x) => x.status === "PENDING" || x.status === "IN_PROGRESS",
+      (x) =>
+        x.status === "PENDING" ||
+        x.status === "IN_PROGRESS"
     );
-    const pendingContracts = liveContracts.filter((x) => x.status === "PENDING_APPROVAL").length;
+
+    const pendingContracts = liveContracts.filter(
+      (x) => x.status === "PENDING_APPROVAL"
+    ).length;
+
     const now = Date.now();
+
     const overdueTasks = tasks.filter((x) => {
-      if (x.status === "DONE" || !x.dueDate) return false;
+      if (x.status === "DONE" || !x.dueDate) {
+        return false;
+      }
+
       const ms = dateValueToMs(x.dueDate);
+
       return ms > 0 && ms < now;
     }).length;
-    const usersWithDept = displayedUsers.filter((x) => x.departmentId != null).length;
-    const usersMissingDept = displayedUsers.length - usersWithDept;
+
+    const usersWithDept = displayedUsers.filter(
+      (x) => x.departmentId != null
+    ).length;
+
+    const usersMissingDept =
+      displayedUsers.length - usersWithDept;
 
     const recentTasks = [...tasks]
       .sort((a, b) => (b.id || 0) - (a.id || 0))
       .slice(0, 6);
 
     const recentContracts = [...liveContracts]
-      .sort((a, b) => dateValueToMs(b.createdAt) - dateValueToMs(a.createdAt))
+      .sort(
+        (a, b) =>
+          dateValueToMs(b.createdAt) -
+          dateValueToMs(a.createdAt)
+      )
       .slice(0, 6);
 
     return {
@@ -143,13 +193,24 @@ function DashboardPage() {
       recentTasks,
       recentContracts,
     };
-  }, [displayedUsers, departments, branches, roles, companies, tasks, contracts]);
+  }, [
+    displayedUsers,
+    departments,
+    branches,
+    roles,
+    companies,
+    tasks,
+    contracts,
+  ]);
 
   const tableShell =
     "overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-raise";
 
   return (
-    <MainLayout title="لوحة تحكم " subtitle="  ">
+    <MainLayout
+      title="لوحة تحكم "
+      subtitle="  "
+    >
       <div className="space-y-8 lg:space-y-10">
         {error && (
           <div
@@ -160,6 +221,7 @@ function DashboardPage() {
               <AlertCircle className="h-5 w-5 shrink-0 text-danger" />
               <span>{error}</span>
             </div>
+
             <button
               type="button"
               onClick={() => window.location.reload()}
@@ -172,9 +234,6 @@ function DashboardPage() {
 
         {/* Row A — primary volumes */}
         <section aria-label="مؤشرات رئيسية">
-          {/* <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
-            الصف أ — الحجم والنطاق
-          </h2> */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
             <PageStatCard
               icon={Users}
@@ -183,6 +242,7 @@ function DashboardPage() {
               colorClass="bg-badgeBlueBg text-badgeBlueText"
               loading={loading}
             />
+
             <PageStatCard
               icon={Building2}
               label="الأقسام"
@@ -190,6 +250,7 @@ function DashboardPage() {
               colorClass="bg-badgePurpleBg text-badgePurpleText"
               loading={loading}
             />
+
             <PageStatCard
               icon={Building}
               label="الشركات النشطة"
@@ -197,6 +258,7 @@ function DashboardPage() {
               colorClass="bg-success/15 text-success"
               loading={loading}
             />
+
             <PageStatCard
               icon={ListTodo}
               label="المهام (الكل)"
@@ -209,9 +271,6 @@ function DashboardPage() {
 
         {/* Row B — health & pipeline */}
         <section aria-label="مؤشرات الصحة">
-          {/* <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
-            الصف ب — النشاط والالتزام
-          </h2> */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
             <PageStatCard
               icon={UserCheck}
@@ -220,13 +279,22 @@ function DashboardPage() {
               colorClass="bg-success/15 text-success"
               loading={loading}
             />
-            <PageStatCard
-              icon={GitBranch}
-              label="الفروع"
-              value={metrics.branchesTotal}
-              colorClass="bg-badgeBlueBg text-badgeBlueText"
-              loading={loading}
-            />
+
+            {currentUserIsOwner ? (
+              <Link
+                to="/branches"
+                className="block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+              >
+                <PageStatCard
+                  icon={GitBranch}
+                  label="الفروع"
+                  value={metrics.branchesTotal}
+                  colorClass="bg-badgeBlueBg text-badgeBlueText"
+                  loading={loading}
+                />
+              </Link>
+            ) : null}
+
             <PageStatCard
               icon={FileSignature}
               label="عقود بانتظار الموافقة"
@@ -234,6 +302,7 @@ function DashboardPage() {
               colorClass="bg-badgePurpleBg text-badgePurpleText"
               loading={loading}
             />
+
             <PageStatCard
               icon={Clock}
               label="مهام مفتوحة"
@@ -242,26 +311,17 @@ function DashboardPage() {
               loading={loading}
             />
           </div>
-          {/* <p className="mt-3 text-xs leading-relaxed text-appSubtext">
-            «مستخدمون بلا قسم» (حاليًا{" "}
-            <span className="font-mono text-brand">{metrics.usersMissingDept}</span>
-            ) يعتمد على وجود <span className="font-mono">departmentId</span> في استجابة المستخدمين. مهام
-            متأخرة:{" "}
-            <span className="font-mono text-brand">{metrics.overdueTasks}</span> — أدوار النظام:{" "}
-            <span className="font-mono text-brand">{metrics.rolesTotal}</span> — عقود نشطة (غير محذوفة):{" "}
-            <span className="font-mono text-brand">{metrics.contractsTotal}</span>.
-          </p> */}
         </section>
 
         {/* Row C — recent activity */}
         <section aria-label="النشاط الأخير">
-          {/* <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-appSubtext">
-            الصف ج — آخر النشاط
-          </h2> */}
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div className={tableShell}>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-appBorder px-5 py-4 sm:px-6">
-                <h3 className="text-sm font-semibold text-appText">آخر المهام</h3>
+                <h3 className="text-sm font-semibold text-appText">
+                  آخر المهام
+                </h3>
+
                 <Link
                   to="/EmployeeTasks"
                   className="text-xs font-bold text-brand ui-transition hover:text-brandDeep"
@@ -269,11 +329,17 @@ function DashboardPage() {
                   عرض الكل →
                 </Link>
               </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[320px] text-sm">
                   <thead className="table-head-surface">
                     <tr>
-                      {["العنوان", "الحالة", "المعيّن إليه", "الموعد"].map((h) => (
+                      {[
+                        "العنوان",
+                        "الحالة",
+                        "المعيّن إليه",
+                        "الموعد",
+                      ].map((h) => (
                         <th
                           key={h}
                           className="px-4 py-3 text-start text-[10px] font-extrabold uppercase tracking-[0.14em] text-appSubtext sm:px-5"
@@ -283,31 +349,50 @@ function DashboardPage() {
                       ))}
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-appBorder/80">
                     {loading ? (
                       <tr>
-                        <td colSpan={4} className="px-5 py-10 text-center text-appSubtext">
+                        <td
+                          colSpan={4}
+                          className="px-5 py-10 text-center text-appSubtext"
+                        >
                           جاري التحميل…
                         </td>
                       </tr>
                     ) : metrics.recentTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-5 py-10 text-center text-appSubtext">
+                        <td
+                          colSpan={4}
+                          className="px-5 py-10 text-center text-appSubtext"
+                        >
                           لا توجد مهام لعرضها.
                         </td>
                       </tr>
                     ) : (
                       metrics.recentTasks.map((row) => (
-                        <tr key={row.id} className="table-row-interactive">
-                          <td className="px-4 py-3 text-start font-medium text-appText sm:px-5" dir="auto">
+                        <tr
+                          key={row.id}
+                          className="table-row-interactive"
+                        >
+                          <td
+                            className="px-4 py-3 text-start font-medium text-appText sm:px-5"
+                            dir="auto"
+                          >
                             {row.title}
                           </td>
+
                           <td className="px-4 py-3 text-start text-appSubtext sm:px-5">
                             {formatTaskStatusAr(row.status)}
                           </td>
-                          <td className="px-4 py-3 text-start text-appSubtext sm:px-5" dir="auto">
+
+                          <td
+                            className="px-4 py-3 text-start text-appSubtext sm:px-5"
+                            dir="auto"
+                          >
                             {row.assignedToName || "—"}
                           </td>
+
                           <td className="px-4 py-3 text-start text-appSubtext sm:px-5">
                             {formatDateTimeShort(row.dueDate)}
                           </td>
@@ -321,7 +406,10 @@ function DashboardPage() {
 
             <div className={tableShell}>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-appBorder px-5 py-4 sm:px-6">
-                <h3 className="text-sm font-semibold text-appText">آخر العقود</h3>
+                <h3 className="text-sm font-semibold text-appText">
+                  آخر العقود
+                </h3>
+
                 <Link
                   to="/ContractAi"
                   className="text-xs font-bold text-brand ui-transition hover:text-brandDeep"
@@ -329,11 +417,17 @@ function DashboardPage() {
                   عرض الكل →
                 </Link>
               </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[320px] text-sm">
                   <thead className="table-head-surface">
                     <tr>
-                      {["النوع", "الحالة", "الشركة", "تاريخ الإنشاء"].map((h) => (
+                      {[
+                        "النوع",
+                        "الحالة",
+                        "الشركة",
+                        "تاريخ الإنشاء",
+                      ].map((h) => (
                         <th
                           key={h}
                           className="px-4 py-3 text-start text-[10px] font-extrabold uppercase tracking-[0.14em] text-appSubtext sm:px-5"
@@ -343,34 +437,47 @@ function DashboardPage() {
                       ))}
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-appBorder/80">
                     {loading ? (
                       <tr>
-                        <td colSpan={4} className="px-5 py-10 text-center text-appSubtext">
+                        <td
+                          colSpan={4}
+                          className="px-5 py-10 text-center text-appSubtext"
+                        >
                           جاري التحميل…
                         </td>
                       </tr>
                     ) : metrics.recentContracts.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-5 py-10 text-center text-appSubtext">
+                        <td
+                          colSpan={4}
+                          className="px-5 py-10 text-center text-appSubtext"
+                        >
                           لا توجد عقود لعرضها.
                         </td>
                       </tr>
                     ) : (
                       metrics.recentContracts.map((row) => (
-                        <tr key={row.id} className="table-row-interactive">
+                        <tr
+                          key={row.id}
+                          className="table-row-interactive"
+                        >
                           <td className="px-4 py-3 text-start text-appSubtext sm:px-5">
                             {formatContractTypeAr(row.type)}
                           </td>
+
                           <td className="px-4 py-3 text-start text-appSubtext sm:px-5">
                             {formatContractStatusAr(row.status)}
                           </td>
+
                           <td
                             className="px-4 py-3 text-start font-medium text-appText sm:px-5"
                             dir="auto"
                           >
                             {row.company?.name || "—"}
                           </td>
+
                           <td className="px-4 py-3 text-start text-appSubtext sm:px-5">
                             {formatDateTimeShort(row.createdAt)}
                           </td>

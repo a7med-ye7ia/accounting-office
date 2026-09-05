@@ -11,8 +11,11 @@ import AssignedTasksDashboard from "./features/tasks/pages/AssignedTasksDashboar
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PdfPage from "./features/companies/components/PdfPage";
+import BranchesPage from "./features/branches/pages/BranchesPage";
+import BranchReviewPage from "./features/branches/pages/BranchReviewPage";
 
 import { ROLES } from "./utils/roles";
+
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -44,6 +47,8 @@ function App() {
       {/* General authenticated routes */}
       <Route element={<ProtectedRoute />}>
         <Route path="/Dashboard" element={<DashboardPage />} />
+        <Route path="/branches" element={<BranchesPage />} />
+        <Route path="/branches/:branchId/review" element={<BranchReviewPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type/Ai" element={<CompaniesPage />} />
