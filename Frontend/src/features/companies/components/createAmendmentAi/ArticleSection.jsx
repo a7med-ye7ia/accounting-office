@@ -6,10 +6,11 @@
 //   • smart semantic search
 // ─────────────────────────────────────────────────────────
 import { useState } from "react";
-import { generateResponse, getEmbedding } from "../../../../api/ollamaClient.js";
+import { generateResponseStream, getEmbedding } from "../../../../api/ollamaClient.js";
 import MicButton from "../../../../shared/components/MicButton.jsx";
 import DocumentLoader from "./DocumentLoader.jsx";
 import ArticlePickerOverlay from "./ArticlePickerOverlay.jsx";
+import { buildCatInstruction, normalizeCatOutput, stripThinkingContent } from "./amendmentUtils.js";
 
 export default function ArticleSection({
   index,
@@ -20,6 +21,8 @@ export default function ArticleSection({
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [streamingOutput, setStreamingOutput] = useState("");
+  const [hasReceivedFirstChunk, setHasReceivedFirstChunk] = useState(false);
   const [smartSearching, setSmartSearching] = useState(false);
   const [smartSearchNote, setSmartSearchNote] = useState("");
   const [smartSearchScore, setSmartSearchScore] = useState(null); // Cach
@@ -105,16 +108,28 @@ export default function ArticleSection({
   const handleSend = async () => {
     if (!section.beforeText || !section.prompt) return;
     setLoading(true);
-    onChangeSection(index, { afterText: "" });
+    setStreamingOutput("");
+    setHasReceivedFirstChunk(false);
+    onChangeSection(index, { afterText: "", amendmentTitle: "" });
 
     try {
-      console.log("Generating AI response with prompt:", section.prompt);
-      const data = await generateResponse(section.prompt, section.beforeText);
+      const currentMaterialNumber = index + 1;
+      const catInstruction = buildCatInstruction(currentMaterialNumber, section.prompt);
+      console.log("Generating AI response with numbered instruction:", catInstruction);
+      const data = await generateResponseStream(catInstruction, section.beforeText, (completeText) => {
+        const visibleText = stripThinkingContent(completeText);
+        setStreamingOutput(visibleText);
+        if (visibleText.trim()) setHasReceivedFirstChunk(true);
+      });
       console.log("Received AI response:", data);
 
-      const cleanData = data.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-      const afterText = cleanData || "لم يتم الحصول على رد من النموذج.";
-      onChangeSection(index, { afterText });
+      const normalized = normalizeCatOutput(data);
+      onChangeSection(index, {
+        amendmentTitle: normalized.amendmentTitle,
+        afterText: normalized.afterText || "لم يتم الحصول على رد من النموذج.",
+      });
+      // Retain a user-visible final result after generation; do not clear it.
+      setStreamingOutput(normalized.afterText || stripThinkingContent(data));
     } catch (err) {
       console.error("AI request error:", err);
       onChangeSection(index, {
@@ -177,6 +192,7 @@ export default function ArticleSection({
                     selectedArticleTitle: "",
                     beforeText: "",
                     afterText: "",
+                    amendmentTitle: "",
                   });
                 }}
                 className="mr-1 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
@@ -222,8 +238,13 @@ export default function ArticleSection({
               </div>
               <div className="min-h-[170px] rounded-xl border border-emerald-100 bg-white text-sm">
                 {loading ? (
-                  <div className="p-3">
-                    <DocumentLoader />
+                  <div className="p-3 space-y-3">
+                    {!hasReceivedFirstChunk && <DocumentLoader />}
+                    {streamingOutput && (
+                      <p className="whitespace-pre-wrap text-slate-700 leading-relaxed" aria-live="polite">
+                        {streamingOutput}
+                      </p>
+                    )}
                   </div>
                 ) : section.afterText ? (
                   <textarea

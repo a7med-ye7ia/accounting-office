@@ -114,6 +114,9 @@ export default function AmendmentAiFormFields({
       if (payloadSection.afterText !== formSection.afterText) {
         patch.afterText = payloadSection.afterText;
       }
+      if (payloadSection.amendmentTitle !== formSection.amendmentTitle) {
+        patch.amendmentTitle = payloadSection.amendmentTitle;
+      }
       if (Object.keys(patch).length > 0) {
         handleChangeSection(index, patch);
       }

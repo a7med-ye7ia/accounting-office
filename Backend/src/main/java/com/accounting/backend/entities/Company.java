@@ -39,6 +39,14 @@ public class Company {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
     // @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval =
     // true)
     // private List<Contract> contracts = new ArrayList<>();
@@ -47,6 +55,22 @@ public class Company {
     private List<Contract> contracts;
 
     // Getters and setters
+
+    public Branch getBranch() {
+        return branch;
+    }
+
+    public void setBranch(Branch branch) {
+        this.branch = branch;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
 
     public Long getId() {
         return id;

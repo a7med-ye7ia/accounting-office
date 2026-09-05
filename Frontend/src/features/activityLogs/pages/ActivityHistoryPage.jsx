@@ -4,11 +4,28 @@ import MainLayout from "../../../shared/layout/MainLayout";
 import ActivityHistory from "./ActivityHistory";
 import { fetchActivityLogs } from "../../../api/activityLogs";
 import { getApiErrorMessage } from "../../../utils/apiError";
+import { isOwner, isBranchManager, isDepartmentManager, isEmployee } from "../../../utils/roles";
 
 function ActivityHistoryPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  })();
+
+  const getScopeSubtitle = () => {
+    if (!currentUser) return "Activity History";
+    if (isOwner(currentUser)) return "سجل نشاطات النظام بالكامل";
+    if (isBranchManager(currentUser)) return "نشاطات الفرع والموظفين التابعين";
+    if (isDepartmentManager(currentUser)) return "نشاطات القسم والموظفين التابعين";
+    return "النشاطات الخاصة بي فقط";
+  };
 
   const loadData = async () => {
     setError(null);
@@ -29,7 +46,7 @@ function ActivityHistoryPage() {
   }, []);
 
   return (
-    <MainLayout title="سجل النشاطات" subtitle="Activity History">
+    <MainLayout title="سجل النشاطات" subtitle={getScopeSubtitle()}>
       <div className="space-y-5">
         {error && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/30 bg-badgeRedBg/25 px-4 py-3 text-sm text-appText shadow-inner">

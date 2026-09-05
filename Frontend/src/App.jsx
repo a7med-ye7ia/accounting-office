@@ -8,9 +8,24 @@ import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage"
 import ActivityHistoryPage from "./features/activityLogs/pages/ActivityHistoryPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import AssignedTasksDashboard from "./features/tasks/pages/AssignedTasksDashboard";
+import AttendancePage from "./features/attendance/AttendancePage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PdfPage from "./features/companies/components/PdfPage";
+import BranchesPage from "./features/branches/pages/BranchesPage";
+import BranchReviewPage from "./features/branches/pages/BranchReviewPage";
+
+import { ROLES } from "./utils/roles";
+
+import EmployeeGuidePage from "./features/guides/pages/EmployeeGuidePage";
+
+function AttendanceRouteGuard() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const roleName = String(user?.roleName || "").toLowerCase();
+  return ["owner", "headbranch"].includes(roleName)
+    ? <AttendancePage />
+    : <Navigate replace to="/Dashboard" />;
+}
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -38,30 +53,46 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
+      
+      {/* General authenticated routes */}
       <Route element={<ProtectedRoute />}>
         <Route path="/Dashboard" element={<DashboardPage />} />
+        <Route path="/branches" element={<BranchesPage />} />
+        <Route path="/branches/:branchId/review" element={<BranchReviewPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type/Ai" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type" element={<CompaniesPage />} />
-        {/* <Route path="/companies/company/:companyId/type/establishment/pdf/:pdfId" element={<CompaniesPage />} /> */}
         <Route path="/companies/company/:companyId/type/amendment/pdf/:pdfId" element={<PdfPage />} />
         <Route path="/companies/company/:companyId/type/:type/pdf/:pdfId" element={<CompaniesPage />} />
         <Route path="/CompaniesDirectory" element={<Navigate replace to="/companies" />} />
         <Route path="/CompanyProfile" element={<Navigate replace to="/companies" />} />
         <Route path="/Documents" element={<DocumentsPage />} />
-        <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
         <Route path="/profile/:id" element={<EmployeeProfilePage />} />
         <Route path="/EmployeeProfile/:id" element={<LegacyEmployeeProfileRedirect />} />
         <Route path="/EmployeeTasks" element={<EmployeeTasksPage />} />
-        <Route path="/Departments" element={<DepartmentsPage />} />
         <Route path="/ActivityHistory" element={<ActivityHistoryPage />} />
         <Route path="/ContractBrowser" element={<LegacyContractBrowserRedirect />} />
         <Route path="/ContractBrowser/company/:companyId" element={<LegacyContractBrowserRedirect />} />
         <Route path="/ContractBrowser/company/:companyId/type/:type/Ai" element={<LegacyContractBrowserRedirect />} />
         <Route path="/ContractBrowser/company/:companyId/type/:type" element={<LegacyContractBrowserRedirect />} />
         <Route path="/ContractBrowser/company/:companyId/type/:type/pdf/:pdfId" element={<LegacyContractBrowserRedirect />} />
+      </Route>
+
+      {/* Employee Management & Assigned Tasks: Owner, Branch Manager, Department Manager */}
+      <Route element={<ProtectedRoute allowedRoles={[ROLES.OWNER, ROLES.BRANCH_MANAGER, ROLES.DEPARTMENT_MANAGER]} />}>
+        <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
         <Route path="/AssignedTasks" element={<AssignedTasksDashboard />} />
+        <Route path="/attendance" element={<AttendanceRouteGuard />} />
+        <Route path="/EmployeeGuide" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/:id" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/admin" element={<EmployeeGuidePage />} />
+        <Route path="/EmployeeGuide/admin/:id" element={<EmployeeGuidePage />} />
+      </Route>
+
+      {/* Departments management: Owner and Branch Manager only */}
+      <Route element={<ProtectedRoute allowedRoles={[ROLES.OWNER, ROLES.BRANCH_MANAGER]} />}>
+        <Route path="/Departments" element={<DepartmentsPage />} />
       </Route>
     </Routes>
   );

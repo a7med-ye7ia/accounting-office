@@ -52,12 +52,13 @@ export function useCreateAmendmentAiForm(company, articlesFromProps) {
       company,
       articleCount,
       sections: sections.map(
-        ({ id, selectedArticleId, selectedArticleTitle, beforeText, afterText, prompt, modelOutput, embeddingScore }) => ({
+        ({ id, selectedArticleId, selectedArticleTitle, beforeText, afterText, amendmentTitle, prompt, modelOutput, embeddingScore }) => ({
           id,
           selectedArticleId,
           selectedArticleTitle,
           beforeText,
           afterText,
+          amendmentTitle,
           prompt,
           modelOutput,
           embeddingScore,
@@ -101,4 +102,3 @@ export function useCreateAmendmentAiForm(company, articlesFromProps) {
     getCachedEmbedding, // Cach
   };
 }
-

@@ -15,6 +15,8 @@ public class CreateCompanyRequest {
     private String company_duration;
     private String company_activity;
     private List<Map<String, String>> articles;
+    private Long branch_id;
+    private Long department_id;
 
     public String getCompany_name() { return company_name; }
     public void setCompany_name(String company_name) { this.company_name = company_name; }
@@ -45,4 +47,10 @@ public class CreateCompanyRequest {
 
     public List<Map<String, String>> getArticles() { return articles; }
     public void setArticles(List<Map<String, String>> articles) { this.articles = articles; }
+
+    public Long getBranch_id() { return branch_id; }
+    public void setBranch_id(Long branch_id) { this.branch_id = branch_id; }
+
+    public Long getDepartment_id() { return department_id; }
+    public void setDepartment_id(Long department_id) { this.department_id = department_id; }
 }

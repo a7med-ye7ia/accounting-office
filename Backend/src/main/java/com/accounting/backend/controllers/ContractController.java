@@ -272,6 +272,7 @@ public class ContractController {
             m.put("beforeText", s.getBeforeText());
             m.put("afterText", s.getAfterText());
             m.put("modelOutput", s.getModelOutput());
+            m.put("amendmentTitle", s.getAmendmentTitle());
             m.put("embeddingScore", s.getEmbeddingScore());
             sectionsForService.add(m);
         }

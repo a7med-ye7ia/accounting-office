@@ -31,6 +31,7 @@ public class PdfController {
                     m.put("beforeText", s.getBeforeText());
                     m.put("afterText", s.getAfterText());
                     m.put("modelOutput", s.getModelOutput());
+                    m.put("amendmentTitle", s.getAmendmentTitle());
                     m.put("embeddingScore", s.getEmbeddingScore());
                     sectionsForService.add(m);
                 }
@@ -102,6 +103,7 @@ public class PdfController {
             private String beforeText;
             private String afterText;
             private String modelOutput;
+            private String amendmentTitle;
             private Double embeddingScore;
 
             public String getId() { return id; }
@@ -116,6 +118,8 @@ public class PdfController {
             public void setAfterText(String afterText) { this.afterText = afterText; }
             public String getModelOutput() { return modelOutput; }
             public void setModelOutput(String modelOutput) { this.modelOutput = modelOutput; }
+            public String getAmendmentTitle() { return amendmentTitle; }
+            public void setAmendmentTitle(String amendmentTitle) { this.amendmentTitle = amendmentTitle; }
             public Double getEmbeddingScore() { return embeddingScore; }
             public void setEmbeddingScore(Double embeddingScore) { this.embeddingScore = embeddingScore; }
         }

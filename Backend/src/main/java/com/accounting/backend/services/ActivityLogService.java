@@ -3,6 +3,8 @@ package com.accounting.backend.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.accounting.backend.entities.ActivityLog;
 import com.accounting.backend.repositories.ActivityLogRepository;
@@ -23,6 +25,7 @@ public class ActivityLogService {
         this.repository = repository;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logAction(Long userId, Long companyId, EntityType entityType, 
                           Long entityId, ActionType action, String summary, 
                           Map<String, Object> metadataMap) {
