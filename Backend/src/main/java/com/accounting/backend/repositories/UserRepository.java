@@ -11,6 +11,8 @@ import com.accounting.backend.entities.User;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailIgnoreCase(String email);
     Optional<User> findByDeletedAtIsNullAndId(Long id);
-
+    Optional<User> findByEmail(String email);
+    Optional<User> findByNationalId(String nationalId);
+    Optional<User> findByPhone(String phone);
 }
 

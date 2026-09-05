@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.accounting.backend.enums.CompanyType;
 import com.accounting.backend.enums.CompanyStatus;
 
 @Entity
@@ -18,9 +17,8 @@ public class Company {
     @Column(nullable = false)
     private String name;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "company_type", nullable = false)
-    private CompanyType companyType;
+    private String companyType;
 
     @Column(name = "commercial_reg_no", unique = true)
     private String commercialRegNo;
@@ -66,11 +64,11 @@ public class Company {
         this.name = name;
     }
 
-    public CompanyType getCompanyType() {
+    public String getCompanyType() {
         return companyType;
     }
 
-    public void setCompanyType(CompanyType companyType) {
+    public void setCompanyType(String companyType) {
         this.companyType = companyType;
     }
 

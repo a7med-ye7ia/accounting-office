@@ -59,9 +59,6 @@ public class User {
     private LocalDateTime deletedAt;
 
 
-    @Column(name = "token", length = 1024)
-    private String token;
-
     @JsonIgnore
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<EmployeeAssignment> employeeAssignments = new ArrayList<>();
@@ -168,15 +165,7 @@ public class User {
     public void setDeletedAt(LocalDateTime deletedAt) {
         this.deletedAt = deletedAt;
     }
-
-    public String getToken() {
-        return token;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
-    }
-
+    
     @JsonIgnore
     public List<EmployeeAssignment> getEmployeeAssignments() { return employeeAssignments; }
     public void setEmployeeAssignments(List<EmployeeAssignment> employeeAssignments) { this.employeeAssignments = employeeAssignments; }

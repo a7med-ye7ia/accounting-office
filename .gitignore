@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Project-specific
 FileSystem/
 
@@ -38,3 +39,5 @@ logs/
 
 # --- Optional local tooling ---
 .python-version
+=======
+>>>>>>> 8904ab4f8165b2f7605eda5f943b05a5bba32cc8

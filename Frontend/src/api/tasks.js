@@ -39,3 +39,23 @@ export const updateTask = async (id, newTask) => {
     throw error;
   }
 };
+
+export const getTaskByAssignedToId = async (userId) => {
+  try {
+    const response = await apiClient.get(`/tasks/assignedTo/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching tasks by user ID:', error);
+    throw error;
+  }
+};
+
+export const getTaskByCreatedById = async (userId) => {
+  try {
+    const response = await apiClient.get(`/tasks/createdBy/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching tasks by creator ID:', error);
+    throw error;
+  }
+};

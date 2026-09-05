@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react"; // Cach
 import { mockArticles } from "../../../shared/data/mockData";
+import companyExampleData from "../../../shared/data/companyExampleData.json";
 import { generateResponse } from "../../../api/ollamaClient.js";
-import { pickArticleByPrompt } from "../../../api/ragClauseSearch.js";
 
 // ─────────────────────────────────────────────────────────
 // helpers
@@ -13,9 +13,382 @@ function createEmptySection(index, existing = {}) {
     selectedArticleTitle: existing.selectedArticleTitle || "",
     beforeText: existing.beforeText || "",
     afterText: existing.afterText || "",
+    modelOutput: existing.modelOutput || "",
+    embeddingScore: existing.embeddingScore ?? null,
     prompt: existing.prompt || "",
   };
 }
+
+
+// ─────────────────────────────────────────────────────────
+// PDF preview
+// ─────────────────────────────────────────────────────────
+function buildAmendmentPdfPayload(company, sections) {
+  const changedArticles = sections
+    .map((s) => s.selectedArticleId || s.selectedArticleTitle)
+    .filter(Boolean);
+  const titleSuffix = changedArticles.length
+    ? changedArticles.join("، ")
+    : `${sections.length} مواد`;
+
+  const merged = { ...companyExampleData, ...company, name: company?.name || companyExampleData.company_name };
+  const introParagraph = buildCompanyIntro(merged);
+
+  return {
+    payload: {
+      contractTitle: `عقد تعديل المادة ${titleSuffix}`,
+      companyName: merged.name,
+      companyLegalLine:
+        company?.legalLine ||
+        `شركة ${merged.companyType} خاضعة لأحكام القانون رقم ${merged.law_reference.law_number} لسنة ${merged.law_reference.law_year}`,
+      companyCapital: merged.company_capital || "",
+      contractDate: company?.contractDate || "",
+      partners: company?.partners && company.partners.length > 0 ? company.partners : [
+        { title: "السيد", name: "ادهم ايهاب", role: "مالك" },
+        { title: "السيده", name: "مريم محمد", role: "شريكه" }
+      ],
+      introText: introParagraph || company?.preamble || "",
+      sections: sections.map((s) => ({
+        id: s.id,
+        selectedArticleId: s.selectedArticleId,
+        selectedArticleTitle: s.selectedArticleTitle,
+        beforeText: s.beforeText,
+        afterText: s.afterText || s.modelOutput,
+        modelOutput: s.modelOutput || "",
+        embeddingScore: s.embeddingScore || null,
+      })),
+    },
+    fileName: `تعديل_${changedArticles.length ? changedArticles.join("_") : "multiple_articles"}.pdf`,
+  };
+}
+
+function buildCompanyIntro(data) {
+  if (!data) return "";
+  const { company_name, company_type, law_reference, company_address, company_capital, commercial_register_number, approval_date, real_estate_registry_minutes_number, company_duration, company_activity } = data;
+
+  const lawRef = law_reference?.law_number && law_reference?.law_year ? `رقم ${law_reference.law_number} لسنة ${law_reference.law_year}` : "";
+
+  const parts = [];
+
+  if (company_name && company_type) {
+    parts.push(`سبق وأن تكونت شركة ${company_name} (${company_type})`);
+  } else if (company_name) {
+    parts.push(`سبق وأن تكونت شركة ${company_name}`);
+  }
+
+  if (lawRef) parts.push(`خاضعة لأحكام القانون ${lawRef}`);
+  if (approval_date) parts.push(`بموجب الموافقة الصادرة بتاريخ ${approval_date}`);
+  if (commercial_register_number) parts.push(`والقيد برقم ${commercial_register_number} بالسجل التجاري`);
+  if (real_estate_registry_minutes_number) parts.push(`وبمقتضى محضر الشهر العقاري رقم ${real_estate_registry_minutes_number}`);
+  if (company_address) parts.push(`ومركزها الرئيسي ${company_address}`);
+  if (company_capital) parts.push(`ورأس مالها ${company_capital}`);
+  if (company_duration) parts.push(`ومدة الشركة ${company_duration}`);
+  if (company_activity) parts.push(`وغرضها ${company_activity}`);
+
+  return parts.join("، ") + ".";
+}
+
+async function generateAmendmentPdfBlobFromPayload(payload, fileName) {
+  const res = await fetch("http://localhost:8080/api/pdf/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(`PDF generation failed: ${res.status}`);
+
+  const blob = await res.blob();
+  return { blob, fileName };
+}
+
+async function generateAmendmentPdfBlob(company, sections) {
+  const { payload, fileName } = buildAmendmentPdfPayload(company, sections);
+  const { blob } = await generateAmendmentPdfBlobFromPayload(payload, fileName);
+  return { blob, fileName, payload };
+}
+
+function PdfReviewModal({
+  previewUrl,
+  fileName,
+  reviewPayload,
+  onReviewPayloadChange,
+  onRegenerate,
+  onApplyAndClose,
+  onClose,
+  onDownload,
+  isRegenerating,
+  hasPendingEdits,
+}) {
+  const [mobileTab, setMobileTab] = useState("edit");
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const updateMeta = (field, value) => {
+    onReviewPayloadChange((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateSection = (index, patch) => {
+    onReviewPayloadChange((prev) => ({
+      ...prev,
+      sections: prev.sections.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+    }));
+  };
+
+  const editorPanel = (
+    <div className="flex flex-col h-full min-h-0 bg-white">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-slate-200 bg-slate-50">
+        <h3 className="text-sm font-bold text-slate-800">تعديل محتوى العقد</h3>
+        <p className="text-xs text-slate-500 mt-0.5">
+          عدّل النصوص ثم اضغط «تحديث المعاينة» لرؤية التغييرات في PDF
+        </p>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">عنوان العقد</label>
+          <input
+            type="text"
+            value={reviewPayload.contractTitle}
+            onChange={(e) => updateMeta("contractTitle", e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">اسم الشركة</label>
+          <input
+            type="text"
+            value={reviewPayload.companyName}
+            onChange={(e) => updateMeta("companyName", e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">الوصف القانوني</label>
+          <input
+            type="text"
+            value={reviewPayload.companyLegalLine}
+            onChange={(e) => updateMeta("companyLegalLine", e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">رأس مال الشركة</label>
+          <input
+            type="text"
+            value={reviewPayload.companyCapital}
+            onChange={(e) => updateMeta("companyCapital", e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">تاريخ العقد</label>
+          <input
+            type="text"
+            value={reviewPayload.contractDate || "16/3/2026"}
+            onChange={(e) => updateMeta("contractDate", e.target.value)}
+            placeholder="مثال: 16/3/2026"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-600">التمهيد</label>
+          <textarea
+            value={reviewPayload.introText}
+            onChange={(e) => updateMeta("introText", e.target.value)}
+            rows={4}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+
+        {reviewPayload.sections.map((section, index) => (
+          <div
+            key={section.id || index}
+            className="rounded-2xl border border-slate-200 p-4 space-y-3 bg-slate-50/50"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+                {index + 1}
+              </span>
+              <span className="text-sm font-bold text-slate-800">
+                {section.selectedArticleTitle
+                  ? `مادة: ${section.selectedArticleTitle}`
+                  : `المادة #${index + 1}`}
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500">قبل التعديل</label>
+              <textarea
+                value={section.beforeText}
+                onChange={(e) => updateSection(index, { beforeText: e.target.value })}
+                rows={4}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-slate-300"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-emerald-700">بعد التعديل</label>
+              <textarea
+                value={section.afterText}
+                onChange={(e) => updateSection(index, { afterText: e.target.value })}
+                rows={5}
+                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const previewPanel = (
+    <div className="flex flex-col h-full min-h-0 bg-slate-100">
+      {hasPendingEdits && (
+        <div className="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 text-center">
+          لديك تعديلات غير مطبّقة — اضغط «تحديث المعاينة» لتحديث PDF
+        </div>
+      )}
+      <iframe
+        src={previewUrl}
+        title="معاينة PDF"
+        className="flex-1 min-h-0 w-full border-0"
+      />
+    </div>
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end md:items-center justify-center p-3 md:p-6"
+      dir="rtl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pdf-preview-title"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
+        aria-label="إغلاق"
+        onClick={onClose}
+      />
+
+      <div
+        className="relative w-full max-w-7xl h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-700 px-4 md:px-6 py-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="pdf-preview-title" className="text-white font-extrabold text-lg">
+              مراجعة وتعديل PDF
+            </h2>
+            <p className="text-blue-100 text-xs mt-1 truncate">{fileName}</p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button
+              type="button"
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer
+                         ${!isRegenerating
+                           ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                           : "text-slate-400 bg-slate-100 cursor-not-allowed"
+                         }`}
+            >
+              {isRegenerating ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  جاري التحديث…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  تحديث المعاينة
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onDownload}
+              disabled={hasPendingEdits || isRegenerating}
+              title={hasPendingEdits ? "حدّث المعاينة أولاً قبل التحميل" : undefined}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all
+                         ${!hasPendingEdits && !isRegenerating
+                           ? "text-blue-700 bg-white hover:bg-blue-50 cursor-pointer"
+                           : "text-slate-400 bg-white/60 cursor-not-allowed"
+                         }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              تحميل
+            </button>
+            <button
+              type="button"
+              onClick={onApplyAndClose}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all cursor-pointer"
+            >
+              حفظ وإغلاق
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-white/90 hover:text-white hover:bg-white/10 rounded-xl p-2 transition-all cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="md:hidden flex-shrink-0 flex border-b border-slate-200">
+          <button
+            type="button"
+            onClick={() => setMobileTab("edit")}
+            className={`flex-1 py-2.5 text-sm font-bold transition-colors
+                       ${mobileTab === "edit" ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50" : "text-slate-500"}`}
+          >
+            تعديل
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("preview")}
+            className={`flex-1 py-2.5 text-sm font-bold transition-colors
+                       ${mobileTab === "preview" ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50" : "text-slate-500"}`}
+          >
+            معاينة
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2">
+          <div className={`min-h-0 ${mobileTab === "edit" ? "block" : "hidden md:block"}`}>
+            {editorPanel}
+          </div>
+          <div className={`min-h-0 border-r border-slate-200 ${mobileTab === "preview" ? "block" : "hidden md:block"}`}>
+            {previewPanel}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // ─────────────────────────────────────────────────────────
 // Document Loading Animation
@@ -121,28 +494,32 @@ function ArticlePickerOverlay({ articles, selectedId, onSelect, onClose }) {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="px-5 py-3 border-b border-slate-100 flex-shrink-0">
-          <div className="relative">
-            <svg
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ابحث في المواد…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pr-9 pl-4 py-2.5 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
-              autoFocus
-            />
-          </div>
-        </div>
-
+       {/* Search Section */}
+<div className="px-5 py-3 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
+  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+    <div className="relative flex-1">
+      {/* Icon Search */}
+      <svg
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        
+        placeholder="ابحث بالكلمات الحرفية…"
+        className="w-full rounded-xl border border-slate-200 bg-white pr-9 pl-4 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition-all"
+        autoFocus
+      />
+    </div>
+  </div>
+</div>
         {/* Articles */}
         <div className="overflow-y-auto flex-1 p-5 space-y-3">
           {filtered.length === 0 ? (
@@ -220,12 +597,16 @@ function ArticlePickerOverlay({ articles, selectedId, onSelect, onClose }) {
 // ─────────────────────────────────────────────────────────
 // Article Section
 // ─────────────────────────────────────────────────────────
-function ArticleSection({ index, section, availableArticles, onChangeSection }) {
+function ArticleSection({
+  index,
+  section,
+  availableArticles,
+  onChangeSection,
+  getCachedEmbedding, // Cach
+  company,
+}) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [ragLoading, setRagLoading] = useState(false);
-  const [ragResults, setRagResults] = useState(null);
-  const [ragError, setRagError] = useState(null);
 
   const selectedArticle =
     availableArticles.find(
@@ -238,6 +619,53 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
       selectedArticleTitle: article.title,
       beforeText: article.content,
     });
+  };
+
+  const handleSmartPick = async () => {
+    if (!section.prompt) return;
+    setSmartSearching(true);
+    setSmartSearchNote("");
+    setSmartSearchScore(null); // Cach
+    setSmartSearchResults([]);
+    try {
+      const cosineSimilarity = (vecA, vecB) => {
+        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+        const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+        const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+        if (!magA || !magB) return 0;
+        return dotProduct / (magA * magB);
+      };
+
+      const minSimilarity = 0.5;
+
+      const queryVector = await getEmbedding(section.prompt);
+      if (!queryVector) {
+        setSmartSearchNote("تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً، وتم إيقاف البحث الذكي مؤقتاً.");
+        return;
+      }
+      const scoredArticles = await Promise.all(
+        availableArticles.map(async (article) => {
+          const articleVector = await getCachedEmbedding( // Cach
+            String(article.id), // Cach
+            String(article.content ?? "") // Cach
+          ); // Cach
+          const score = cosineSimilarity(queryVector, articleVector);
+          return { ...article, score };
+        })
+      );
+      const sorted = scoredArticles.sort((a, b) => b.score - a.score);
+      const topMatches = sorted.slice(0, 3);
+      const topScore = sorted[0] ? sorted[0].score : null; // Cach
+      setSmartSearchScore(topScore); // Cach
+      setSmartSearchResults(topMatches);
+      if (!topScore || topScore < minSimilarity) {
+        setSmartSearchNote("لم يتم العثور على مادة مطابقة بشكل كافٍ.");
+      }
+    } catch (err) {
+      console.error("Smart search error:", err);
+    } finally {
+      setSmartSearching(false);
+    }
   };
  
   // send to ai
@@ -270,49 +698,6 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleArticleRagPick = async () => {
-    if (!section.prompt?.trim() || availableArticles.length === 0) return;
-    setRagLoading(true);
-    setRagError(null);
-    setRagResults(null);
-    try {
-      const data = await pickArticleByPrompt({
-        articles: availableArticles,
-        query: section.prompt,
-      });
-      const article = availableArticles.find(
-        (a) => String(a.id) === String(data.article_id)
-      );
-      if (!article) {
-        setRagError("أعاد الخادم مادة غير موجودة في القائمة.");
-        return;
-      }
-      onChangeSection(index, {
-        selectedArticleId: article.id,
-        selectedArticleTitle: article.title,
-        beforeText: article.content,
-        afterText: "",
-      });
-      setRagResults({
-        kind: "article",
-        score: data.score,
-        title: data.title,
-        id: data.article_id,
-        method: data.method === "lexical" ? "lexical" : "embedding",
-      });
-    } catch (err) {
-      console.error("RAG article pick error:", err);
-      const detail = err?.response?.data?.detail;
-      setRagError(
-        (typeof detail === "string" ? detail : Array.isArray(detail) ? JSON.stringify(detail) : null) ||
-          err?.message ||
-          "تعذر الاتصال بخدمة البحث على المنفذ 8765. شغّل ./run_rag_server.sh من مجلد accounting-office/AI"
-      );
-    } finally {
-      setRagLoading(false);
     }
   };
 
@@ -352,7 +737,9 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
           {/* Select Article button */}
           <button
             type="button"
-            onClick={() => setPickerOpen(true)}
+            onClick={() => {
+              setPickerOpen(true);
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-200 cursor-pointer
                        ${selectedArticle
                          ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
@@ -421,13 +808,20 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
                 <span className="text-sm font-bold text-emerald-700">بعد التعديل</span>
               </div>
 
-              <div className="min-h-[170px] rounded-xl border border-emerald-100 bg-white p-3 text-sm">
+              <div className="min-h-[170px] rounded-xl border border-emerald-100 bg-white text-sm">
                 {loading ? (
-                  <DocumentLoader />
+                  <div className="p-3">
+                    <DocumentLoader />
+                  </div>
                 ) : section.afterText ? (
-                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                    {section.afterText}
-                  </p>
+                  <textarea
+                    value={section.afterText}
+                    onChange={(e) => onChangeSection(index, { afterText: e.target.value })}
+                    rows={8}
+                    className="w-full min-h-[170px] rounded-xl border-0 bg-transparent p-3 text-slate-700 leading-relaxed resize-y
+                               focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    aria-label="نص المادة بعد التعديل"
+                  />
                 ) : (
                   <div className="h-full min-h-[140px] flex items-center justify-center text-xs text-slate-400 text-center px-4">
                     ستظهر نتيجة التعديل هنا بعد الضغط على إرسال
@@ -444,81 +838,21 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
             </label>
             <textarea
               value={section.prompt}
-              onChange={(e) => {
-                onChangeSection(index, { prompt: e.target.value });
-                setRagResults(null);
-                setRagError(null);
-              }}
+              onChange={(e) => onChangeSection(index, { prompt: e.target.value })}
               rows={3}
               placeholder="مثال: غيّر نسبة رأس المال إلى 30٪، وأضف بنداً يتعلق بحقوق المساهمين..."
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
                          focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 resize-y"
             />
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              «اختيار مادة ذكي» يبحث في كل المواد ويختار الأنسب من تعليماتك. يعمل بدون Ollama (مطابقة كلمات)؛ مع Ollama يصبح الترتيب بالتضمين.
-            </p>
           </div>
 
-          {ragError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 whitespace-pre-wrap">
-              {ragError}
-            </div>
-          )}
-
-          {ragResults?.kind === "article" && (
-            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-950">
-              <span className="font-bold">تم اختيار مادة:</span>{" "}
-              م.{ragResults.id} — {ragResults.title}
-              <span className="text-indigo-700 text-xs mr-2">
-                {" "}
-                (درجة تطابق:{" "}
-                {typeof ragResults.score === "number" ? ragResults.score.toFixed(4) : ragResults.score}
-                {ragResults.method === "embedding" ? " — Ollama" : ""})
-              </span>
-              {ragResults.method === "lexical" && (
-                <span className="block mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-                  وضع بدون Ollama: ترتيب تقريبي حسب تطابق الكلمات. لتضمين أدق، شغّل Ollama ونفّذ ollama pull nomic-embed-text
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Send + article RAG */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleArticleRagPick}
-              disabled={!canArticleRag}
-              title="يتطلب تعليمات التعديل وقائمة مواد، وخدمة RAG على المنفذ 8765 (Ollama اختياري — بدونه يُستخدم تطابق كلمات)"
-              className={`order-2 sm:order-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-all duration-200
-                         ${canArticleRag
-                           ? "border-indigo-400 bg-indigo-50 text-indigo-900 cursor-pointer hover:bg-indigo-100 hover:border-indigo-500"
-                           : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                         }`}
-            >
-              {ragLoading ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  جاري اختيار المادة…
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  اختيار مادة ذكي (RAG)
-                </>
-              )}
-            </button>
-
+          {/* Send */}
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={handleSend}
               disabled={!canSend}
-              className={`order-1 sm:order-2 flex items-center justify-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
                          ${canSend
                            ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
@@ -554,6 +888,8 @@ function ArticleSection({ index, section, availableArticles, onChangeSection }) 
 function useCreateAmendmentAiForm(company, articlesFromProps) {
   const [articleCount, setArticleCount] = useState(1);
   const [sections, setSections] = useState([createEmptySection(0)]);
+  const embeddingCacheRef = useRef(new Map()); // Cach
+  const pendingEmbeddingsRef = useRef(new Map()); // Cach
 
   const availableArticles =
     articlesFromProps && articlesFromProps.length > 0
@@ -589,16 +925,39 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
     () => ({
       company,
       articleCount,
-      sections: sections.map(({ id, selectedArticleId, beforeText, afterText, prompt }) => ({
+      sections: sections.map(({ id, selectedArticleId, selectedArticleTitle, beforeText, afterText, prompt, modelOutput, embeddingScore }) => ({
         id,
         selectedArticleId,
+        selectedArticleTitle,
         beforeText,
         afterText,
         prompt,
+        modelOutput,
+        embeddingScore,
       })),
     }),
     [company, articleCount, sections]
   );
+
+  const getCachedEmbedding = useCallback(async (key, text) => { // Cach
+    // In-memory cache to avoid recomputing article embeddings each click. // Cach
+    if (embeddingCacheRef.current.has(key)) { // Cach
+      return embeddingCacheRef.current.get(key); // Cach
+    } // Cach
+
+    if (pendingEmbeddingsRef.current.has(key)) { // Cach
+      return pendingEmbeddingsRef.current.get(key); // Cach
+    } // Cach
+
+    const request = getEmbedding(text).then((vector) => { // Cach
+      embeddingCacheRef.current.set(key, vector); // Cach
+      pendingEmbeddingsRef.current.delete(key); // Cach
+      return vector; // Cach
+    }); // Cach
+
+    pendingEmbeddingsRef.current.set(key, request); // Cach
+    return request; // Cach
+  }, []); // Cach
 
   return {
     availableArticles,
@@ -607,19 +966,145 @@ function useCreateAmendmentAiForm(company, articlesFromProps) {
     sections,
     handleChangeSection,
     getPayload,
+    getCachedEmbedding, // Cach
   };
 }
 
 function AmendmentAiFormFields({
+  company,
   availableArticles,
   articleCount,
   handleCountChange,
   sections,
   handleChangeSection,
   onCreateClick,
+  getCachedEmbedding, // Cach
 }) {
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isRegeneratingPdf, setIsRegeneratingPdf] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState(null);
+  const [reviewPayload, setReviewPayload] = useState(null);
+  const [hasPendingEdits, setHasPendingEdits] = useState(false);
+  const renderedPayloadRef = useRef(null);
+
+  const closePdfPreview = useCallback(() => {
+    setPdfPreview((current) => {
+      if (current?.url) window.URL.revokeObjectURL(current.url);
+      return null;
+    });
+    setReviewPayload(null);
+    setHasPendingEdits(false);
+    renderedPayloadRef.current = null;
+  }, []);
+
+  useEffect(() => () => {
+    if (pdfPreview?.url) window.URL.revokeObjectURL(pdfPreview.url);
+  }, [pdfPreview?.url]);
+
+  const regeneratePdfFromPayload = useCallback(async (payload, fileName) => {
+    const { blob } = await generateAmendmentPdfBlobFromPayload(payload, fileName);
+    const url = window.URL.createObjectURL(blob);
+    setPdfPreview((current) => {
+      if (current?.url) window.URL.revokeObjectURL(current.url);
+      return { url, fileName, blob };
+    });
+    renderedPayloadRef.current = JSON.stringify(payload);
+    setHasPendingEdits(false);
+  }, []);
+
+  const handlePreviewPdf = async () => {
+    if (!sections || sections.length === 0) return;
+    setIsGeneratingPdf(true);
+    try {
+      const { blob, fileName, payload } = await generateAmendmentPdfBlob(company, sections);
+      const url = window.URL.createObjectURL(blob);
+      setPdfPreview((current) => {
+        if (current?.url) window.URL.revokeObjectURL(current.url);
+        return { url, fileName, blob };
+      });
+      setReviewPayload(payload);
+      renderedPayloadRef.current = JSON.stringify(payload);
+      setHasPendingEdits(false);
+    } catch (err) {
+      console.error("Error generating PDF preview:", err);
+      alert("حدث خطأ أثناء إنشاء ملف الـ PDF. الرجاء المحاولة مرة أخرى.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleReviewPayloadChange = useCallback((updater) => {
+    setReviewPayload((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      const isDirty = JSON.stringify(next) !== renderedPayloadRef.current;
+      setHasPendingEdits(isDirty);
+      return next;
+    });
+  }, []);
+
+  const handleRegeneratePreview = async () => {
+    if (!reviewPayload || !pdfPreview?.fileName) return;
+    setIsRegeneratingPdf(true);
+    try {
+      await regeneratePdfFromPayload(reviewPayload, pdfPreview.fileName);
+    } catch (err) {
+      console.error("Error regenerating PDF preview:", err);
+      alert("حدث خطأ أثناء تحديث المعاينة. الرجاء المحاولة مرة أخرى.");
+    } finally {
+      setIsRegeneratingPdf(false);
+    }
+  };
+
+  const syncReviewPayloadToSections = useCallback(() => {
+    if (!reviewPayload?.sections) return;
+    reviewPayload.sections.forEach((payloadSection, index) => {
+      const formSection = sections[index];
+      if (!formSection) return;
+      const patch = {};
+      if (payloadSection.beforeText !== formSection.beforeText) {
+        patch.beforeText = payloadSection.beforeText;
+      }
+      if (payloadSection.afterText !== formSection.afterText) {
+        patch.afterText = payloadSection.afterText;
+      }
+      if (Object.keys(patch).length > 0) {
+        handleChangeSection(index, patch);
+      }
+    });
+  }, [reviewPayload, sections, handleChangeSection]);
+
+  const handleApplyAndClose = () => {
+    syncReviewPayloadToSections();
+    closePdfPreview();
+  };
+
+  const handleDownloadPreview = () => {
+    if (!pdfPreview || hasPendingEdits) return;
+    const link = document.createElement("a");
+    link.href = pdfPreview.url;
+    link.setAttribute("download", pdfPreview.fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+  };
+
   return (
     <>
+      {pdfPreview && reviewPayload && (
+        <PdfReviewModal
+          previewUrl={pdfPreview.url}
+          fileName={pdfPreview.fileName}
+          reviewPayload={reviewPayload}
+          onReviewPayloadChange={handleReviewPayloadChange}
+          onRegenerate={handleRegeneratePreview}
+          onApplyAndClose={handleApplyAndClose}
+          onClose={closePdfPreview}
+          onDownload={handleDownloadPreview}
+          isRegenerating={isRegeneratingPdf}
+          hasPendingEdits={hasPendingEdits}
+        />
+      )}
+
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
@@ -700,24 +1185,47 @@ function AmendmentAiFormFields({
             section={section}
             availableArticles={availableArticles}
             onChangeSection={handleChangeSection}
+            getCachedEmbedding={getCachedEmbedding} // Cach
+            company={company}
           />
         ))}
       </div>
 
       <div className="flex justify-end pt-2 pb-4">
-        <button
-          type="button"
-          onClick={onCreateClick}
-          className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-sm font-extrabold
-                     bg-gradient-to-l from-slate-800 to-slate-700 text-white
-                     hover:shadow-xl hover:shadow-slate-300 hover:-translate-y-0.5
-                     transition-all duration-200 cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          إنشاء
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handlePreviewPdf}
+            disabled={isGeneratingPdf || sections.length === 0}
+            className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+                       ${!isGeneratingPdf && sections.length > 0
+                         ? "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 hover:shadow-md"
+                         : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                       }`}
+          >
+            {isGeneratingPdf ? "جاري الإنشاء..." : "مراجعة وتعديل PDF"}
+            {!isGeneratingPdf && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onCreateClick}
+            className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-sm font-extrabold
+                       bg-gradient-to-l from-slate-800 to-slate-700 text-white
+                       hover:shadow-xl hover:shadow-slate-300 hover:-translate-y-0.5
+                       transition-all duration-200 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            إنشاء
+          </button>
+        </div>
       </div>
     </>
   );
@@ -739,6 +1247,7 @@ export function CreateAmendmentAiPageView({
     sections,
     handleChangeSection,
     getPayload,
+    getCachedEmbedding, // Cach
   } = useCreateAmendmentAiForm(company, articlesFromProps);
 
   const handleCreate = () => onSubmit?.(getPayload());
@@ -779,6 +1288,8 @@ export function CreateAmendmentAiPageView({
           sections={sections}
           handleChangeSection={handleChangeSection}
           onCreateClick={handleCreate}
+          company={company}
+          getCachedEmbedding={getCachedEmbedding} // Cach
         />
       </div>
     </div>
@@ -801,6 +1312,7 @@ export default function CreateAmendmentAiModal({
     sections,
     handleChangeSection,
     getPayload,
+    getCachedEmbedding, // Cach
   } = useCreateAmendmentAiForm(company, articlesFromProps);
 
   const handleCreate = () => onSubmit?.(getPayload());
@@ -870,6 +1382,8 @@ export default function CreateAmendmentAiModal({
             sections={sections}
             handleChangeSection={handleChangeSection}
             onCreateClick={handleCreate}
+            company={company}
+            getCachedEmbedding={getCachedEmbedding} // Cach
           />
         </div>
       </div>

@@ -105,8 +105,8 @@ public class AuthService {
 
         User user = userOptional.get();
 
-        // Check if user is active
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        // Block SUSPENDED / RESIGNED users
+        if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.RESIGNED) {
             return new AuthResponse(false, "Account is inactive. Contact administrator.");
         }
 
@@ -120,6 +120,14 @@ public class AuthService {
         tokenCacheService.storeToken(user.getId(), token);
 
         UserDto userDto = new UserDto(user);
+
+        // If the account is PENDING_VERIFICATION, allow login but signal it
+        if (user.getStatus() == UserStatus.PENDING_VERIFICATION) {
+            return new AuthResponse(true,
+                "Login successful. Please change your temporary password to activate your account.",
+                userDto, token);
+        }
+
         return new AuthResponse(true, "Login successful", userDto, token);
     }
 
@@ -191,5 +199,56 @@ public class AuthService {
      */
     public Optional<User> getUserByEmail(String email) {
         return userRepository.findByEmailIgnoreCase(email);
+    }
+
+    /**
+     * Change a user's password (used to verify their account after creation).
+     *
+     * Flow:
+     * 1. Find the user by email.
+     * 2. Verify currentPassword matches the stored hash (the temp password).
+     * 3. Validate the new password (min 6 chars).
+     * 4. Encode and save the new password.
+     * 5. If the user was PENDING_VERIFICATION, set status to ACTIVE.
+     */
+    @Transactional
+    public AuthResponse changePassword(com.accounting.backend.dtos.ChangePasswordRequest request) {
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            return new AuthResponse(false, "Email is required");
+        }
+        if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+            return new AuthResponse(false, "Current password is required");
+        }
+        if (request.getNewPassword() == null || request.getNewPassword().isBlank()) {
+            return new AuthResponse(false, "New password is required");
+        }
+        if (request.getNewPassword().length() < 6) {
+            return new AuthResponse(false, "New password must be at least 6 characters");
+        }
+
+        Optional<User> userOptional = userRepository.findByEmailIgnoreCase(request.getEmail());
+        if (userOptional.isEmpty()) {
+            return new AuthResponse(false, "User not found");
+        }
+
+        User user = userOptional.get();
+
+        // Verify current (temp) password
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            return new AuthResponse(false, "Current password is incorrect");
+        }
+
+        // Set the new password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+
+        // Activate account if it was pending verification
+        if (user.getStatus() == UserStatus.PENDING_VERIFICATION) {
+            user.setStatus(UserStatus.ACTIVE);
+        }
+
+        userRepository.save(user);
+
+        return new AuthResponse(true, "Password changed successfully. Your account is now active.");
     }
 }

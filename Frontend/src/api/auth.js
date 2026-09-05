@@ -6,16 +6,31 @@ export const login = async (credentials) => {
 };
 
 export const register = async (userData) => {
-  const response = await apiClient.post('/auth/register', userData);
+  const response = await apiClient.post('/users', userData);
   return response.data;
 };
 
 export const logout = async () => {
   const response = await apiClient.post('/auth/logout');
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('user');
   return response.data;
 };
 
-export const getCurrentUser = async () => {
-  const response = await apiClient.get('/auth/me');
+export const getCurrentUser = async (token) => {
+  const response = await apiClient.get('/auth/me', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  return response.data;
+};
+
+export const verify = async (token) => {
+  const response = await apiClient.get('/auth/verify', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   return response.data;
 };

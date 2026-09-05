@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        @page {
+            size: A4;
+            margin: 30px;
+        }
+
+        body {
+            font-family: 'Noto Naskh', serif;
+            direction: rtl;
+            background: #fff;
+            margin: 0;
+            padding: 10px 40px;
+            font-size: 16pt;
+            color: #000;
+            line-height: 1.7;
+            text-align: right;
+        }
+
+        /* Borders */
+        .border-outer {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border: 2px solid black;
+            z-index: -3;
+        }
+
+        .border-mid {
+            position: fixed;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            border: 1px solid black;
+            z-index: -2;
+        }
+
+        .border-inner {
+            position: fixed;
+            top: 8px;
+            bottom: 8px;
+            left: 8px;
+            right: 8px;
+            border: 1px solid black;
+            z-index: -1;
+        }
+
+        /* Letterhead */
+        .fixed-letterhead {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .lh-line1 {
+            font-weight: bold;
+            font-size: 15px;
+        }
+
+        .lh-line2 {
+            clear: both;
+            text-align: right;
+            padding-right: 40px;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* Titles */
+        .doc-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .doc-title span, .section-title span {
+            border-bottom: 3px solid #000;
+            padding-bottom: 4px;
+        }
+
+        .doc-company {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            text-decoration: underline;
+            margin-bottom: 5px;
+        }
+
+        .doc-legal {
+            text-align: center;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: underline;
+            margin-bottom: 30px;
+        }
+
+        /* Sections */
+        .intro-title {
+            text-align: center;
+            font-size: 19px;
+            font-weight: 700;
+            margin: 20px 0 10px 0;
+        }
+        .section-title {
+            text-align: right;
+            font-size: 16pt;
+            font-weight: 700;
+            margin: 20px 0 10px 0;
+        }
+
+        .amendment-title {
+            text-align: right;
+            font-size: 16pt;
+            font-weight: 700;
+            margin: 24px 0 12px 0;
+        }
+
+        p {
+            margin: 0 0 15px 0;
+        }
+
+        .legal-content p {
+            margin: 0 0 15px 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 16pt;
+        }
+
+        th,
+        td {
+            border: 1px solid black;
+            padding: 6px;
+            text-align: center;
+        }
+
+        th {
+            font-weight: bold;
+            background-color: transparent;
+        }
+
+        /* Signature */
+        .signature {
+            text-align: left;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Borders -->
+    <div class="border-outer"></div>
+    <div class="border-mid"></div>
+    <div class="border-inner"></div>
+
+    <!-- Letterhead -->
+    <div class="fixed-letterhead">
+        <div class="lh-line1" style="overflow: hidden; margin-bottom: 10px;">
+            <div style="float: right; padding-right: 40px;">
+                <span th:text="${companyName}"></span>
+            </div>
+            <div style="float: left; padding-left: 30px;">
+                رأس المال: <span th:text="${companyCapital}"></span>
+            </div>
+            <div style="clear: both;"></div>
+        </div>
+        <div class="lh-line2" th:text="${companyLegalLineHeader}"></div>
+        <div class="lh-line2" th:if="${companyAddress != null}" th:text="${companyAddress}"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="doc-title"><span th:text="${contractTitle}">عقد تعديل</span></div>
+    <div class="doc-title"><span th:text="${companyName}">شركة</span></div>
+    <div class="doc-title"><span th:text="${companyLegalLine}">تأسست</span></div>
+
+    <div style="margin-top: 30px; font-weight: bold; font-size: 18px;" th:text="${dateString}">
+        انه في يوم الخميس الموافق 16/3/2026
+    </div>
+
+    <div style="margin-top: 20px; margin-bottom: 30px;" th:if="${partners != null and !partners.isEmpty()}">
+        <div th:each="p : ${partners}" style="display: table; width: 100%; margin-bottom: 8px;">
+            <div style="display: table-cell; text-align: right; font-weight: bold; width: 200px; padding-right: 10px;">
+                <span th:text="${p.role}">مالك</span>
+            </div>
+            <div style="display: table-cell; text-align: right; font-weight: bold; padding-left: 10px;">
+                <span th:text="${p.title}">السيد</span>/ <span th:text="${p.name}">ادهم ايهاب</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intro -->
+    <div class="intro-title">تمهيد</div>
+    <p th:text="${introText}">سبق وأن...</p>
+
+    <p>
+        <span style="font-weight:700; text-decoration:underline;font-size:20px;font-weight: 700;">أولاً:</span>
+        يعتبر التمهيد جزءاً لا يتجزأ من العقد.
+    </p>
+
+    <!-- Sections -->
+    <div th:each="sec : ${sections}">
+        <div class="amendment-title" th:if="${sec.preliminaryTitle != null and !sec.preliminaryTitle.isEmpty()}" th:text="${sec.preliminaryTitle}"></div>
+        <div class="section-title"><span th:text="${sec.sectionTitleBefore}">المادة قبل التعديل</span></div>
+        <div class="legal-content" th:utext="${sec.beforeText}"></div>
+
+        <div class="section-title"><span th:text="${sec.sectionTitleAfter}">المادة بعد التعديل</span></div>
+        <div class="legal-content" th:utext="${sec.afterText}"></div>
+    </div>
+
+    <!-- Signature -->
+    <div class="signature">مدير الشركة</div>
+
+</body>
+
+</html>

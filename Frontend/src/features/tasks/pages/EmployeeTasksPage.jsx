@@ -3,12 +3,14 @@ import {
   ClipboardList, Plus, AlertTriangle,
   CheckCircle2, Circle, Loader2
 } from 'lucide-react';
+import { useLocation } from "react-router-dom";
 import MainLayout from '../../../shared/layout/MainLayout';
-import { Avatar, PriorityBadge, CardSkeleton, Modal } from '../../../shared/components/HrShared';
+import { Avatar, CardSkeleton } from '../../../shared/components/HrShared';
+import TaskDetailsModel from './TaskDetailsModel';
+import { Modal } from '../../../shared/components/HrShared';
 import { KANBAN_STAGES } from '../../../shared/data/hrMockData';
 import { fetchUsers } from '../../../api/users';
 import { fetchTasks, addTask, deleteTask, updateTask } from '../../../api/tasks';
-import { addCommentToTask } from '../../../api/comments';
 
 // ─── Status Mapping ────────────────────────────────────────────────────────
 const STATUS_TO_ARABIC = {
@@ -71,23 +73,6 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
       {/* Title */}
       <p className="text-sm font-semibold text-appText mb-2.5 leading-snug pr-2">{task.title}</p>
 
-      {task.description && (
-        <div className="mb-2">
-          <button
-            onClick={() => setShowDesc(v => !v)}
-            className="text-[11px] text-brand hover:underline ui-transition"
-          >
-            {showDesc ? 'إخفاء الوصف' : 'عرض الوصف'}
-          </button>
-
-          {showDesc && (
-            <p className="text-xs text-appSubtext mt-1 leading-relaxed bg-appMuted p-2 rounded-lg">
-              {task.description}
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Badges */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         {task.dueDate && <DeadlinePill dueDate={task.dueDate} />}
@@ -96,10 +81,12 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
       <div className="flex items-center gap-2 mt-3 mb-2">
         {task.status === 'PENDING' && (
           <button
-            onClick={() => onMove(task.id, 'IN_PROGRESS')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(task.id, 'IN_PROGRESS')
+            }}
             className="flex items-center gap-1 px-2 py-1 text-[11px] bg-badgeBlueBg text-badgeBlueText rounded-lg border border-appBorder hover:bg-badgeBlueBg/80 ui-transition"
           >
-            {/* <ArrowRight size={11} /> */}
             بدءالعمل
           </button>
         )}
@@ -107,14 +94,20 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         {task.status === 'IN_PROGRESS' && (
           <>
             <button
-              onClick={() => onMove(task.id, 'PENDING')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(task.id, 'PENDING')
+              }}
               className="flex items-center gap-1 px-2 py-1 text-[11px] bg-appMuted text-appSubtext rounded-lg border border-appBorder hover:bg-appBorder/40 ui-transition"
             >
               وضع في قائمة الانتظار
             </button>
 
             <button
-              onClick={() => onMove(task.id, 'DONE')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMove(task.id, 'DONE')
+              }}
               className="flex items-center gap-1 px-2 py-1 text-[11px] bg-success/15 text-success rounded-lg border border-appBorder hover:bg-success/25 ui-transition"
             >
               <CheckCircle2 size={11} />
@@ -124,9 +117,8 @@ function TaskCard({ task, onMove, onDelete, onOpen }) {
         )}
 
         {task.status === 'DONE' && (
-          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium border border-appBorder ${
-            task.reviewed ? "bg-success/15 text-success" : "bg-badgePurpleBg text-badgePurpleText"
-          }`}>
+          <span className={`text-[11px] px-2 py-1 rounded-lg font-medium border border-appBorder ${task.reviewed ? "bg-success/15 text-success" : "bg-badgePurpleBg text-badgePurpleText"
+            }`}>
             {task.reviewed ? 'تمت المراجعة' : 'بانتظار المراجعة'}
           </span>
         )}
@@ -188,7 +180,7 @@ function AddCommentBox({ task, setTasks }) {
 
     const newComment = {
       message: text,
-      createdById: 1, // ! hardcoded for now
+      createdById: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1, // ! hardcoded for now
       taskId: task.id,
     };
 
@@ -237,16 +229,45 @@ function EmployeeTasksPage() {
   const [form, setForm] = useState(EMPTY_TASK);
   const [employees, setEmployees] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [saveSubmitting, setSaveSubmitting] = useState(false);
 
   useEffect(() => {
 
     const loadData = async () => {
       try {
-        const [tasksData, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
-        setTasks(tasksData);
+        const [allTasks, employeesData] = await Promise.all([fetchTasks(), fetchUsers()]);
+
+        const currentUserStr = localStorage.getItem('user');
+        const currentUser = JSON.parse(currentUserStr);
+        console.log("currentUser ", currentUser);
+
+        const roleRank = { owner: 4, headbranch: 3, manager: 2, employee: 1 };
+        const myRoleKey = currentUser.roleName ? currentUser.roleName.toLowerCase() : 'employee';
+        const myRank = roleRank[myRoleKey] || 1;
+
+        const empRankMap = {};
+        const empIdMap = {};
+        employeesData.forEach(emp => {
+          const empRoleKey = emp.roleName ? emp.roleName.toLowerCase() : 'employee';
+          empRankMap[emp.id] = roleRank[empRoleKey];
+          empIdMap[emp.fullName] = emp.id;
+        });
+
+        console.log("All tasks from API:", allTasks);
+
+        const filteredTasks = allTasks.filter(task => {
+          const actualAssignedToId = task.assignedToId || empIdMap[task.assignedToName];
+          if (actualAssignedToId === currentUser.id) return true;
+          const assigneeRank = empRankMap[actualAssignedToId] || 1;
+          return assigneeRank < myRank;
+        });
+
+        console.log("Filtered tasks:", filteredTasks);
+
+        setTasks(filteredTasks);
         setEmployees(employeesData);
-        console.log("debug loaded tasks ", tasksData);
-        console.log("debug loaded employees ", employeesData);
+        // console.log("debug loaded tasks ", filteredTasks);
+        // console.log("debug loaded employees ", employeesData);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -255,6 +276,22 @@ function EmployeeTasksPage() {
     };
     loadData();
   }, []);
+
+  const location = useLocation();
+  useEffect(() => {
+    const taskId = location.state?.openTaskId;
+
+    if (!taskId || tasks.length === 0) return;
+
+    const task = tasks.find(
+      t => t.id === taskId
+    );
+
+    if (task) {
+      setSelectedTask(task);
+    }
+
+  }, [tasks, location.state]);
 
   const moveTask = async (id, newStatus) => {
     const newTask = {
@@ -285,7 +322,9 @@ function EmployeeTasksPage() {
   const handleSave = async () => {
     if (!form.title.trim() || !form.assignedToId) return;
 
-    console.log(form);
+    // console.log(form);
+
+    setSaveSubmitting(true);
 
     const newTask = {
       title: form.title,
@@ -293,7 +332,7 @@ function EmployeeTasksPage() {
       status: form.status,
       dueDate: form.dueDate || null,
       assignedToId: parseInt(form.assignedToId),
-      createdById: 1
+      createdById: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : 1, // ! hardcoded fallback
     };
 
     try {
@@ -303,6 +342,8 @@ function EmployeeTasksPage() {
     } catch (error) {
       console.error('Error saving task:', error);
       // ! optionally show a notification/error state here
+    } finally {
+      setSaveSubmitting(false);
     }
   };
 
@@ -324,7 +365,7 @@ function EmployeeTasksPage() {
   );
 
   return (
-    <MainLayout title="مهام الموظين" subtitle="" actions={actions}>
+    <MainLayout title="مهامي" subtitle="" actions={JSON.parse(localStorage.getItem('user')).roleName === "employee" ? null : actions}>
       <div className="space-y-5">
 
         {/* Quick Stats */}
@@ -366,16 +407,18 @@ function EmployeeTasksPage() {
       {showForm && (
         <Modal
           title="اضافة مهمة جديدة"
-          onClose={() => setShowForm(false)}
+          onClose={() => {
+            if (!saveSubmitting) setShowForm(false);
+          }}
           footer={
             <>
-              <button onClick={() => setShowForm(false)}
+              <button onClick={() => setShowForm(false)} disabled={saveSubmitting}
                 className="px-4 py-2 text-sm font-medium text-appText bg-appMuted border border-appBorder rounded-xl hover:bg-appBorder/30 ui-transition">
                 الغاء
               </button>
               <button onClick={handleSave}
                 className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel">
-                اضافة
+                {saveSubmitting ? "جاري الإضافة..." : "اضافة"}
               </button>
             </>
           }
@@ -421,93 +464,12 @@ function EmployeeTasksPage() {
 
       {/* Task Details Modal */}
       {selectedTask && (
-        <Modal
-          title="تفاصيل المهمة"
+        <TaskDetailsModel
+          selectedTask={selectedTask}
+          setTasks={setTasks}
+          setSelectedTask={setSelectedTask}
           onClose={() => setSelectedTask(null)}
-          footer={
-            <button
-              onClick={() => setSelectedTask(null)}
-              className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel"
-            >
-              اغلاق
-            </button>
-          }
-        >
-          <div className="space-y-4">
-
-            {/* Title */}
-            <div>
-              <p className="text-xs text-appSubtext">العنوان</p>
-              <p className="text-sm font-semibold text-appText">
-                {selectedTask.title}
-              </p>
-            </div>
-
-            {/* Description */}
-            <div>
-              <p className="text-xs text-appSubtext">الوصف</p>
-              <p className="text-sm text-appText bg-appMuted p-2 rounded-lg">
-                {selectedTask.description || 'لا يوجد وصف'}
-              </p>
-            </div>
-
-            {/* Assigned */}
-            <div>
-              <p className="text-xs text-appSubtext">الموظف</p>
-              <p className="text-sm text-appText">
-                {selectedTask.assignedToName || 'غير محدد'}
-              </p>
-            </div>
-
-            {/* Deadline */}
-            <div>
-              <p className="text-xs text-appSubtext">موعد التسليم</p>
-              <p className="text-sm text-appText">
-                {selectedTask.dueDate
-                  ? new Date(selectedTask.dueDate).toLocaleString()
-                  : 'غير محدد'}
-              </p>
-            </div>
-
-            {/* Comments Section */}
-            <div>
-              <p className="text-xs text-appSubtext mb-2">التعليقات</p>
-
-              {/* Comments list (temporary static) */}
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {(selectedTask.comments || []).length === 0 ? (
-                  <p className="text-xs text-appSubtext">لا توجد تعليقات</p>
-                ) : (
-                  selectedTask.comments.map((c, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-2 bg-appMuted p-2 rounded-lg"
-                    >
-                      {/* Avatar */}
-                      <div className="w-7 h-7 rounded-full bg-brand text-white flex items-center justify-center text-xs font-semibold">
-                        {c.createdByName?.charAt(0) || "?"}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-appText">
-                          {c.createdByName || "Unknown"}
-                        </span>
-                        <span className="text-xs text-appSubtext">
-                          {c.message}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Add comment */}
-              <AddCommentBox task={selectedTask} setTasks={setTasks} />
-            </div>
-
-          </div>
-        </Modal>
+        />
       )}
     </MainLayout>
   );
