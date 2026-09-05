@@ -44,6 +44,14 @@ function isActiveContract(c) {
 }
 
 function DashboardPage() {
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  })();
+  const isOwner = currentUser?.roleName?.toLowerCase() === "owner";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [users, setUsers] = useState([]);
@@ -206,13 +214,17 @@ function DashboardPage() {
               colorClass="bg-success/15 text-success"
               loading={loading}
             />
-            <PageStatCard
-              icon={GitBranch}
-              label="الفروع"
-              value={metrics.branchesTotal}
-              colorClass="bg-badgeBlueBg text-badgeBlueText"
-              loading={loading}
-            />
+            {isOwner ? (
+              <Link to="/branches" className="block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                <PageStatCard
+                  icon={GitBranch}
+                  label="الفروع"
+                  value={metrics.branchesTotal}
+                  colorClass="bg-badgeBlueBg text-badgeBlueText"
+                  loading={loading}
+                />
+              </Link>
+            ) : null}
             <PageStatCard
               icon={FileSignature}
               label="عقود بانتظار الموافقة"
