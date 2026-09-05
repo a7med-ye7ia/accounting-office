@@ -21,6 +21,8 @@ function AttendanceRouteGuard() {
     ? <AttendancePage />
     : <Navigate replace to="/Dashboard" />;
 }
+import BranchesPage from "./features/branches/pages/BranchesPage";
+import BranchReviewPage from "./features/branches/pages/BranchReviewPage";
 
 function LegacyEmployeeProfileRedirect() {
   const { id } = useParams();
@@ -50,6 +52,8 @@ function App() {
       <Route path="/" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/Dashboard" element={<DashboardPage />} />
+        <Route path="/branches" element={<BranchesPage />} />
+        <Route path="/branches/:branchId/review" element={<BranchReviewPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId" element={<CompaniesPage />} />
         <Route path="/companies/company/:companyId/type/:type/Ai" element={<CompaniesPage />} />
