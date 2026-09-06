@@ -40,10 +40,50 @@ public class BranchController {
     private AuthorizationService authorizationService;
 
     @Autowired
+    private com.accounting.backend.repositories.DepartmentRepository departmentRepository;
+
+    @Autowired
     private ActivityLogService activityLogService;
 
     @GetMapping
-    public List<Branch> getAllBranches() {
+    public List<Branch> getAllBranches(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return branchRepository.findAll();
+        }
+        User caller = authorizationService.resolveUser(authHeader);
+        if (caller == null) {
+            return branchRepository.findAll();
+        }
+        Long callerId = caller.getId();
+        com.accounting.backend.enums.SystemRole role = authorizationService.getUserRole(callerId);
+
+        if (role == com.accounting.backend.enums.SystemRole.OWNER) {
+            return branchRepository.findAll();
+        }
+
+        if (role == com.accounting.backend.enums.SystemRole.BRANCH_MANAGER || role == com.accounting.backend.enums.SystemRole.EMPLOYEE) {
+            Long branchId = authorizationService.getUserBranchId(callerId);
+            if (branchId == null) {
+                return List.of();
+            }
+            return branchRepository.findAll().stream()
+                    .filter(b -> b.getId().equals(branchId))
+                    .toList();
+        }
+
+        if (role == com.accounting.backend.enums.SystemRole.DEPARTMENT_MANAGER) {
+            List<Long> managedDeptIds = authorizationService.getManagedDepartmentIds(callerId);
+            List<com.accounting.backend.entities.Department> managedDepts = departmentRepository.findAllById(managedDeptIds);
+            java.util.Set<Long> branchIds = managedDepts.stream()
+                    .filter(d -> d.getBranch() != null)
+                    .map(d -> d.getBranch().getId())
+                    .collect(java.util.stream.Collectors.toSet());
+            return branchRepository.findAll().stream()
+                    .filter(b -> branchIds.contains(b.getId()))
+                    .toList();
+        }
+
         return branchRepository.findAll();
     }
 

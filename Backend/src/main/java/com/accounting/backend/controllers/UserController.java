@@ -89,7 +89,9 @@ public class UserController {
     @GetMapping
     @Transactional
     public ResponseEntity<List<Map<String, Object>>> getAllUsers(
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam(value = "branchId", required = false) Long filterBranchId,
+            @RequestParam(value = "departmentId", required = false) Long filterDepartmentId) {
         User caller = authorizationService.requireAuthenticatedUser(authHeader);
         Long callerId = caller.getId();
         SystemRole role = authorizationService.getUserRole(callerId);
@@ -115,6 +117,18 @@ public class UserController {
         } else {
             // EMPLOYEE
             users = List.of(caller);
+        }
+
+        if (filterBranchId != null) {
+            users = users.stream()
+                    .filter(u -> filterBranchId.equals(authorizationService.getUserBranchId(u.getId())))
+                    .toList();
+        }
+
+        if (filterDepartmentId != null) {
+            users = users.stream()
+                    .filter(u -> filterDepartmentId.equals(authorizationService.getUserDepartmentId(u.getId())))
+                    .toList();
         }
 
         List<Map<String, Object>> result = new ArrayList<>();

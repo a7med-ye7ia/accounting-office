@@ -8,6 +8,7 @@ import {
   Circle,
   Loader2,
   Trash2,
+  Lock,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import MainLayout from "../../../shared/layout/MainLayout";
@@ -19,6 +20,14 @@ import SubtaskFormModal, {
 import { Modal } from "../../../shared/components/HrShared";
 import { toDateTimeLocal } from "../../../utils/dateFormat";
 import { fetchUsers } from "../../../api/users";
+import { fetchBranches } from "../../../api/branches";
+import { fetchDepartments } from "../../../api/departments";
+import {
+  isOwner,
+  isBranchManager,
+  isDepartmentManager,
+  isEmployee,
+} from "../../../utils/roles";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import {
   fetchTasks,
@@ -321,10 +330,12 @@ function KanbanColumn({
 // ─── Main Page ──────────────────────────────────────────────────────────────
 const EMPTY_TASK = {
   title: "",
+  description: "",
+  branchId: "",
+  departmentId: "",
   assignedToId: "",
   dueDate: "",
   status: "PENDING",
-  description: "",
 };
 
 const MANAGER_ROLES = ["owner", "manager", "headbranch", "headdepartment"];
@@ -346,10 +357,12 @@ const normalizeSubtaskForForm = (subtask) => ({
 
 const taskToForm = (task) => ({
   title: task.title || "",
+  description: task.description || "",
+  branchId: task.branchId ? String(task.branchId) : "",
+  departmentId: task.departmentId ? String(task.departmentId) : "",
   assignedToId: task.assignedToId ? String(task.assignedToId) : "",
   dueDate: toDateTimeLocal(task.dueDate),
   status: task.status || "PENDING",
-  description: task.description || "",
 });
 
 const taskWorkerIds = (task) =>
@@ -408,6 +421,13 @@ function EmployeeTasksPage() {
   const [visibleSubtaskIndex, setVisibleSubtaskIndex] = useState(0);
   const [subtasks, setSubtasks] = useState([]);
   const [dueDateAutoMsg, setDueDateAutoMsg] = useState("");
+  const [branches, setBranches] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [availableEmployees, setAvailableEmployees] = useState([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [isBranchLocked, setIsBranchLocked] = useState(false);
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -530,7 +550,7 @@ function EmployeeTasksPage() {
     }
   };
 
-  const openCreateForm = () => {
+  const openCreateForm = async () => {
     setEditingTask(null);
     setForm(EMPTY_TASK);
     setSubtasks([]);
@@ -539,10 +559,146 @@ function EmployeeTasksPage() {
     setEditingSubtaskIndex(null);
     setVisibleSubtaskIndex(0);
     setDueDateAutoMsg("");
+    setDepartments([]);
+    setAvailableEmployees([]);
     setShowForm(true);
+
+    const user = getCurrentUser();
+    setLoadingBranches(true);
+    try {
+      const branchesData = await fetchBranches();
+      setBranches(branchesData);
+
+      let locked = false;
+      let selectedBranchId = "";
+
+      if (isOwner(user)) {
+        locked = false;
+      } else if (isBranchManager(user) || isEmployee(user)) {
+        locked = true;
+        if (branchesData.length > 0) {
+          selectedBranchId = String(branchesData[0].id);
+        }
+      } else if (isDepartmentManager(user)) {
+        if (branchesData.length <= 1) {
+          locked = true;
+          if (branchesData.length === 1) {
+            selectedBranchId = String(branchesData[0].id);
+          }
+        } else {
+          locked = false;
+        }
+      }
+
+      setIsBranchLocked(locked);
+
+      if (selectedBranchId) {
+        setForm((p) => ({ ...p, branchId: selectedBranchId }));
+        setLoadingDepartments(true);
+        try {
+          const deptsData = await fetchDepartments(selectedBranchId);
+          setDepartments(deptsData);
+          if (isEmployee(user) && deptsData.length === 1) {
+            const selectedDeptId = String(deptsData[0].id);
+            setForm((p) => ({
+              ...p,
+              branchId: selectedBranchId,
+              departmentId: selectedDeptId,
+            }));
+            setLoadingEmployees(true);
+            try {
+              const usersData = await fetchUsers({
+                branchId: selectedBranchId,
+                departmentId: selectedDeptId,
+              });
+              const filteredUsers = isOwner(user)
+                ? usersData
+                : usersData.filter((u) => !isOwner(u));
+              setAvailableEmployees(filteredUsers);
+            } finally {
+              setLoadingEmployees(false);
+            }
+          }
+        } finally {
+          setLoadingDepartments(false);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading branches for task form:", err);
+      setFormError("تعذر تحميل قائمة الفروع.");
+    } finally {
+      setLoadingBranches(false);
+    }
   };
 
-  const openEditForm = (task) => {
+  const handleBranchChange = async (newBranchId) => {
+    setForm((prev) => ({
+      ...prev,
+      branchId: newBranchId,
+      departmentId: "",
+      assignedToId: "",
+    }));
+    setFormErrors((prev) => {
+      const { branchId, departmentId, assignedToId, ...rest } = prev;
+      return rest;
+    });
+    setDepartments([]);
+    setAvailableEmployees([]);
+    setSubtasks((prev) =>
+      prev.map((s) => ({ ...s, assignedToId: "", employeeName: "" })),
+    );
+
+    if (!newBranchId) return;
+
+    setLoadingDepartments(true);
+    try {
+      const deptsData = await fetchDepartments(newBranchId);
+      setDepartments(deptsData);
+    } catch (err) {
+      console.error("Error loading departments:", err);
+      setFormError("تعذر تحميل قائمة الأقسام.");
+    } finally {
+      setLoadingDepartments(false);
+    }
+  };
+
+  const handleDepartmentChange = async (newDeptId) => {
+    setForm((prev) => ({
+      ...prev,
+      departmentId: newDeptId,
+      assignedToId: "",
+    }));
+    setFormErrors((prev) => {
+      const { departmentId, assignedToId, ...rest } = prev;
+      return rest;
+    });
+    setAvailableEmployees([]);
+    setSubtasks((prev) =>
+      prev.map((s) => ({ ...s, assignedToId: "", employeeName: "" })),
+    );
+
+    if (!newDeptId) return;
+
+    setLoadingEmployees(true);
+    try {
+      const usersData = await fetchUsers({
+        branchId: form.branchId,
+        departmentId: newDeptId,
+      });
+      const user = getCurrentUser();
+      const filteredUsers = isOwner(user)
+        ? usersData
+        : usersData.filter((u) => !isOwner(u));
+      setAvailableEmployees(filteredUsers);
+    } catch (err) {
+      console.error("Error loading employees for department:", err);
+      setFormError("تعذر تحميل قائمة الموظفين.");
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  const openEditForm = async (task) => {
     setEditingTask(task);
     setForm(taskToForm(task));
     setSubtasks((task.subtasks || []).map(normalizeSubtaskForForm));
@@ -552,7 +708,64 @@ function EmployeeTasksPage() {
     setVisibleSubtaskIndex(0);
     setSelectedTask(null);
     setDueDateAutoMsg("");
+    setDepartments([]);
+    setAvailableEmployees([]);
     setShowForm(true);
+
+    const user = getCurrentUser();
+    setLoadingBranches(true);
+    try {
+      const branchesData = await fetchBranches();
+      setBranches(branchesData);
+
+      let locked = false;
+      if (isOwner(user)) {
+        locked = false;
+      } else if (isBranchManager(user) || isEmployee(user)) {
+        locked = true;
+      } else if (isDepartmentManager(user)) {
+        locked = branchesData.length <= 1;
+      }
+      setIsBranchLocked(locked);
+
+      const targetBranchId = task.branchId
+        ? String(task.branchId)
+        : locked && branchesData.length > 0
+          ? String(branchesData[0].id)
+          : "";
+
+      if (targetBranchId) {
+        setLoadingDepartments(true);
+        try {
+          const deptsData = await fetchDepartments(targetBranchId);
+          setDepartments(deptsData);
+
+          const targetDeptId = task.departmentId ? String(task.departmentId) : "";
+          if (targetDeptId) {
+            setLoadingEmployees(true);
+            try {
+              const usersData = await fetchUsers({
+                branchId: targetBranchId,
+                departmentId: targetDeptId,
+              });
+              const filteredUsers = isOwner(user)
+                ? usersData
+                : usersData.filter((u) => !isOwner(u));
+              setAvailableEmployees(filteredUsers);
+            } finally {
+              setLoadingEmployees(false);
+            }
+          }
+        } finally {
+          setLoadingDepartments(false);
+        }
+      }
+    } catch (err) {
+      console.error("Error initializing edit task form:", err);
+      setFormError("تعذر تحميل بيانات المهمة للتعديل.");
+    } finally {
+      setLoadingBranches(false);
+    }
   };
 
   const closeTaskForm = () => {
@@ -564,11 +777,15 @@ function EmployeeTasksPage() {
     setEditingSubtaskIndex(null);
     setVisibleSubtaskIndex(0);
     setDueDateAutoMsg("");
+    setDepartments([]);
+    setAvailableEmployees([]);
   };
 
   const validateTaskForm = () => {
     const next = {};
     if (!form.title.trim()) next.title = "العنوان مطلوب";
+    if (!form.branchId) next.branchId = "الفرع مطلوب";
+    if (!form.departmentId) next.departmentId = "القسم مطلوب";
     if (!form.assignedToId) next.assignedToId = "الموظف مطلوب";
     if (subtasks.length === 0 && !form.dueDate) {
       next.dueDate = "موعد التسليم مطلوب";
@@ -606,6 +823,8 @@ function EmployeeTasksPage() {
     return {
       title: form.title.trim(),
       description: form.description,
+      branchId: form.branchId ? parseInt(form.branchId, 10) : null,
+      departmentId: form.departmentId ? parseInt(form.departmentId, 10) : null,
       status: form.status,
       dueDate: parentDueDate,
       assignedToId: parseInt(form.assignedToId, 10),
@@ -628,8 +847,6 @@ function EmployeeTasksPage() {
     setFormError("");
     if (!validateTaskForm()) return;
 
-    // console.log(form);
-
     setSaveSubmitting(true);
 
     const taskPayload = buildTaskPayload();
@@ -647,6 +864,8 @@ function EmployeeTasksPage() {
       setEditingTask(null);
       setSubtasks([]);
       setVisibleSubtaskIndex(0);
+      setDepartments([]);
+      setAvailableEmployees([]);
     } catch (error) {
       console.error("Error saving task:", error);
       setFormError(getApiErrorMessage(error, "تعذر حفظ المهمة."));
@@ -656,7 +875,8 @@ function EmployeeTasksPage() {
   };
 
   const handleAddSubtask = (subtaskData) => {
-    const assignedEmployee = employees.find(
+    const pool = availableEmployees.length > 0 ? availableEmployees : employees;
+    const assignedEmployee = pool.find(
       (emp) => emp.id === subtaskData.assignedToId,
     );
 
@@ -688,10 +908,15 @@ function EmployeeTasksPage() {
   };
 
   const handleParentAssigneeChange = (value) => {
-    const assignedEmployee = employees.find(
+    const pool = availableEmployees.length > 0 ? availableEmployees : employees;
+    const assignedEmployee = pool.find(
       (emp) => String(emp.id) === String(value),
     );
     setForm((prev) => ({ ...prev, assignedToId: value }));
+    setFormErrors((prev) => {
+      const { assignedToId, ...rest } = prev;
+      return rest;
+    });
     if (!value) return;
     setSubtasks((prev) =>
       prev.map((subtask) => ({
@@ -832,8 +1057,17 @@ function EmployeeTasksPage() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={saveSubmitting}
-                className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel"
+                disabled={
+                  saveSubmitting ||
+                  loadingBranches ||
+                  loadingDepartments ||
+                  loadingEmployees ||
+                  !form.title.trim() ||
+                  !form.branchId ||
+                  !form.departmentId ||
+                  !form.assignedToId
+                }
+                className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saveSubmitting
                   ? "جاري الحفظ..."
@@ -852,16 +1086,20 @@ function EmployeeTasksPage() {
             )}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
-                عنوان المهمة
+                عنوان المهمة *
               </label>
 
               <input
                 className={inputCls}
                 placeholder="اكتب عنوان للمهمة..."
                 value={form.title}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, title: e.target.value }))
-                }
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, title: e.target.value }));
+                  setFormErrors((prev) => {
+                    const { title, ...rest } = prev;
+                    return rest;
+                  });
+                }}
               />
               {formErrors.title && (
                 <p className="text-xs text-danger mt-1">{formErrors.title}</p>
@@ -884,23 +1122,107 @@ function EmployeeTasksPage() {
               />
             </div>
 
+            {/* 3. Branch */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext">
+                  الفرع *
+                </label>
+                {isBranchLocked && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-appSubtext font-medium">
+                    <Lock size={12} className="text-appSubtext" />
+                    محدد حسب صلاحيتك
+                  </span>
+                )}
+              </div>
+              <select
+                className={`${inputCls} ${isBranchLocked ? "opacity-75 cursor-not-allowed bg-appMuted/80" : ""}`}
+                value={form.branchId}
+                disabled={isBranchLocked || loadingBranches}
+                onChange={(e) => handleBranchChange(e.target.value)}
+              >
+                {loadingBranches ? (
+                  <option value="">جاري تحميل الفروع...</option>
+                ) : (
+                  <>
+                    {!isBranchLocked && <option value="">اختر الفرع</option>}
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+              {formErrors.branchId && (
+                <p className="text-xs text-danger mt-1">{formErrors.branchId}</p>
+              )}
+            </div>
+
+            {/* 4. Department */}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
-                الموظف المسؤل عن المهمة
+                القسم *
               </label>
-
               <select
-                className={inputCls}
+                className={`${inputCls} ${!form.branchId || loadingDepartments ? "opacity-75 cursor-not-allowed bg-appMuted/80" : ""}`}
+                value={form.departmentId}
+                disabled={!form.branchId || loadingDepartments}
+                onChange={(e) => handleDepartmentChange(e.target.value)}
+              >
+                {!form.branchId ? (
+                  <option value="">[ اختر الفرع أولاً ]</option>
+                ) : loadingDepartments ? (
+                  <option value="">جاري تحميل الأقسام...</option>
+                ) : departments.length === 0 ? (
+                  <option value="">[ لا توجد أقسام متاحة لهذا الفرع ]</option>
+                ) : (
+                  <>
+                    <option value="">اختر القسم</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+              {formErrors.departmentId && (
+                <p className="text-xs text-danger mt-1">{formErrors.departmentId}</p>
+              )}
+            </div>
+
+            {/* 5. Assigned Employee */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
+                الموظف المسؤول عن المهمة *
+              </label>
+              <select
+                className={`${inputCls} ${!form.departmentId || loadingEmployees ? "opacity-75 cursor-not-allowed bg-appMuted/80" : ""}`}
                 value={form.assignedToId}
+                disabled={!form.departmentId || loadingEmployees}
                 onChange={(e) => handleParentAssigneeChange(e.target.value)}
               >
-                <option value="">اختر موظف</option>
-
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.fullName}
+                {!form.branchId ? (
+                  <option value="">[ اختر الفرع أولاً ]</option>
+                ) : !form.departmentId ? (
+                  <option value="">[ اختر القسم أولاً ]</option>
+                ) : loadingEmployees ? (
+                  <option value="">جاري تحميل الموظفين...</option>
+                ) : availableEmployees.length === 0 ? (
+                  <option value="" disabled>
+                    [ لا يوجد موظفون متاحون لهذا الفرع والقسم ]
                   </option>
-                ))}
+                ) : (
+                  <>
+                    <option value="">اختر موظف</option>
+                    {availableEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.fullName}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
               {formErrors.assignedToId && (
                 <p className="text-xs text-danger mt-1">
@@ -909,7 +1231,7 @@ function EmployeeTasksPage() {
               )}
             </div>
 
-            {/* Subtasks */}
+            {/* 6. Subtasks */}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-appSubtext mb-1.5">
                 المهام الفرعية
@@ -917,13 +1239,14 @@ function EmployeeTasksPage() {
 
               <button
                 type="button"
+                disabled={!form.departmentId}
                 onClick={() => {
                   setEditingSubtaskIndex(null);
                   setShowSubtaskModal(true);
                 }}
-                className="w-full border-2 border-dashed border-appBorder rounded-xl px-4 py-3 text-sm font-medium text-appSubtext hover:text-appText hover:border-brand hover:bg-appMuted/50 ui-transition"
+                className="w-full border-2 border-dashed border-appBorder rounded-xl px-4 py-3 text-sm font-medium text-appSubtext hover:text-appText hover:border-brand hover:bg-appMuted/50 ui-transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                + إضافة مهمة فرعية
+                + إضافة مهمة فرعية {!form.departmentId ? "(يرجى اختيار الفرع والقسم أولاً)" : ""}
               </button>
 
               {subtasks.length > 0 && (
@@ -1058,7 +1381,7 @@ function EmployeeTasksPage() {
               ? "إضافة مهمة فرعية"
               : "تعديل مهمة فرعية"
           }
-          employees={employees}
+          employees={availableEmployees.length > 0 ? availableEmployees : employees}
           defaultAssignedToId={form.assignedToId}
           initial={
             editingSubtaskIndex === null ? null : subtasks[editingSubtaskIndex]

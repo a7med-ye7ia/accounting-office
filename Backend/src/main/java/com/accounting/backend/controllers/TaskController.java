@@ -55,7 +55,7 @@ public class TaskController {
             if (callerId != null) {
                 taskService.assertManager(callerId);
             }
-            TaskResponse saved = taskService.createTask(request);
+            TaskResponse saved = taskService.createTask(request, callerId);
             Map<String, Object> meta = new HashMap<>();
             meta.put("taskTitle", saved.getTitle());
             meta.put("assignedTo", saved.getAssignedToName());
@@ -234,6 +234,8 @@ public class TaskController {
     private ResponseEntity<?> handle(ControllerAction action) {
         try {
             return action.run();
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("error", e.getReason()));
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {

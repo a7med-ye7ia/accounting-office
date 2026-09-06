@@ -49,8 +49,53 @@ public class DepartmentController {
     private ActivityLogService activityLogService;
 
     @GetMapping
-    public List<Department> getAllDepartments() {
-        return departmentRepository.findAll();
+    public List<Department> getAllDepartments(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam(value = "branchId", required = false) Long branchId) {
+        List<Department> all = departmentRepository.findAll();
+        if (branchId != null) {
+            all = all.stream()
+                    .filter(d -> d.getBranch() != null && branchId.equals(d.getBranch().getId()))
+                    .toList();
+        }
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return all;
+        }
+
+        User caller = authorizationService.resolveUser(authHeader);
+        if (caller == null) {
+            return all;
+        }
+        Long callerId = caller.getId();
+        SystemRole role = authorizationService.getUserRole(callerId);
+
+        if (role == SystemRole.OWNER) {
+            return all;
+        }
+
+        if (role == SystemRole.BRANCH_MANAGER) {
+            Long callerBranch = authorizationService.getUserBranchId(callerId);
+            return all.stream()
+                    .filter(d -> d.getBranch() != null && callerBranch != null && callerBranch.equals(d.getBranch().getId()))
+                    .toList();
+        }
+
+        if (role == SystemRole.DEPARTMENT_MANAGER) {
+            List<Long> managedDeptIds = authorizationService.getManagedDepartmentIds(callerId);
+            return all.stream()
+                    .filter(d -> managedDeptIds.contains(d.getId()))
+                    .toList();
+        }
+
+        if (role == SystemRole.EMPLOYEE) {
+            Long callerDept = authorizationService.getUserDepartmentId(callerId);
+            return all.stream()
+                    .filter(d -> callerDept != null && callerDept.equals(d.getId()))
+                    .toList();
+        }
+
+        return all;
     }
 
     @GetMapping("/{id}")

@@ -356,4 +356,99 @@ public class Phase2AuthorizationTest {
         // Another employee CANNOT change status
         assertFalse(authorizationService.canChangeTaskStatus(empDept3BranchB.getId(), task));
     }
+
+    // ========================================================
+    // 5. TASK ASSIGNMENT CASCADING & SCOPING VALIDATION TESTS
+    // ========================================================
+
+    @Test
+    @DisplayName("Owner can assign task across any branch and department")
+    void testOwnerCanAssignTaskAnywhere() {
+        assertDoesNotThrow(() -> {
+            authorizationService.validateTaskAssignment(
+                    owner.getId(), branchA.getId(), dept1BranchA.getId(), empDept1BranchA.getId());
+        });
+
+        assertDoesNotThrow(() -> {
+            authorizationService.validateTaskAssignment(
+                    owner.getId(), branchB.getId(), dept3BranchB.getId(), empDept3BranchB.getId());
+        });
+    }
+
+    @Test
+    @DisplayName("Branch Manager can assign task in own branch, fails in other branch")
+    void testBranchManagerTaskAssignmentScope() {
+        // Valid in own branch
+        assertDoesNotThrow(() -> {
+            authorizationService.validateTaskAssignment(
+                    bmBranchA.getId(), branchA.getId(), dept1BranchA.getId(), empDept1BranchA.getId());
+        });
+
+        // Fails in other branch (403 FORBIDDEN)
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+            authorizationService.validateTaskAssignment(
+                    bmBranchA.getId(), branchB.getId(), dept3BranchB.getId(), empDept3BranchB.getId());
+        });
+        assertEquals(403, ex.getStatusCode().value());
+    }
+
+    @Test
+    @DisplayName("Department Manager can assign in managed dept, fails in unmanaged dept")
+    void testDepartmentManagerTaskAssignmentScope() {
+        // Valid in managed department
+        assertDoesNotThrow(() -> {
+            authorizationService.validateTaskAssignment(
+                    dmDept1.getId(), branchA.getId(), dept1BranchA.getId(), empDept1BranchA.getId());
+        });
+
+        // Fails in unmanaged dept in same branch (403 FORBIDDEN)
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+            authorizationService.validateTaskAssignment(
+                    dmDept1.getId(), branchA.getId(), dept2BranchA.getId(), empDept1BranchA.getId());
+        });
+        assertEquals(403, ex.getStatusCode().value());
+    }
+
+    @Test
+    @DisplayName("Subordinate cannot assign task to Owner (403 FORBIDDEN)")
+    void testSubordinateCannotAssignToOwner() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+            authorizationService.validateTaskAssignment(
+                    bmBranchA.getId(), branchA.getId(), dept1BranchA.getId(), owner.getId());
+        });
+        assertEquals(403, ex.getStatusCode().value());
+    }
+
+    @Test
+    @DisplayName("Employee cannot assign tasks (403 FORBIDDEN)")
+    void testEmployeeCannotAssignTasks() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+            authorizationService.validateTaskAssignment(
+                    empDept1BranchA.getId(), branchA.getId(), dept1BranchA.getId(), empDept1BranchA.getId());
+        });
+        assertEquals(403, ex.getStatusCode().value());
+    }
+
+    @Test
+    @DisplayName("Mismatched Department and Branch throws 400 BAD REQUEST")
+    void testMismatchedDepartmentAndBranch() {
+        // dept3BranchB belongs to branchB, but branchA is passed
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+            authorizationService.validateTaskAssignment(
+                    owner.getId(), branchA.getId(), dept3BranchB.getId(), empDept1BranchA.getId());
+        });
+        assertEquals(400, ex.getStatusCode().value());
+    }
+
+    @Test
+    @DisplayName("Employee not belonging to selected Branch or Department throws 400 BAD REQUEST")
+    void testMismatchedEmployeeBranchOrDepartment() {
+        // empDept3BranchB belongs to Branch B / Dept 3, but Branch A / Dept 1 is passed
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> {
+            authorizationService.validateTaskAssignment(
+                    owner.getId(), branchA.getId(), dept1BranchA.getId(), empDept3BranchB.getId());
+        });
+        assertEquals(400, ex.getStatusCode().value());
+    }
 }
+

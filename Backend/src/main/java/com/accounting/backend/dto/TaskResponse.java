@@ -21,6 +21,10 @@ public class TaskResponse {
     private String assignedToName;
     private Long createdById;
     private String createdByName;
+    private Long branchId;
+    private String branchName;
+    private Long departmentId;
+    private String departmentName;
     private LocalDateTime dueDate;
     private LocalDateTime createdAt;
     private List<CommentResponse> comments;
@@ -53,6 +57,15 @@ public class TaskResponse {
     public void setCreatedById(Long createdById) { this.createdById = createdById; }
     public String getCreatedByName() { return createdByName; }
     public LocalDateTime getDueDate() { return dueDate; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
+    public String getBranchName() { return branchName; }
+    public void setBranchName(String branchName) { this.branchName = branchName; }
+    public Long getDepartmentId() { return departmentId; }
+    public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
+    public String getDepartmentName() { return departmentName; }
+    public void setDepartmentName(String departmentName) { this.departmentName = departmentName; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public List<CommentResponse> getComments() { return comments; }
     public TaskStatus getStatus() { return status; }
@@ -93,6 +106,15 @@ public class TaskResponse {
 
         if (task.getCreatedBy() != null) {
             response.setCreatedById(task.getCreatedBy().getId());
+        }
+
+        if (task.getDepartment() != null) {
+            response.setDepartmentId(task.getDepartment().getId());
+            response.setDepartmentName(task.getDepartment().getName());
+            if (task.getDepartment().getBranch() != null) {
+                response.setBranchId(task.getDepartment().getBranch().getId());
+                response.setBranchName(task.getDepartment().getBranch().getName());
+            }
         }
 
         List<SubTask> liveSubtasks = liveSubTasks(task);

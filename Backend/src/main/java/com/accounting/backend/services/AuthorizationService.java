@@ -498,6 +498,78 @@ public class AuthorizationService {
     }
 
     /**
+     * Validates task assignment targets and role scope:
+     * - Department must belong to Branch (validateBranchDepartmentConsistency).
+     * - Employee must belong to Branch.
+     * - Employee must belong to Department.
+     * - Caller role scope enforcement:
+     *   - OWNER: can assign across any branch/department to any employee.
+     *   - BRANCH_MANAGER: can only assign in own branch, to employees in own branch.
+     *   - DEPARTMENT_MANAGER: can only assign in managed departments, to employees in managed departments.
+     *   - EMPLOYEE: cannot assign tasks.
+     *   - Non-owners cannot assign to Owner.
+     */
+    public void validateTaskAssignment(Long callerId, Long branchId, Long departmentId, Long assignedToId) {
+        if (assignedToId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "الموظف المسؤول عن المهمة مطلوب");
+        }
+
+        User assignedUser = userRepository.findById(assignedToId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "الموظف المحدد غير موجود"));
+
+        Long empBranch = getUserBranchId(assignedToId);
+        Long empDept = getUserDepartmentId(assignedToId);
+
+        if (branchId != null && departmentId != null) {
+            validateBranchDepartmentConsistency(branchId, departmentId);
+        }
+
+        if (branchId != null) {
+            if (empBranch == null || !branchId.equals(empBranch)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "الموظف المحدد لا ينتمي إلى الفرع المختار");
+            }
+        }
+
+        if (departmentId != null) {
+            if (empDept == null || !departmentId.equals(empDept)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "الموظف المحدد لا ينتمي إلى القسم المختار");
+            }
+        }
+
+        if (callerId != null) {
+            SystemRole callerRole = getUserRole(callerId);
+
+            if (callerRole == SystemRole.EMPLOYEE) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "غير مصرح للموظف بإنشاء أو تعيين مهام");
+            }
+
+            if (callerRole != SystemRole.OWNER && isOwner(assignedToId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "لا يمكن تعيين مهمة للمالك");
+            }
+
+            if (callerRole == SystemRole.BRANCH_MANAGER) {
+                Long callerBranch = getUserBranchId(callerId);
+                if (branchId != null && !branchId.equals(callerBranch)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "لا يمكن لمدير الفرع إنشاء مهمة في فرع آخر");
+                }
+                if (empBranch != null && !empBranch.equals(callerBranch)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "لا يمكن لمدير الفرع تعيين مهمة لموظف خارج فرعه");
+                }
+            }
+
+            if (callerRole == SystemRole.DEPARTMENT_MANAGER) {
+                List<Long> managedDepts = getManagedDepartmentIds(callerId);
+                if (departmentId != null && !managedDepts.contains(departmentId)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "لا يمكن لمدير القسم إنشاء مهمة خارج الأقسام التي يديرها");
+                }
+                if (empDept != null && !managedDepts.contains(empDept)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "لا يمكن لمدير القسم تعيين مهمة لموظف خارج الأقسام التي يديرها");
+                }
+            }
+        }
+    }
+
+    /**
      * ONLY the task creator can edit a task.
      */
     public boolean canEditTask(Long callerId, Task task) {

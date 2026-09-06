@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.accounting.backend.dto.SubTaskRequest;
 import com.accounting.backend.dto.TaskRequest;
 import com.accounting.backend.dto.TaskResponse;
+import com.accounting.backend.entities.Department;
 import com.accounting.backend.entities.SubTask;
 import com.accounting.backend.entities.Task;
 import com.accounting.backend.entities.User;
@@ -22,6 +23,7 @@ import com.accounting.backend.enums.NotificationType;
 import com.accounting.backend.enums.SubTaskStatus;
 import com.accounting.backend.enums.TaskStatus;
 import com.accounting.backend.enums.UserStatus;
+import com.accounting.backend.repositories.DepartmentRepository;
 import com.accounting.backend.repositories.SubTaskRepository;
 import com.accounting.backend.repositories.TaskApprovalRepository;
 import com.accounting.backend.repositories.TaskRepository;
@@ -45,6 +47,12 @@ public class TaskService {
     private UserRoleRepository userRoleRepository;
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private DepartmentRepository departmentRepository;
+    @Autowired
+    private AuthorizationService authorizationService;
+    @Autowired
+    private com.accounting.backend.repositories.CompanyRepository companyRepository;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> getAllTasks() {
@@ -72,13 +80,30 @@ public class TaskService {
 
     @Transactional
     public TaskResponse createTask(TaskRequest request) {
+        return createTask(request, request.getCreatedById());
+    }
+
+    @Transactional
+    public TaskResponse createTask(TaskRequest request, Long callerId) {
         validateParentCreate(request);
 
         Long parentAssigneeId = resolveParentAssigneeId(request);
         User assignedUser = requireAssignableUser(parentAssigneeId);
-        User createdByUser = requireUser(request.getCreatedById(), "Creator user not found");
+        Long effectiveCallerId = callerId != null ? callerId : request.getCreatedById();
+        User createdByUser = requireUser(effectiveCallerId, "Creator user not found");
         rejectUnverified(createdByUser,
                 "Your account is not yet verified. Please change your temporary password first.");
+
+        // Validate Task Assignment (Branch -> Department -> Employee + Role Scoping)
+        authorizationService.validateTaskAssignment(effectiveCallerId, request.getBranchId(), request.getDepartmentId(), assignedUser.getId());
+
+        // Validate subtasks assignees if present
+        if (request.getSubtasks() != null) {
+            for (SubTaskRequest subRequest : request.getSubtasks()) {
+                Long subAssigneeId = subRequest.getAssignedToId() != null ? subRequest.getAssignedToId() : assignedUser.getId();
+                authorizationService.validateTaskAssignment(effectiveCallerId, request.getBranchId(), request.getDepartmentId(), subAssigneeId);
+            }
+        }
 
         LocalDateTime parentDueDate = resolveParentDueDate(request);
 
@@ -90,6 +115,15 @@ public class TaskService {
         task.setCreatedAt(LocalDateTime.now());
         task.setAssignedTo(assignedUser);
         task.setCreatedBy(createdByUser);
+
+        if (request.getDepartmentId() != null) {
+            Department dept = departmentRepository.findById(request.getDepartmentId()).orElse(null);
+            task.setDepartment(dept);
+        }
+
+        if (request.getCompanyId() != null) {
+            companyRepository.findById(request.getCompanyId()).ifPresent(task::setCompany);
+        }
 
         if (request.getSubtasks() != null) {
             for (SubTaskRequest subRequest : request.getSubtasks()) {
@@ -122,6 +156,23 @@ public class TaskService {
             return TaskResponse.mapToResponse(updated);
         }
 
+        if (callerId != null && !authorizationService.canEditTask(callerId, task)) {
+            throw new SecurityException("فقط منشئ المهمة يمكنه تعديلها");
+        }
+
+        if (request.getAssignedToId() != null || request.getBranchId() != null || request.getDepartmentId() != null) {
+            Long targetAssigneeId = request.getAssignedToId() != null ? request.getAssignedToId() : (task.getAssignedTo() != null ? task.getAssignedTo().getId() : null);
+            Long targetBranchId = request.getBranchId();
+            Long targetDeptId = request.getDepartmentId() != null ? request.getDepartmentId() : (task.getDepartment() != null ? task.getDepartment().getId() : null);
+            if (targetBranchId == null && targetDeptId != null) {
+                Department d = departmentRepository.findById(targetDeptId).orElse(null);
+                if (d != null && d.getBranch() != null) targetBranchId = d.getBranch().getId();
+            }
+            if (targetAssigneeId != null) {
+                authorizationService.validateTaskAssignment(callerId, targetBranchId, targetDeptId, targetAssigneeId);
+            }
+        }
+
         String previousTitle = task.getTitle();
         String previousDescription = task.getDescription();
 
@@ -139,6 +190,13 @@ public class TaskService {
         }
         if (request.getCreatedById() != null) {
             task.setCreatedBy(requireUser(request.getCreatedById(), "Creator user not found"));
+        }
+        if (request.getDepartmentId() != null) {
+            Department dept = departmentRepository.findById(request.getDepartmentId()).orElse(null);
+            task.setDepartment(dept);
+        }
+        if (request.getCompanyId() != null) {
+            companyRepository.findById(request.getCompanyId()).ifPresent(task::setCompany);
         }
 
         boolean taskContentChanged = !Objects.equals(previousTitle, task.getTitle())

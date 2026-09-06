@@ -8,12 +8,20 @@ public class TaskRequest {
 
     private String title;
     private String description;
+    private Long branchId;
+    private Long departmentId;
     private Long assignedToId;
     private Long createdById;
     private Long companyId;
     private TaskStatus status;
     private LocalDateTime dueDate;
     private List<SubTaskRequest> subtasks;
+
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
+
+    public Long getDepartmentId() { return departmentId; }
+    public void setDepartmentId(Long departmentId) { this.departmentId = departmentId; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
