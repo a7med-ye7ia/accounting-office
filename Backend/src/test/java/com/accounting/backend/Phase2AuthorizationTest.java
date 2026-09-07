@@ -363,7 +363,7 @@ public class Phase2AuthorizationTest {
 
     @Test
     @DisplayName("Owner can assign task across any branch and department")
-    void testOwnerCanAssignTaskAnywhere() {
+    void testValidateTaskAssignment_OwnerCanAssignAnywhere() {
         assertDoesNotThrow(() -> {
             authorizationService.validateTaskAssignment(
                     owner.getId(), branchA.getId(), dept1BranchA.getId(), empDept1BranchA.getId());
@@ -377,7 +377,7 @@ public class Phase2AuthorizationTest {
 
     @Test
     @DisplayName("Branch Manager can assign task in own branch, fails in other branch")
-    void testBranchManagerTaskAssignmentScope() {
+    void testValidateTaskAssignment_BranchManagerScope() {
         // Valid in own branch
         assertDoesNotThrow(() -> {
             authorizationService.validateTaskAssignment(
@@ -394,7 +394,7 @@ public class Phase2AuthorizationTest {
 
     @Test
     @DisplayName("Department Manager can assign in managed dept, fails in unmanaged dept")
-    void testDepartmentManagerTaskAssignmentScope() {
+    void testValidateTaskAssignment_DepartmentManagerScope() {
         // Valid in managed department
         assertDoesNotThrow(() -> {
             authorizationService.validateTaskAssignment(
