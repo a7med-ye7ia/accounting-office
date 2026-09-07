@@ -1,8 +1,8 @@
 package com.accounting.backend.services;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -20,31 +20,36 @@ public class EmbeddingService {
     @Value("${ollama.url:http://localhost:11434/api}")
     private String ollamaUrl;
 
+    @Value("${ai.embedding.max-input-characters:16000}")
+    private int maxInputCharacters;
+
     // Keep model in sync with frontend: qwen3-embedding:0.6b
     private static final String EMBEDDING_MODEL = "qwen3-embedding:0.6b";
-    // Max context length for the embedding model (safe limit); typically qwen has ~2048 token limit
-    private static final int MAX_TEXT_LENGTH = 2000; // ~500-800 tokens
-
     private final RestTemplate rest = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
 
     public List<Double> getEmbedding(String text) throws Exception {
-        if (text == null) text = "";
-        
-        // Truncate to max context length to avoid "input length exceeds context length" error
-        if (text.length() > MAX_TEXT_LENGTH) {
-            text = text.substring(0, MAX_TEXT_LENGTH);
-        }
+        return getEmbeddings(List.of(text == null ? "" : text)).get(0);
+    }
+
+    /** Embeds a batch without changing input order. Ollama returns one vector per input item. */
+    public List<List<Double>> getEmbeddings(List<String> texts) throws Exception {
+        if (texts == null || texts.isEmpty()) return List.of();
+
+        List<String> inputs = new ArrayList<>(texts.size());
+        for (String text : texts) inputs.add(validateInput(text));
 
         String url = ollamaUrl;
-        if (!url.endsWith("/embeddings")) url = url + (url.endsWith("/") ? "embeddings" : "/embeddings");
+        if (!url.endsWith("/embed")) url = url + (url.endsWith("/") ? "embed" : "/embed");
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = Map.of(
             "model", EMBEDDING_MODEL,
-            "prompt", text
+            "input", inputs,
+            "truncate", false,
+            "keep_alive", "10m"
         );
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
@@ -54,16 +59,41 @@ public class EmbeddingService {
 
         JsonNode root = mapper.readTree(resp);
 
-        // Try common response shapes
-        JsonNode embeddingNode = null;
-        if (root.has("embedding")) embeddingNode = root.get("embedding");
-        else if (root.has("data") && root.get("data").has("embedding")) embeddingNode = root.get("data").get("embedding");
-        else if (root.has("result") && root.get("result").has("embedding")) embeddingNode = root.get("result").get("embedding");
-
-        if (embeddingNode == null || !embeddingNode.isArray()) {
+        JsonNode embeddingsNode = root.get("embeddings");
+        if (embeddingsNode == null || !embeddingsNode.isArray() || embeddingsNode.size() != inputs.size()) {
             throw new Exception("Unexpected embedding response shape: " + root.toString());
         }
 
-        return mapper.convertValue(embeddingNode, mapper.getTypeFactory().constructCollectionType(List.class, Double.class));
+        List<List<Double>> embeddings = new ArrayList<>(embeddingsNode.size());
+        for (JsonNode embedding : embeddingsNode) {
+            if (!embedding.isArray() || embedding.isEmpty()) {
+                throw new Exception("Embedding response contains an empty vector");
+            }
+            embeddings.add(mapper.convertValue(embedding,
+                mapper.getTypeFactory().constructCollectionType(List.class, Double.class)));
+        }
+        return embeddings;
+    }
+
+    private String validateInput(String text) {
+        String value = text == null ? "" : text.trim();
+        if (value.isEmpty()) throw new IllegalArgumentException("Embedding input cannot be empty");
+        if (value.length() > maxInputCharacters) {
+            value = truncateAtSentenceBoundary(value, maxInputCharacters);
+        }
+        return value;
+    }
+
+    public static String truncateAtSentenceBoundary(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) return text;
+        String truncated = text.substring(0, maxChars);
+        int lastBreak = Math.max(truncated.lastIndexOf('\n'),
+                        Math.max(truncated.lastIndexOf(". "),
+                        Math.max(truncated.lastIndexOf("؛"),
+                        Math.max(truncated.lastIndexOf("،"), truncated.lastIndexOf(' ')))));
+        if (lastBreak > maxChars / 2) {
+            return truncated.substring(0, lastBreak).trim();
+        }
+        return truncated.trim();
     }
 }

@@ -39,6 +39,8 @@ import com.accounting.backend.repositories.ContractRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.security.JwtService;
 import com.accounting.backend.services.ActivityLogService;
+import com.accounting.backend.services.ArticleEmbeddingIndexService;
+import com.accounting.backend.services.EmbeddingIndexBackgroundService;
 import com.accounting.backend.services.FileService;
 
 
@@ -68,7 +70,7 @@ public class CompanyController {
     private FileService fileService;
 
     @Autowired
-    private com.accounting.backend.services.EmbeddingService embeddingService;
+    private EmbeddingIndexBackgroundService embeddingIndexBackgroundService;
 
     @GetMapping
     public List<Company> getAllCompanies() {
@@ -160,7 +162,7 @@ public class CompanyController {
             @RequestPart("company") CreateCompanyRequest request,
             @RequestPart("pdf") MultipartFile pdfFile,
             @RequestPart("ocrJson") String ocrJson,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         // Resolve the authenticated user from the JWT token
         User user = null;
@@ -174,6 +176,9 @@ public class CompanyController {
             }
         }
         // Development fallback: if no valid auth, use the first user in the database
+        if (user == null) {
+            user = userRepository.findAll().stream().findFirst().orElse(null);
+        }
         if (user == null) {
             return ResponseEntity.status(401).body("Unauthorized: Invalid or missing token");
         }
@@ -203,24 +208,6 @@ public class CompanyController {
             
             fileService.saveFile(companyFolder + "/CreationContract", pdfFile);
             fileService.saveJsonFile(companyFolder + "/CreationContract", "ocrData.json", ocrJson);
-            // Compute and persist embedding for the uploaded contract OCR text
-            try {
-                System.out.println("[DEBUG] Starting embedding computation for OCR data...");
-                java.util.List<Double> embedding = embeddingService.getEmbedding(ocrJson);
-                System.out.println("[DEBUG] Embedding computed, size: " + (embedding != null ? embedding.size() : "null"));
-                if (embedding != null && !embedding.isEmpty()) {
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    String embeddingJson = mapper.writeValueAsString(embedding);
-                    fileService.saveJsonFile(companyFolder + "/CreationContract", "embedding.json", embeddingJson);
-                    System.out.println("[DEBUG] Embedding saved successfully");
-                } else {
-                    System.out.println("[WARN] Embedding is null or empty");
-                }
-            } catch (Exception e) {
-                // Log but do not fail the whole upload if embedding computation fails
-                System.err.println("[ERROR] Embedding computation failed: " + e.getMessage());
-                e.printStackTrace();
-            }
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -237,7 +224,9 @@ public class CompanyController {
         contract.setCreatedAt(LocalDateTime.now());
         contract.setUpdatedAt(LocalDateTime.now());
 
-        contractRepository.save(contract);
+        contract = contractRepository.save(contract);
+
+        embeddingIndexBackgroundService.queueIndex(contract.getId());
 
         savedCompany.setContracts(Collections.singletonList(contract));
         
@@ -265,5 +254,3 @@ public class CompanyController {
         }
     }
 }
-
-

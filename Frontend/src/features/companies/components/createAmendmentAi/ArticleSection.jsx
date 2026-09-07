@@ -6,6 +6,7 @@
 //   • smart semantic search
 // ─────────────────────────────────────────────────────────
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import { generateResponseStream } from "../../../../api/ollamaClient.js";
 import { handleSmartPickArticles } from "../../../../services/smartPickService.js";
 import MicButton from "../../../../shared/components/MicButton.jsx";
@@ -20,6 +21,7 @@ export default function ArticleSection({
   onChangeSection,
   company, // Company object with id
 }) {
+  const params = useParams();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [streamingOutput, setStreamingOutput] = useState("");
@@ -45,32 +47,49 @@ export default function ArticleSection({
   };
 
   const handleSmartPick = async () => {
-    if (!section.prompt || !company?.id) return;
-    
+    const resolvedCompanyId = company?.id ?? params?.companyId ?? (typeof company === "number" || typeof company === "string" ? company : null);
+
+    if (!section.prompt?.trim()) {
+      setSmartSearchNote("يرجى كتابة تعليمات التعديل أولاً للبحث عن المادة المناسبة.");
+      return;
+    }
+
+    if (!resolvedCompanyId) {
+      console.warn("Smart search: company object missing ID", company);
+      setSmartSearchNote("تعذر التعرّف على رقم الشركة الحالية.");
+      return;
+    }
+
     setSmartSearching(true);
     setSmartSearchNote("");
     setSmartSearchScore(null);
     setSmartSearchResults([]);
 
-    const result = await handleSmartPickArticles(
-      company.id,
-      section.prompt,
-      3 // topK
-    );
+    try {
+      const result = await handleSmartPickArticles(
+        resolvedCompanyId,
+        section.prompt,
+        3 // topK
+      );
 
-    if (result.success && result.bestArticle) {
-      // Pick the best article from backend search
-      handlePickArticle({
-        id: result.bestArticle.id,
-        title: result.bestArticle.title,
-        content: result.bestArticle.content,
-      });
+      if (result.success && result.bestArticle) {
+        // Pick the best article from backend search
+        handlePickArticle({
+          id: result.bestArticle.id,
+          title: result.bestArticle.title,
+          content: result.bestArticle.content,
+        });
+      }
+
+      setSmartSearchNote(result.message);
+      setSmartSearchScore(result.bestScore);
+      setSmartSearchResults(result.results || []);
+    } catch (err) {
+      console.error("Smart search error:", err);
+      setSmartSearchNote("حدث خطأ أثناء إجراء البحث الذكي.");
+    } finally {
+      setSmartSearching(false);
     }
-
-    setSmartSearchNote(result.message);
-    setSmartSearchScore(result.bestScore);
-    setSmartSearchResults(result.results || []);
-    setSmartSearching(false);
   };
 
   // Send to AI

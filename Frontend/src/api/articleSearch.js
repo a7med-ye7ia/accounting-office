@@ -1,11 +1,8 @@
-import axios from "axios";
+import apiClient from "./client";
 
-const BACKEND_API = import.meta.env.VITE_API_URL || "";
-
-export const searchArticles = async (companyId, query, topK = 5) => {
+export const searchArticles = async (companyId, query, topK = 3) => {
   try {
-    const endpoint = (BACKEND_API || "") + "/api/articles/search";
-    const response = await axios.post(endpoint, {
+    const response = await apiClient.post("/articles/search", {
       companyId,
       query,
       topK,

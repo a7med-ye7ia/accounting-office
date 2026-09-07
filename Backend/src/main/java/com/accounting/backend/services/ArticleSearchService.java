@@ -1,137 +1,134 @@
 package com.accounting.backend.services;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.accounting.backend.dtos.ArticleSearchResult;
-import com.accounting.backend.entities.Company;
-import com.accounting.backend.repositories.CompanyRepository;
+import com.accounting.backend.entities.Contract;
+import com.accounting.backend.enums.ContractType;
+import com.accounting.backend.repositories.ContractRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class ArticleSearchService {
 
-    @Autowired
-    private EmbeddingService embeddingService;
-
-    @Autowired
-    private CompanyRepository companyRepository;
-
-    private final ObjectMapper mapper = new ObjectMapper();
     private static final String FILE_SYSTEM_ROOT = "../FileSystem";
 
-    /**
-     * Search for articles in a company's contracts by semantic similarity
-     * (cosine similarity in embedding space).
-     *
-     * @param companyId   Company ID to search within
-     * @param query       Query text (will be embedded)
-     * @param topK        Number of top results to return
-     * @return            List of articles ranked by similarity score
-     */
-    public List<ArticleSearchResult> searchArticles(Long companyId, String query, int topK)
-            throws Exception {
-        // Validate company exists
-        Optional<Company> company = companyRepository.findById(companyId);
-        if (!company.isPresent()) {
-            return Collections.emptyList();
-        }
+    private final EmbeddingService embeddingService;
+    private final ContractRepository contractRepository;
+    private final ArticleEmbeddingIndexService articleEmbeddingIndexService;
+    private final ObjectMapper mapper = new ObjectMapper();
 
-        // Get query embedding
+    public ArticleSearchService(EmbeddingService embeddingService,
+            ContractRepository contractRepository,
+            ArticleEmbeddingIndexService articleEmbeddingIndexService) {
+        this.embeddingService = embeddingService;
+        this.contractRepository = contractRepository;
+        this.articleEmbeddingIndexService = articleEmbeddingIndexService;
+    }
+
+    /** Ranks the company contract's OCR articles using its persistent per-article index. */
+    public List<ArticleSearchResult> searchArticles(Long companyId, String query, int topK) throws Exception {
+        if (query == null || query.isBlank() || topK < 1) return Collections.emptyList();
+
+        Contract contract = contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING)
+            .orElseGet(() -> contractRepository.findAll().stream()
+                .filter(c -> c.getCompany() != null && c.getCompany().getId().equals(companyId))
+                .findFirst().orElse(null));
+        if (contract == null || contract.getFilePath() == null) return Collections.emptyList();
+
         List<Double> queryVector = embeddingService.getEmbedding(query);
-        if (queryVector == null || queryVector.isEmpty()) {
-            return Collections.emptyList();
+        if (queryVector == null || queryVector.isEmpty()) return Collections.emptyList();
+
+        Path contractDirectory = Path.of(FILE_SYSTEM_ROOT, contract.getFilePath()).getParent();
+        if (contractDirectory == null) return Collections.emptyList();
+
+        Path ocrPath = contractDirectory.resolve("ocrData.json");
+        String ocrJson = null;
+        if (Files.exists(ocrPath)) {
+            ocrJson = Files.readString(ocrPath);
+        } else if (contract.getOcrData() != null && !contract.getOcrData().isBlank()) {
+            ocrJson = contract.getOcrData();
         }
 
-        // Load OCR and embedding data from FileSystem
-        String companyFolder = companyId + " - " + company.get().getName();
-        List<ArticleSearchResult> results = new ArrayList<>();
+        if (ocrJson == null || ocrJson.isBlank()) return Collections.emptyList();
 
+        Path relativeFolder = Path.of(contract.getFilePath()).getParent();
+        Path indexPath = contractDirectory.resolve(ArticleEmbeddingIndexService.INDEX_FILE_NAME);
+
+        if (!Files.exists(indexPath) && relativeFolder != null) {
+            articleEmbeddingIndexService.indexContract(contract, relativeFolder.toString(), ocrJson);
+        }
+
+        if (!Files.exists(indexPath)) return Collections.emptyList();
+
+        JsonNode indexRoot = mapper.readTree(Files.readString(indexPath));
         try {
-            Path creationContractPath = Path.of(FILE_SYSTEM_ROOT, companyFolder, "CreationContract");
-            Path ocrPath = creationContractPath.resolve("ocrData.json");
-            Path embeddingPath = creationContractPath.resolve("embedding.json");
-
-            if (!Files.exists(ocrPath) || !Files.exists(embeddingPath)) {
-                return Collections.emptyList();
+            verifyIndex(indexRoot, contract, ocrJson, queryVector.size());
+        } catch (IllegalStateException e) {
+            if (relativeFolder != null) {
+                articleEmbeddingIndexService.reindexContract(contract, relativeFolder.toString(), ocrJson);
+                indexRoot = mapper.readTree(Files.readString(indexPath));
             }
-
-            // Parse OCR data
-            String ocrContent = Files.readString(ocrPath);
-            JsonNode ocrData = mapper.readTree(ocrContent);
-
-            // Parse embedding vector
-            String embeddingContent = Files.readString(embeddingPath);
-            List<Double> contractVector = mapper.readValue(embeddingContent,
-                    mapper.getTypeFactory().constructCollectionType(List.class, Double.class));
-
-            // For now: single contract similarity score
-            // (In future: iterate over multiple contracts/articles per company)
-            if (ocrData.has("articles") && ocrData.get("articles").isArray()) {
-                for (JsonNode article : ocrData.get("articles")) {
-                    String articleId = article.has("id") ? article.get("id").asText() : "unknown";
-                    String articleText = article.has("value") ? article.get("value").asText() : "";
-
-                    // Compute cosine similarity between query and contract
-                    double similarity = cosineSimilarity(queryVector, contractVector);
-
-                    results.add(new ArticleSearchResult(
-                            articleId,
-                            articleText,
-                            similarity,
-                            companyId
-                    ));
-                }
-            }
-        } catch (IOException e) {
-            // Log error but return empty list
-            e.printStackTrace();
         }
 
-        // Sort by similarity (descending) and return top K
+        Map<String, String> articleTextById = articleTextById(mapper.readTree(ocrJson));
+        List<ArticleSearchResult> results = new ArrayList<>();
+        for (JsonNode indexedArticle : indexRoot.path("articles")) {
+            String articleId = indexedArticle.path("articleId").asText();
+            String articleText = articleTextById.get(articleId);
+            JsonNode vectorNode = indexedArticle.path("embedding");
+            if (articleText == null || !vectorNode.isArray()) continue;
+
+            List<Double> vector = mapper.convertValue(vectorNode,
+                mapper.getTypeFactory().constructCollectionType(List.class, Double.class));
+            results.add(new ArticleSearchResult(articleId, articleText,
+                cosineSimilarity(queryVector, vector), companyId));
+        }
+
         results.sort(Comparator.comparingDouble(ArticleSearchResult::getScore).reversed());
         return results.subList(0, Math.min(topK, results.size()));
     }
 
-    /**
-     * Compute cosine similarity between two vectors.
-     */
-    private double cosineSimilarity(List<Double> vecA, List<Double> vecB) {
-        if (vecA == null || vecB == null || vecA.isEmpty() || vecB.isEmpty()) {
-            return 0.0;
+    private void verifyIndex(JsonNode index, Contract contract, String ocrJson, int queryDimensions) {
+        if (index.path("schemaVersion").asInt() != 1
+                || index.path("contractId").asLong() != contract.getId()
+                || !ArticleEmbeddingIndexService.sha256(ocrJson).equals(index.path("sourceHash").asText())) {
+            throw new IllegalStateException("Article embedding index is stale; re-index this contract");
         }
-
-        int minLen = Math.min(vecA.size(), vecB.size());
-        double dotProduct = 0.0;
-        double magA = 0.0;
-        double magB = 0.0;
-
-        for (int i = 0; i < minLen; i++) {
-            double a = vecA.get(i);
-            double b = vecB.get(i);
-            dotProduct += a * b;
-            magA += a * a;
-            magB += b * b;
+        if (index.path("dimensions").asInt() != queryDimensions) {
+            throw new IllegalStateException("Article embedding index uses an incompatible model");
         }
+    }
 
-        magA = Math.sqrt(magA);
-        magB = Math.sqrt(magB);
-
-        if (magA == 0.0 || magB == 0.0) {
-            return 0.0;
+    private Map<String, String> articleTextById(JsonNode ocrRoot) {
+        Map<String, String> articles = new HashMap<>();
+        for (JsonNode article : ocrRoot.path("articles")) {
+            String id = ArticleEmbeddingIndexService.articleId(article);
+            String text = ArticleEmbeddingIndexService.articleText(article);
+            if (id != null && text != null) articles.put(id, text);
         }
+        return articles;
+    }
 
-        return dotProduct / (magA * magB);
+    private double cosineSimilarity(List<Double> a, List<Double> b) {
+        if (a.size() != b.size() || a.isEmpty()) return 0.0;
+        double dot = 0.0, aMagnitude = 0.0, bMagnitude = 0.0;
+        for (int i = 0; i < a.size(); i++) {
+            dot += a.get(i) * b.get(i);
+            aMagnitude += a.get(i) * a.get(i);
+            bMagnitude += b.get(i) * b.get(i);
+        }
+        if (aMagnitude == 0.0 || bMagnitude == 0.0) return 0.0;
+        return dot / (Math.sqrt(aMagnitude) * Math.sqrt(bMagnitude));
     }
 }

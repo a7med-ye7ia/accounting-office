@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react"; // Cach
 import { mockArticles } from "../../../shared/data/mockData";
 import companyExampleData from "../../../shared/data/companyExampleData.json";
 import { generateResponse } from "../../../api/ollamaClient.js";
+import { handleSmartPickArticles } from "../../../services/smartPickService.js";
 
 // ─────────────────────────────────────────────────────────
 // helpers
@@ -622,45 +623,23 @@ function ArticleSection({
   };
 
   const handleSmartPick = async () => {
-    if (!section.prompt) return;
+    if (!section.prompt || !company?.id) return;
     setSmartSearching(true);
     setSmartSearchNote("");
-    setSmartSearchScore(null); // Cach
+    setSmartSearchScore(null);
     setSmartSearchResults([]);
     try {
-      const cosineSimilarity = (vecA, vecB) => {
-        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-        const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-        const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-        if (!magA || !magB) return 0;
-        return dotProduct / (magA * magB);
-      };
-
-      const minSimilarity = 0.5;
-
-      const queryVector = await getEmbedding(section.prompt);
-      if (!queryVector) {
-        setSmartSearchNote("تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً، وتم إيقاف البحث الذكي مؤقتاً.");
-        return;
+      const result = await handleSmartPickArticles(company.id, section.prompt, 3);
+      if (result.success && result.bestArticle) {
+        handlePickArticle({
+          id: result.bestArticle.id,
+          title: result.bestArticle.title,
+          content: result.bestArticle.content,
+        });
       }
-      const scoredArticles = await Promise.all(
-        availableArticles.map(async (article) => {
-          const articleVector = await getCachedEmbedding( // Cach
-            String(article.id), // Cach
-            String(article.content ?? "") // Cach
-          ); // Cach
-          const score = cosineSimilarity(queryVector, articleVector);
-          return { ...article, score };
-        })
-      );
-      const sorted = scoredArticles.sort((a, b) => b.score - a.score);
-      const topMatches = sorted.slice(0, 3);
-      const topScore = sorted[0] ? sorted[0].score : null; // Cach
-      setSmartSearchScore(topScore); // Cach
-      setSmartSearchResults(topMatches);
-      if (!topScore || topScore < minSimilarity) {
-        setSmartSearchNote("لم يتم العثور على مادة مطابقة بشكل كافٍ.");
-      }
+      setSmartSearchNote(result.message);
+      setSmartSearchScore(result.bestScore);
+      setSmartSearchResults(result.results || []);
     } catch (err) {
       console.error("Smart search error:", err);
     } finally {

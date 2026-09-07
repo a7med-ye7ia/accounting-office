@@ -38,6 +38,7 @@ import com.accounting.backend.repositories.ContractRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.security.JwtService;
 import com.accounting.backend.services.ActivityLogService;
+import com.accounting.backend.services.EmbeddingIndexBackgroundService;
 import com.accounting.backend.services.FileService;
 import com.accounting.backend.services.PdfService;
 
@@ -60,6 +61,8 @@ public class ContractController {
     private FileService fileService;
     @Autowired
     private PdfService pdfService;
+    @Autowired
+    private EmbeddingIndexBackgroundService embeddingIndexBackgroundService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
@@ -75,6 +78,12 @@ public class ContractController {
     @GetMapping("/creating/{companyId}")
     public Optional<Contract> getContractByCompanyId(@PathVariable Long companyId) {
         return contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING);
+    }
+
+    @GetMapping("/{id}/embedding-status")
+    public ResponseEntity<?> getEmbeddingStatus(@PathVariable Long id) {
+        if (!contractRepository.existsById(id)) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(embeddingIndexBackgroundService.status(id));
     }
 
     @PostMapping
@@ -99,7 +108,8 @@ public class ContractController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestParam("companyId") Long companyId,
             @RequestParam("type") String type,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "ocrJson", required = false) String ocrJson) {
 
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("File is required");
@@ -133,6 +143,9 @@ public class ContractController {
             fileService.createFolder(companyFolder);
             fileService.createFolder(companyFolder + "/" + contractFolder);
             fileService.saveFile(companyFolder + "/" + contractFolder, file);
+            if (ocrJson != null && !ocrJson.isBlank()) {
+                fileService.saveJsonFile(companyFolder + "/" + contractFolder, "ocrData.json", ocrJson);
+            }
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body("Upload failed");
         }
@@ -143,10 +156,17 @@ public class ContractController {
         contract.setCreatedBy(user);
         contract.setStatus(ContractStatus.APPROVED);
         contract.setFilePath(companyFolder + "/" + contractFolder + "/" + file.getOriginalFilename());
+        if (ocrJson != null && !ocrJson.isBlank()) {
+            contract.setOcrData(ocrJson);
+        }
         contract.setCreatedAt(LocalDateTime.now());
         contract.setUpdatedAt(LocalDateTime.now());
 
         Contract saved = contractRepository.save(contract);
+        if (saved.getOcrData() != null && !saved.getOcrData().isBlank()) {
+            embeddingIndexBackgroundService.queueIndex(saved.getId());
+        }
+
         Map<String, Object> meta = new HashMap<>();
         meta.put("contractType", saved.getType().name());
         meta.put("companyName", company.getName());
@@ -196,17 +216,37 @@ public class ContractController {
             fileService.createFolder(relativeFolder);
             fileService.saveBytes(relativeFolder, fileName, pdfBytes);
 
+            com.fasterxml.jackson.databind.node.ObjectNode ocrRoot = objectMapper.createObjectNode();
+            com.fasterxml.jackson.databind.node.ArrayNode articlesArray = ocrRoot.putArray("articles");
+            if (pdfRequest.getSections() != null) {
+                for (PdfController.PdfRequest.SectionRequest sec : pdfRequest.getSections()) {
+                    com.fasterxml.jackson.databind.node.ObjectNode art = articlesArray.addObject();
+                    String artId = sec.getSelectedArticleId() != null && !sec.getSelectedArticleId().isBlank()
+                        ? sec.getSelectedArticleId() : sec.getId();
+                    art.put("id", artId != null ? artId : "sec_" + System.currentTimeMillis());
+                    art.put("title", sec.getSelectedArticleTitle() != null ? sec.getSelectedArticleTitle() : "");
+                    String text = sec.getAfterText() != null && !sec.getAfterText().isBlank()
+                        ? sec.getAfterText()
+                        : (sec.getModelOutput() != null ? sec.getModelOutput() : sec.getBeforeText());
+                    art.put("value", text != null ? text : "");
+                }
+            }
+            String ocrJsonString = objectMapper.writeValueAsString(ocrRoot);
+            fileService.saveJsonFile(relativeFolder, "ocrData.json", ocrJsonString);
+
             Contract contract = new Contract();
             contract.setType(ContractType.UPDATING);
             contract.setCompany(company);
             contract.setCreatedBy(user);
             contract.setStatus(ContractStatus.APPROVED);
             contract.setFilePath(relativeFolder + "/" + fileName);
-            contract.setOcrData(objectMapper.writeValueAsString(pdfRequest));
+            contract.setOcrData(ocrJsonString);
             contract.setCreatedAt(LocalDateTime.now());
             contract.setUpdatedAt(LocalDateTime.now());
 
             Contract saved = contractRepository.save(contract);
+            embeddingIndexBackgroundService.queueIndex(saved.getId());
+
             Map<String, Object> meta = new HashMap<>();
             meta.put("contractType", saved.getType().name());
             meta.put("companyName", company.getName());
