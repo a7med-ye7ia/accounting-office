@@ -92,6 +92,30 @@ export function useCreateAmendmentAiForm(company, articlesFromProps) {
     return request; // Cach
   }, []); // Cach
 
+  // Prefetch article embeddings in the background (throttled) so a later
+  // smart-search doesn't trigger many simultaneous embedding requests.
+  useEffect(() => {
+    if (!availableArticles || availableArticles.length === 0) return;
+    let cancelled = false;
+
+    (async function prefetch() {
+      const CONCURRENCY = 5; // tune this based on local Ollama capacity
+      for (let i = 0; i < availableArticles.length; i += CONCURRENCY) {
+        if (cancelled) break;
+        const batch = availableArticles.slice(i, i + CONCURRENCY);
+        await Promise.all(
+          batch.map((a) =>
+            getCachedEmbedding(String(a.id), String(a.content ?? "")).catch(() => null)
+          )
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [availableArticles, getCachedEmbedding]);
+
   return {
     availableArticles,
     articleCount,

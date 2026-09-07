@@ -67,6 +67,9 @@ public class CompanyController {
     @Autowired
     private FileService fileService;
 
+    @Autowired
+    private com.accounting.backend.services.EmbeddingService embeddingService;
+
     @GetMapping
     public List<Company> getAllCompanies() {
         List<Company> companies = companyRepository.findAll();
@@ -179,7 +182,11 @@ public class CompanyController {
         Company company = new Company();
         company.setName(request.getCompany_name());
         company.setCompanyType(request.getCompany_type());
-        company.setCommercialRegNo(request.getCommercial_register_number() + LocalDate.now().toString());
+        // Generate unique commercial register number: use provided value or generate from UUID + timestamp
+        String commercialRegNo = request.getCommercial_register_number() != null 
+            ? request.getCommercial_register_number() + LocalDate.now().toString()
+            : java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase() + LocalDate.now().toString();
+        company.setCommercialRegNo(commercialRegNo);
         company.setStatus(CompanyStatus.ACTIVE);
         company.setCreatedAt(LocalDateTime.now());
         company.setUpdatedAt(LocalDateTime.now());
@@ -196,6 +203,24 @@ public class CompanyController {
             
             fileService.saveFile(companyFolder + "/CreationContract", pdfFile);
             fileService.saveJsonFile(companyFolder + "/CreationContract", "ocrData.json", ocrJson);
+            // Compute and persist embedding for the uploaded contract OCR text
+            try {
+                System.out.println("[DEBUG] Starting embedding computation for OCR data...");
+                java.util.List<Double> embedding = embeddingService.getEmbedding(ocrJson);
+                System.out.println("[DEBUG] Embedding computed, size: " + (embedding != null ? embedding.size() : "null"));
+                if (embedding != null && !embedding.isEmpty()) {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    String embeddingJson = mapper.writeValueAsString(embedding);
+                    fileService.saveJsonFile(companyFolder + "/CreationContract", "embedding.json", embeddingJson);
+                    System.out.println("[DEBUG] Embedding saved successfully");
+                } else {
+                    System.out.println("[WARN] Embedding is null or empty");
+                }
+            } catch (Exception e) {
+                // Log but do not fail the whole upload if embedding computation fails
+                System.err.println("[ERROR] Embedding computation failed: " + e.getMessage());
+                e.printStackTrace();
+            }
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
