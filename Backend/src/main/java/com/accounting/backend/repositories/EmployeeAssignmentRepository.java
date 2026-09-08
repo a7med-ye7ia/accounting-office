@@ -10,5 +10,6 @@ import com.accounting.backend.entities.EmployeeAssignment;
 @Repository
 public  interface  EmployeeAssignmentRepository extends JpaRepository<EmployeeAssignment, Long> {
     List<EmployeeAssignment> findByUser_Id(Long userId);
+    List<EmployeeAssignment> findByDepartment_Id(Long departmentId);
     void deleteByUser_Id(Long userId);
 }

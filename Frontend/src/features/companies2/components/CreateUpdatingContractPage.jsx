@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   Brain,
@@ -14,7 +14,7 @@ import {
 
 import html2pdf from "html2pdf.js";
 import { Download } from "lucide-react";
-import { uploadContract } from "../../../api/contracts";
+import { generateAmendmentContract } from "../../../api/contracts";
 
 import MainLayout from "../../../shared/layout/MainLayout";
 // import { getCreatingContractByCompanyId } from "../services/contractsService";
@@ -912,6 +912,7 @@ function ModificationCard({
 export default function CreateUpdatingContractPage() {
 
   const { companyId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [creatingContract, setCreatingContract] = useState(null);
@@ -1375,17 +1376,47 @@ export default function CreateUpdatingContractPage() {
   };
 
   const saveFinalContract = async (finalContract) => {
-    // const jsonFile = new Blob(
-    //   [JSON.stringify(finalContract, null, 2)],
-    //   { type: "application/json" }
-    // );
+    // The backend renders the amendment PDF, stores it under EditingContracts,
+    // and persists it as a PENDING_APPROVAL UPDATING contract linked to the
+    // task (when opened with ?taskId=) so the manager can review it.
+    const pdfPayload = {
+      contractTitle: finalContract.title || "عقد تعديل",
+      companyName: finalContract.companyName || "",
+      companyLegalLine: "",
+      introText: finalContract.preambleText || "",
+      companyCapital: "",
+      contractDate: new Date().toISOString().slice(0, 10),
+      partners: (finalContract.partyLines || []).map((line) => ({
+        title: line,
+        name: "",
+        role: "",
+      })),
+      sections: (finalContract.modifications || []).map((modification, index) => ({
+        id: String(index),
+        selectedArticleId:
+          modification.articleId !== undefined && modification.articleId !== null
+            ? String(modification.articleId)
+            : "",
+        selectedArticleTitle: `المادة ${Number(modification.articleId) + 1 || index + 1}`,
+        beforeText: modification.before || "",
+        afterText: modification.after || "",
+        modelOutput: modification.after || "",
+        amendmentTitle: finalContract.title || "عقد تعديل",
+        embeddingScore: null,
+      })),
+    };
 
-    try { 
-      const response = uploadContract({companyId, type: "UPDATING", file: finalContract})
-      return response; 
-    } catch (error) { 
-      console.error("Error saving final contract:", error); 
-      throw error; 
+    try {
+      const response = generateAmendmentContract({
+        companyId,
+        taskId: searchParams.get("taskId"),
+        fileName: finalContract.title || `amendment_${Date.now()}`,
+        pdf: pdfPayload,
+      });
+      return response;
+    } catch (error) {
+      console.error("Error saving final contract:", error);
+      throw error;
     }
   }
 

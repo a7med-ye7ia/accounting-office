@@ -35,6 +35,7 @@ import com.accounting.backend.enums.ContractType;
 import com.accounting.backend.enums.EntityType;
 import com.accounting.backend.repositories.CompanyRepository;
 import com.accounting.backend.repositories.ContractRepository;
+import com.accounting.backend.repositories.TaskRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.security.JwtService;
 import com.accounting.backend.services.ActivityLogService;
@@ -60,6 +61,8 @@ public class ContractController {
     private FileService fileService;
     @Autowired
     private PdfService pdfService;
+    @Autowired
+    private TaskRepository taskRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
@@ -213,11 +216,15 @@ public class ContractController {
             contract.setType(ContractType.UPDATING);
             contract.setCompany(company);
             contract.setCreatedBy(user);
-            contract.setStatus(ContractStatus.APPROVED);
+            // Amendment stays pending until the manager approves it via task review
+            contract.setStatus(ContractStatus.PENDING_APPROVAL);
             contract.setFilePath(relativeFolder + "/" + fileName);
             contract.setOcrData(objectMapper.writeValueAsString(pdfRequest));
             contract.setCreatedAt(LocalDateTime.now());
             contract.setUpdatedAt(LocalDateTime.now());
+            if (request.getTaskId() != null) {
+                taskRepository.findById(request.getTaskId()).ifPresent(contract::setTask);
+            }
 
             Contract saved = contractRepository.save(contract);
             Map<String, Object> meta = new HashMap<>();
@@ -319,11 +326,15 @@ public class ContractController {
 
     public static class GenerateAmendmentContractRequest {
         private Long companyId;
+        private Long taskId;
         private String fileName;
         private PdfController.PdfRequest pdf;
 
         public Long getCompanyId() { return companyId; }
         public void setCompanyId(Long companyId) { this.companyId = companyId; }
+
+        public Long getTaskId() { return taskId; }
+        public void setTaskId(Long taskId) { this.taskId = taskId; }
 
         public String getFileName() { return fileName; }
         public void setFileName(String fileName) { this.fileName = fileName; }
