@@ -21,7 +21,7 @@ public class Task {
     private String description;
 
     @ManyToOne
-    @JoinColumn(name = "assigned_to", nullable = false)
+    @JoinColumn(name = "assigned_to")
     private User assignedTo;
 
     @ManyToOne
@@ -39,15 +39,24 @@ public class Task {
     @JoinColumn(name = "department_id")
     private Department department;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "company_id")
+    private Company company;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // ! change the fetch type from eager to lazy to avoid loading all comments when fetching a task
-    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @Version
+    private Long version;
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TaskComment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SubTask> subTasks = new ArrayList<>();
 
     // Getters and setters
 
@@ -75,6 +84,9 @@ public class Task {
     public Department getDepartment() { return department; }
     public void setDepartment(Department department) { this.department = department; }
 
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -83,4 +95,10 @@ public class Task {
 
     public List<TaskComment> getComments() { return comments; }
     public void setComments(List<TaskComment> comments) { this.comments = comments; }
+
+    public List<SubTask> getSubTasks() { return subTasks; }
+    public void setSubTasks(List<SubTask> subTasks) { this.subTasks = subTasks; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }

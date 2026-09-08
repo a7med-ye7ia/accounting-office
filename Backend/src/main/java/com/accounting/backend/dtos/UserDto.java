@@ -2,6 +2,7 @@ package com.accounting.backend.dtos;
 
 import com.accounting.backend.entities.User;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * DTO for User (safe to return to frontend - no password)
@@ -14,6 +15,13 @@ public class UserDto {
     private String nationalId;
     private String status;
     private LocalDate hireDate;
+    private String roleName;
+    private String canonicalRole;
+    private Long branchId;
+    private String branchName;
+    private Long departmentId;
+    private String departmentName;
+    private List<Long> managedDepartmentIds;
 
     public UserDto() {}
 
@@ -23,7 +31,7 @@ public class UserDto {
         this.email = user.getEmail();
         this.phone = user.getPhone();
         this.nationalId = user.getNationalId();
-        this.status = user.getStatus().toString();
+        this.status = user.getStatus() != null ? user.getStatus().toString() : "ACTIVE";
         this.hireDate = user.getHireDate();
     }
 
@@ -81,5 +89,61 @@ public class UserDto {
 
     public void setHireDate(LocalDate hireDate) {
         this.hireDate = hireDate;
+    }
+
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public void setRoleName(String roleName) {
+        this.roleName = roleName;
+    }
+
+    public String getCanonicalRole() {
+        return canonicalRole;
+    }
+
+    public void setCanonicalRole(String canonicalRole) {
+        this.canonicalRole = canonicalRole;
+    }
+
+    public Long getBranchId() {
+        return branchId;
+    }
+
+    public void setBranchId(Long branchId) {
+        this.branchId = branchId;
+    }
+
+    public String getBranchName() {
+        return branchName;
+    }
+
+    public void setBranchName(String branchName) {
+        this.branchName = branchName;
+    }
+
+    public Long getDepartmentId() {
+        return departmentId;
+    }
+
+    public void setDepartmentId(Long departmentId) {
+        this.departmentId = departmentId;
+    }
+
+    public String getDepartmentName() {
+        return departmentName;
+    }
+
+    public void setDepartmentName(String departmentName) {
+        this.departmentName = departmentName;
+    }
+
+    public List<Long> getManagedDepartmentIds() {
+        return managedDepartmentIds;
+    }
+
+    public void setManagedDepartmentIds(List<Long> managedDepartmentIds) {
+        this.managedDepartmentIds = managedDepartmentIds;
     }
 }

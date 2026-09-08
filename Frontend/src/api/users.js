@@ -1,8 +1,16 @@
 import apiClient from "./client";
 
-export const fetchUsers = async () => {
+export const fetchUsers = async (params = {}) => {
   try {
-    const response = await apiClient.get('/users');
+    let url = '/users';
+    const query = new URLSearchParams();
+    if (params.branchId) query.append('branchId', params.branchId);
+    if (params.departmentId) query.append('departmentId', params.departmentId);
+    const qs = query.toString();
+    if (qs) {
+      url += `?${qs}`;
+    }
+    const response = await apiClient.get(url);
     return response.data;
   } catch (error) {
     console.error('Error fetching users:', error);

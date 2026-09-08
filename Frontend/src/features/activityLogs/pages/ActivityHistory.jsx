@@ -1,5 +1,5 @@
-import React from "react";
-import { Clock, History, AlertCircle, Loader2 } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Clock, History, AlertCircle, Loader2, Search } from "lucide-react";
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleString("ar-EG", {
@@ -21,6 +21,21 @@ function parseMetadata(metadataString) {
 }
 
 function ActivityHistory({ logs, loading, onRetry }) {
+  const [search, setSearch] = useState("");
+
+  const filteredLogs = useMemo(() => {
+    if (!search.trim()) return logs;
+    const q = search.trim().toLowerCase();
+    return logs.filter((log) => {
+      const summary = (log.summary || "").toLowerCase();
+      const action = (log.action || "").toLowerCase();
+      const entity = (log.entityType || "").toLowerCase();
+      const user = (log.userName || "").toLowerCase();
+      const userId = String(log.userId || "");
+      return summary.includes(q) || action.includes(q) || entity.includes(q) || user.includes(q) || userId.includes(q);
+    });
+  }, [logs, search]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center gap-4 rounded-3xl border border-appBorder bg-appSurface px-6 py-16 shadow-raise">
@@ -52,9 +67,31 @@ function ActivityHistory({ logs, loading, onRetry }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-raise">
-      <div className="divide-y divide-appBorder/80">
-        {logs.map((log) => {
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative min-w-[240px] flex-1 max-w-md">
+          <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-appSubtext" size={16} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث في سجل النشاطات..."
+            className="w-full rounded-2xl border border-appBorder bg-appSurface py-2 pl-4 pr-10 text-xs font-medium text-appText shadow-inner placeholder:text-appSubtext ui-transition hover:border-brand/30 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          />
+        </div>
+        <div className="text-xs font-semibold text-appSubtext">
+          إجمالي النشاطات: <span className="font-bold text-appText">{filteredLogs.length}</span>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-appBorder bg-appSurface shadow-raise">
+        <div className="divide-y divide-appBorder/80">
+          {filteredLogs.length === 0 ? (
+            <div className="p-8 text-center text-xs font-medium text-appSubtext">
+              لا توجد نتائج مطابقة لبحثك.
+            </div>
+          ) : (
+            filteredLogs.map((log) => {
           const metadata = parseMetadata(log.metadata);
           return (
             <div key={log.id} className="table-row-interactive px-5 py-4 sm:px-6 sm:py-5">
@@ -70,7 +107,7 @@ function ActivityHistory({ logs, loading, onRetry }) {
                       {" | "}
                       <span>{log.entityType}</span>
                       {" | "}
-                      <span>المستخدم #{log.userId}</span>
+                      <span>{log.userName || `المستخدم #${log.userId}`}</span>
                     </p>
                   </div>
                 </div>
@@ -129,7 +166,9 @@ function ActivityHistory({ logs, loading, onRetry }) {
               )}
             </div>
           );
-        })}
+        })
+      )}
+        </div>
       </div>
     </div>
   );

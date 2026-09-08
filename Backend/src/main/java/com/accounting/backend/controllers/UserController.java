@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +35,7 @@ import com.accounting.backend.entities.UserRole;
 import com.accounting.backend.entities.UserRoleId;
 import com.accounting.backend.enums.ActionType;
 import com.accounting.backend.enums.EntityType;
+import com.accounting.backend.enums.SystemRole;
 import com.accounting.backend.enums.UserStatus;
 import com.accounting.backend.repositories.BranchRepository;
 import com.accounting.backend.repositories.DepartmentRepository;
@@ -43,9 +45,11 @@ import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.repositories.UserRoleRepository;
 import com.accounting.backend.security.JwtService;
 import com.accounting.backend.services.ActivityLogService;
+import com.accounting.backend.services.AuthorizationService;
 import com.accounting.backend.services.EmailService;
 import com.accounting.backend.services.EmployeeProfileService;
 import com.accounting.backend.services.TokenCacheService;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.transaction.Transactional;
 
@@ -80,20 +84,71 @@ public class UserController {
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final SecureRandom secureRandom = new SecureRandom();
 
+    @Autowired
+    private AuthorizationService authorizationService;
+
     @GetMapping
     @Transactional
-    public List<Map<String, Object>> getAllUsers() {
-        List<User> users = userRepository.findAll();
+    public ResponseEntity<List<Map<String, Object>>> getAllUsers(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam(value = "branchId", required = false) Long filterBranchId,
+            @RequestParam(value = "departmentId", required = false) Long filterDepartmentId) {
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        Long callerId = caller.getId();
+        SystemRole role = authorizationService.getUserRole(callerId);
+
+        List<User> users;
+        if (role == SystemRole.OWNER) {
+            users = userRepository.findAll();
+        } else if (role == SystemRole.BRANCH_MANAGER) {
+            Long branchId = authorizationService.getUserBranchId(callerId);
+            if (branchId == null) {
+                users = List.of(caller);
+            } else {
+                users = userRepository.findAll().stream()
+                        .filter(u -> !authorizationService.isOwner(u.getId()) && branchId.equals(authorizationService.getUserBranchId(u.getId())))
+                        .toList();
+            }
+        } else if (role == SystemRole.DEPARTMENT_MANAGER) {
+            List<Long> managedDepts = authorizationService.getManagedDepartmentIds(callerId);
+            users = userRepository.findAll().stream()
+                    .filter(u -> !authorizationService.isOwner(u.getId()) && (u.getId().equals(callerId) || 
+                            (authorizationService.getUserDepartmentId(u.getId()) != null && managedDepts.contains(authorizationService.getUserDepartmentId(u.getId())))))
+                    .toList();
+        } else {
+            // EMPLOYEE
+            users = List.of(caller);
+        }
+
+        if (filterBranchId != null) {
+            users = users.stream()
+                    .filter(u -> filterBranchId.equals(authorizationService.getUserBranchId(u.getId())))
+                    .toList();
+        }
+
+        if (filterDepartmentId != null) {
+            users = users.stream()
+                    .filter(u -> filterDepartmentId.equals(authorizationService.getUserDepartmentId(u.getId())))
+                    .toList();
+        }
+
         List<Map<String, Object>> result = new ArrayList<>();
         for (User user : users) {
             result.add(buildUserMap(user));
         }
-        return result;
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}")
     @Transactional
-    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long id) {
+    public ResponseEntity<?> getUserById(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        if (!authorizationService.canViewUser(caller.getId(), id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "غير مصرح لك بعرض بيانات هذا المستخدم"));
+        }
         return userRepository.findById(id)
                 .map(user -> ResponseEntity.ok(buildUserMap(user)))
                 .orElse(ResponseEntity.notFound().build());
@@ -101,7 +156,14 @@ public class UserController {
 
     @GetMapping("/{id}/profile")
     @Transactional
-    public ResponseEntity<Map<String, Object>> getEmployeeProfile(@PathVariable Long id) {
+    public ResponseEntity<?> getEmployeeProfile(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        if (!authorizationService.canViewUser(caller.getId(), id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "غير مصرح لك بعرض هذا الملف التعريفي"));
+        }
         return employeeProfileService.getProfile(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -109,23 +171,70 @@ public class UserController {
 
     /**
      * POST /api/users
-     * Creates a new user. ONLY accessible by users with the "owner" role.
-     *
-     * - Generates a random 8-digit temporary password.
-     * - Sets the new user's status to PENDING_VERIFICATION (blocked from system
-     * actions).
-     * - Sends the temporary password to the new user's email.
-     * - The new user must call POST /api/auth/change-password to activate their
-     * account.
-     *
-     * @param authHeader Authorization: Bearer <token> of the caller (must be owner)
-     * @param request    the new user's details
+     * Creates a new user. Restricted by role and organizational scope.
+     * - OWNER: global
+     * - BRANCH_MANAGER: within own branch only (cannot grant OWNER role)
+     * - DEPARTMENT_MANAGER: within managed departments with EMPLOYEE role
+     * - EMPLOYEE: forbidden
      */
     @PostMapping
     @Transactional
     public ResponseEntity<?> createUser(
             @RequestHeader(value = "Authorization") String authHeader,
             @RequestBody EmployeeCreationRequest request) {
+
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        Long callerId = caller.getId();
+        SystemRole callerRole = authorizationService.getUserRole(callerId);
+
+        if (callerRole == SystemRole.EMPLOYEE) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "الموظفون لا يملكون صلاحية إنشاء مستخدمين جدد"));
+        }
+
+        // Scope validation
+        if (callerRole == SystemRole.BRANCH_MANAGER) {
+            Long callerBranchId = authorizationService.getUserBranchId(callerId);
+            if (callerBranchId == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "مدير الفرع غير مسند إلى أي فرع"));
+            }
+            if (request.getBranchId() != null && !callerBranchId.equals(request.getBranchId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "لا يمكن لمدير الفرع إنشاء موظف خارج فرعه"));
+            }
+            request.setBranchId(callerBranchId); // force own branch
+
+            if (request.getRoleId() != null) {
+                Role targetRole = roleRepository.findById(request.getRoleId()).orElse(null);
+                if (targetRole != null && SystemRole.fromDbRole(targetRole.getName()) == SystemRole.OWNER) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("error", "لا يمكن لمدير الفرع منح دور المالك (OWNER)"));
+                }
+            }
+        } else if (callerRole == SystemRole.DEPARTMENT_MANAGER) {
+            List<Long> managedDepts = authorizationService.getManagedDepartmentIds(callerId);
+            if (request.getDepartmentId() == null || !managedDepts.contains(request.getDepartmentId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "لا يمكن لمدير القسم إنشاء موظف خارج الأقسام التي يديرها"));
+            }
+            if (request.getRoleId() != null) {
+                Role targetRole = roleRepository.findById(request.getRoleId()).orElse(null);
+                if (targetRole != null && SystemRole.fromDbRole(targetRole.getName()) != SystemRole.EMPLOYEE) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("error", "يمكن لمدير القسم إنشاء موظفين فقط"));
+                }
+            }
+        }
+
+        // Validate branch & department consistency
+        if (request.getBranchId() != null && request.getDepartmentId() != null) {
+            try {
+                authorizationService.validateBranchDepartmentConsistency(request.getBranchId(), request.getDepartmentId());
+            } catch (ResponseStatusException rse) {
+                return ResponseEntity.status(rse.getStatusCode()).body(Map.of("error", rse.getReason()));
+            }
+        }
 
         // ── 0. validate fields ──────────────────────────────────────────────
         List<String> errors = checkExist(request);
@@ -141,14 +250,6 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("error", errorsString.toString()));
         }
-
-        // ── 1. Owner-only guard ──────────────────────────────────────────────
-        ResponseEntity<?> authError = requireOwnerRole(authHeader);
-        if (authError != null) {
-            return authError;
-        }
-
-        Long callerId = extractUserId(authHeader);
 
         // ── 2. Build user ────────────────────────────────────────────────────
         User user = new User();
@@ -223,14 +324,53 @@ public class UserController {
         }
     }
 
+    @PutMapping("/me")
+    @Transactional
+    public ResponseEntity<?> updateOwnProfile(
+            @RequestHeader(value = "Authorization") String authHeader,
+            @RequestBody Map<String, Object> body) {
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        if (body.containsKey("fullName") && body.get("fullName") != null) {
+            String name = body.get("fullName").toString().trim();
+            if (!name.isBlank()) {
+                caller.setFullName(name);
+            }
+        }
+        if (body.containsKey("phone") && body.get("phone") != null) {
+            caller.setPhone(body.get("phone").toString().trim());
+        }
+        caller.setUpdatedAt(LocalDateTime.now());
+        User savedUser = userRepository.save(caller);
+
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("userName", savedUser.getFullName());
+        activityLogService.logAction(
+            caller.getId(), null, EntityType.USER, savedUser.getId(),
+            ActionType.UPDATE, "قام المستخدم بتحديث ملفه الشخصي: " + savedUser.getFullName(), meta);
+
+        return ResponseEntity.ok(buildUserMap(savedUser));
+    }
+
     @PutMapping("/{id}")
     @Transactional
     public ResponseEntity<?> updateUser(
             @RequestHeader(value = "Authorization") String authHeader,
             @PathVariable Long id,
             @RequestBody EmployeeCreationRequest request) {
-        Long callerId = extractUserId(authHeader);
-        User user = userRepository.findById(id).orElseThrow();
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        Long callerId = caller.getId();
+        boolean isSelf = callerId.equals(id);
+
+        User user = userRepository.findById(id).orElseThrow(() -> 
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "المستخدم غير موجود"));
+
+        // If editing someone else, verify management permission
+        if (!isSelf) {
+            if (!authorizationService.canManageUser(callerId, id)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "غير مصرح لك بتعديل هذا المستخدم"));
+            }
+        }
 
         String oldName = user.getFullName();
         String oldEmail = user.getEmail();
@@ -239,24 +379,65 @@ public class UserController {
         String oldStatus = user.getStatus() != null ? user.getStatus().name() : null;
         LocalDate oldHireDate = user.getHireDate();
 
-        user.setFullName(request.getFullName());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        if (request.getNationalId() != null) {
-            user.setNationalId(request.getNationalId());
+        // Self-edit is restricted to personal profile data only
+        if (isSelf) {
+            if (request.getFullName() != null && !request.getFullName().isBlank()) {
+                user.setFullName(request.getFullName());
+            }
+            if (request.getPhone() != null) {
+                user.setPhone(request.getPhone());
+            }
+            // Cannot change role, branch, dept, status, nationalId, hireDate, email
+        } else {
+            // Manager editing user
+            if (request.getFullName() != null && !request.getFullName().isBlank()) {
+                user.setFullName(request.getFullName());
+            }
+            if (request.getEmail() != null && !request.getEmail().isBlank()) {
+                user.setEmail(request.getEmail());
+            }
+            if (request.getPhone() != null) {
+                user.setPhone(request.getPhone());
+            }
+            if (request.getNationalId() != null) {
+                user.setNationalId(request.getNationalId());
+            }
+            if (request.getStatus() != null) {
+                user.setStatus(UserStatus.valueOf(request.getStatus()));
+            }
+            if (request.getHireDate() != null) {
+                user.setHireDate(request.getHireDate());
+            }
         }
-        if (request.getStatus() != null) {
-            user.setStatus(UserStatus.valueOf(request.getStatus()));
-        }
-        user.setHireDate(request.getHireDate());
-        user.setUpdatedAt(LocalDateTime.now());
 
+        user.setUpdatedAt(LocalDateTime.now());
         User savedUser = userRepository.save(user);
 
-        // Update EmployeeAssignment
+        // Update EmployeeAssignment (forbidden for self-edit)
         String oldDeptName = null;
         String oldBranchName = null;
-        if (request.getDepartmentId() != null && request.getBranchId() != null) {
+        if (!isSelf && request.getDepartmentId() != null && request.getBranchId() != null) {
+            try {
+                authorizationService.validateBranchDepartmentConsistency(request.getBranchId(), request.getDepartmentId());
+            } catch (ResponseStatusException rse) {
+                return ResponseEntity.status(rse.getStatusCode()).body(Map.of("error", rse.getReason()));
+            }
+
+            SystemRole callerRole = authorizationService.getUserRole(callerId);
+            if (callerRole == SystemRole.BRANCH_MANAGER) {
+                Long callerBranch = authorizationService.getUserBranchId(callerId);
+                if (!request.getBranchId().equals(callerBranch)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("error", "لا يمكن لمدير الفرع نقل الموظف إلى فرع آخر"));
+                }
+            } else if (callerRole == SystemRole.DEPARTMENT_MANAGER) {
+                List<Long> managed = authorizationService.getManagedDepartmentIds(callerId);
+                if (!managed.contains(request.getDepartmentId())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("error", "لا يمكن لمدير القسم نقل الموظف خارج نطاق الأقسام التي يديرها"));
+                }
+            }
+
             Department dept = departmentRepository.findById(request.getDepartmentId())
                     .orElseThrow(() -> new RuntimeException("القسم غير موجود"));
             Branch branch = branchRepository.findById(request.getBranchId())
@@ -266,8 +447,8 @@ public class UserController {
             EmployeeAssignment assignment;
             if (!existing.isEmpty()) {
                 assignment = existing.get(0);
-                oldDeptName = assignment.getDepartment().getName();
-                oldBranchName = assignment.getBranch().getName();
+                oldDeptName = assignment.getDepartment() != null ? assignment.getDepartment().getName() : null;
+                oldBranchName = assignment.getBranch() != null ? assignment.getBranch().getName() : null;
             } else {
                 assignment = new EmployeeAssignment();
                 assignment.setUser(savedUser);
@@ -279,11 +460,17 @@ public class UserController {
             employeeAssignmentRepository.save(assignment);
         }
 
-        // Update UserRole
+        // Update UserRole (forbidden for self-edit)
         String oldRoleName = null;
-        if (request.getRoleId() != null) {
+        if (!isSelf && request.getRoleId() != null) {
             Role role = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new RuntimeException("المسمى الوظيفي غير موجود"));
+            SystemRole targetRole = SystemRole.fromDbRole(role.getName());
+
+            if (!authorizationService.canChangeUserRole(callerId, id, targetRole)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "غير مصرح لك بتعيين هذا الدور للمستخدم"));
+            }
 
             List<UserRole> existingRoles = userRoleRepository.findByUser_Id(id);
             if (!existingRoles.isEmpty()) {
@@ -330,7 +517,14 @@ public class UserController {
     public ResponseEntity<?> deleteUser(
             @RequestHeader(value = "Authorization") String authHeader,
             @PathVariable Long id) {
-        Long callerId = extractUserId(authHeader);
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        Long callerId = caller.getId();
+
+        if (!authorizationService.canManageUser(callerId, id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "غير مصرح لك بحذف هذا المستخدم"));
+        }
+
         User user = userRepository.findById(id).orElse(null);
         if (user == null) {
             return ResponseEntity.notFound().build();
@@ -395,12 +589,11 @@ public class UserController {
                     .body(Map.of("error", "Caller user not found"));
         }
 
-        boolean isOwner = userRoleRepository.findByUser_Id(callerId).stream()
-                .anyMatch(ur -> "owner".equalsIgnoreCase(ur.getRole().getName()));
+        boolean isOwner = authorizationService.isOwner(callerId);
 
         if (!isOwner) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Only users with the 'owner' role can create new users"));
+                    .body(Map.of("error", "Only users with the 'owner' role can perform this operation"));
         }
 
         return null; // all checks passed
@@ -442,17 +635,27 @@ public class UserController {
                     .filter(a -> Boolean.TRUE.equals(a.getIsPrimary()))
                     .findFirst()
                     .orElse(assignments.get(0));
-            userData.put("departmentId", primary.getDepartment().getId());
-            userData.put("departmentName", primary.getDepartment().getName());
-            userData.put("branchId", primary.getBranch().getId());
-            userData.put("branchName", primary.getBranch().getName());
+            if (primary.getDepartment() != null) {
+                userData.put("departmentId", primary.getDepartment().getId());
+                userData.put("departmentName", primary.getDepartment().getName());
+            }
+            if (primary.getBranch() != null) {
+                userData.put("branchId", primary.getBranch().getId());
+                userData.put("branchName", primary.getBranch().getName());
+            }
         }
 
         // Get role from UserRole
         List<UserRole> userRoles = userRoleRepository.findByUser_Id(user.getId());
-        if (!userRoles.isEmpty()) {
+        if (!userRoles.isEmpty() && userRoles.get(0).getRole() != null) {
             userData.put("roleId", userRoles.get(0).getRole().getId());
             userData.put("roleName", userRoles.get(0).getRole().getName());
+        }
+
+        SystemRole canonicalRole = authorizationService.getUserRole(user.getId());
+        userData.put("canonicalRole", canonicalRole.name());
+        if (canonicalRole == SystemRole.DEPARTMENT_MANAGER) {
+            userData.put("managedDepartmentIds", authorizationService.getManagedDepartmentIds(user.getId()));
         }
 
         return userData;

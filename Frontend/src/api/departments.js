@@ -2,8 +2,9 @@ import apiClient from "./client";
 
 /** @typedef {{ id?: number, name: string, branch: { id: number, name?: string, address?: string, phone?: string } }} DepartmentPayload */
 
-export const fetchDepartments = async () => {
-  const response = await apiClient.get("/departments");
+export const fetchDepartments = async (branchId) => {
+  const url = branchId ? `/departments?branchId=${branchId}` : "/departments";
+  const response = await apiClient.get(url);
   return response.data;
 };
 

@@ -41,6 +41,9 @@ public class ActivityLog {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Transient
+    private String userName;
+
     // --- GETTERS AND SETTERS ---
 
     public Long getId() { return id; }
@@ -69,4 +72,7 @@ public class ActivityLog {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getUserName() { return userName; }
+    public void setUserName(String userName) { this.userName = userName; }
 }

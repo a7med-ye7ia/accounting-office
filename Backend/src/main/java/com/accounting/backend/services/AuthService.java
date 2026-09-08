@@ -25,11 +25,34 @@ import java.util.Optional;
  * - Verify: check JWT signature + check it matches cached token
  * - Logout: remove token from cache
  */
+import com.accounting.backend.entities.Role;
+import com.accounting.backend.entities.UserRole;
+import com.accounting.backend.entities.UserRoleId;
+import com.accounting.backend.entities.EmployeeAssignment;
+import com.accounting.backend.enums.SystemRole;
+import com.accounting.backend.repositories.RoleRepository;
+import com.accounting.backend.repositories.UserRoleRepository;
+import com.accounting.backend.repositories.EmployeeAssignmentRepository;
+
+import java.util.List;
+
 @Service
 public class AuthService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private UserRoleRepository userRoleRepository;
+
+    @Autowired
+    private EmployeeAssignmentRepository employeeAssignmentRepository;
+
+    @Autowired
+    private AuthorizationService authorizationService;
 
     @Autowired
     private JwtService jwtService;
@@ -75,11 +98,24 @@ public class AuthService {
 
         User savedUser = userRepository.save(newUser);
 
+        // Assign default EMPLOYEE role to newly registered user
+        roleRepository.findAll().stream()
+                .filter(r -> "employee".equalsIgnoreCase(r.getName()))
+                .findFirst()
+                .ifPresent(r -> {
+                    UserRole ur = new UserRole();
+                    ur.setId(new UserRoleId(savedUser.getId(), r.getId()));
+                    ur.setUser(savedUser);
+                    ur.setRole(r);
+                    userRoleRepository.save(ur);
+                });
+
         // Generate token and store it in cache (not in DB)
         String token = jwtService.generateToken(savedUser.getId(), savedUser.getEmail());
         tokenCacheService.storeToken(savedUser.getId(), token);
 
         UserDto userDto = new UserDto(savedUser);
+        enrichUserDto(userDto, savedUser.getId());
         return new AuthResponse(true, "Registration successful", userDto, token);
     }
 
@@ -120,6 +156,7 @@ public class AuthService {
         tokenCacheService.storeToken(user.getId(), token);
 
         UserDto userDto = new UserDto(user);
+        enrichUserDto(userDto, user.getId());
 
         // If the account is PENDING_VERIFICATION, allow login but signal it
         if (user.getStatus() == UserStatus.PENDING_VERIFICATION) {
@@ -129,6 +166,40 @@ public class AuthService {
         }
 
         return new AuthResponse(true, "Login successful", userDto, token);
+    }
+
+    public void enrichUserDto(UserDto dto, Long userId) {
+        if (dto == null || userId == null) return;
+        try {
+            SystemRole canonicalRole = authorizationService.getUserRole(userId);
+            dto.setCanonicalRole(canonicalRole.name());
+
+            List<UserRole> userRoles = userRoleRepository.findByUser_Id(userId);
+            if (!userRoles.isEmpty() && userRoles.get(0).getRole() != null) {
+                dto.setRoleName(userRoles.get(0).getRole().getName());
+            }
+
+            List<EmployeeAssignment> assignments = employeeAssignmentRepository.findByUser_Id(userId);
+            if (!assignments.isEmpty()) {
+                EmployeeAssignment primary = assignments.stream()
+                        .filter(a -> Boolean.TRUE.equals(a.getIsPrimary()))
+                        .findFirst()
+                        .orElse(assignments.get(0));
+                if (primary.getBranch() != null) {
+                    dto.setBranchId(primary.getBranch().getId());
+                    dto.setBranchName(primary.getBranch().getName());
+                }
+                if (primary.getDepartment() != null) {
+                    dto.setDepartmentId(primary.getDepartment().getId());
+                    dto.setDepartmentName(primary.getDepartment().getName());
+                }
+            }
+
+            if (canonicalRole == SystemRole.DEPARTMENT_MANAGER) {
+                dto.setManagedDepartmentIds(authorizationService.getManagedDepartmentIds(userId));
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     /**

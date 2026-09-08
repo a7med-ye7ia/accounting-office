@@ -13,5 +13,8 @@ import com.accounting.backend.enums.ContractType;
 public interface ContractRepository extends JpaRepository<Contract, Long> {
 
     List<Contract> findByCreatedBy_Id(Long createdByUserId);
-    Optional<Contract> findByCompany_IdAndType(Long companyId, ContractType type);
+    List<Contract> findByCompany_IdAndType(
+    Long companyId,
+    ContractType type
+);
 }

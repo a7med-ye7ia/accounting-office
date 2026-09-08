@@ -10,6 +10,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { createCompanyFromOcr, uploadPdfForOcr } from "../../../api/companies";
+import { fetchBranches } from "../../../api/branches";
+import { fetchDepartments } from "../../../api/departments";
+import { getCanonicalRole, ROLES } from "../../../utils/roles";
 
 const STEPS = [
   { number: 1, label: "رفع الملف" },
@@ -60,7 +63,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function buildCompanyRequest(ocrData) {
+function buildCompanyRequest(ocrData, branchId, departmentId) {
   return {
     company_name: ocrData.company_name,
     company_type: ocrData.company_type,
@@ -70,6 +73,8 @@ function buildCompanyRequest(ocrData) {
     approval_date: ocrData.approval_date,
     company_duration: ocrData.company_duration,
     company_activity: ocrData.company_activity,
+    branch_id: branchId ? parseInt(branchId, 10) : null,
+    department_id: departmentId ? parseInt(departmentId, 10) : null,
   };
 }
 
@@ -84,9 +89,50 @@ export default function AddCompanyModal({ onClose, onCompanyCreated }) {
   const [createdCompany, setCreatedCompany] = useState(null);
   const fileInputRef = useRef(null);
 
+  const [branches, setBranches] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
+  const userRole = getCanonicalRole(currentUser);
+
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
-  }, []);
+
+    // Load branches & departments
+    Promise.all([
+      fetchBranches().catch(() => []),
+      fetchDepartments().catch(() => [])
+    ]).then(([bList, dList]) => {
+      setBranches(bList || []);
+      setDepartments(dList || []);
+
+      if (userRole === ROLES.BRANCH_MANAGER && currentUser?.branchId) {
+        setSelectedBranchId(String(currentUser.branchId));
+      } else if (userRole === ROLES.DEPARTMENT_MANAGER && currentUser?.branchId) {
+        setSelectedBranchId(String(currentUser.branchId));
+        if (currentUser?.managedDepartmentIds?.length === 1) {
+          setSelectedDepartmentId(String(currentUser.managedDepartmentIds[0]));
+        }
+      }
+    });
+  }, [userRole, currentUser]);
+
+  const availableDepartments = useMemo(() => {
+    if (!selectedBranchId) return [];
+    let list = departments.filter((d) => d.branch && String(d.branch.id) === String(selectedBranchId));
+    if (userRole === ROLES.DEPARTMENT_MANAGER && currentUser?.managedDepartmentIds?.length) {
+      list = list.filter((d) => currentUser.managedDepartmentIds.includes(d.id));
+    }
+    return list;
+  }, [departments, selectedBranchId, userRole, currentUser]);
 
   const handleClose = () => {
     if (loading) return;
@@ -128,17 +174,23 @@ export default function AddCompanyModal({ onClose, onCompanyCreated }) {
   const handleCreateCompany = async () => {
     if (!ocrData || !file || loading) return;
 
+    if (!selectedBranchId || !selectedDepartmentId) {
+      setError("يرجى تحديد الفرع والقسم التابع لهما الشركة قبل المتابعة");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      const company = await createCompanyFromOcr(buildCompanyRequest(ocrData), file, ocrData);
+      const req = buildCompanyRequest(ocrData, selectedBranchId, selectedDepartmentId);
+      const company = await createCompanyFromOcr(req, file, ocrData);
       setCreatedCompany(company);
       setStep(3);
       onCompanyCreated?.();
     } catch (createError) {
       console.error(createError);
-      setError("فشل إنشاء الشركة. حاول مرة أخرى.");
+      setError(createError.response?.data?.error || "فشل إنشاء الشركة. حاول مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -245,10 +297,49 @@ export default function AddCompanyModal({ onClose, onCompanyCreated }) {
           {step === 2 && ocrData && (
             <div className="space-y-5">
               <div>
-                <h4 className="text-base font-bold text-appText">مراجعة البيانات المستخرجة</h4>
+                <h4 className="text-base font-bold text-appText">مراجعة البيانات وتحديد النطاق</h4>
                 <p className="mt-1 text-sm text-appSubtext">
-                  تأكد من البيانات قبل إنشاء الشركة وحفظ عقد التأسيس.
+                  تأكد من البيانات وحدد الفرع والقسم التابع لهما الشركة قبل الحفظ.
                 </p>
+              </div>
+
+              {/* Branch and Department Assignment */}
+              <div className="rounded-lg border border-appBorder bg-appSurface p-4 space-y-3">
+                <h5 className="text-sm font-bold text-appText">تحديد الفرع والقسم التابع لهما الشركة *</h5>
+                <p className="text-xs text-appSubtext">يجب ربط الشركة بفرع وقسم متطابقين وفقاً لصلاحيات دورك.</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold text-appSubtext mb-1.5">الفرع *</label>
+                    <select
+                      disabled={userRole === ROLES.BRANCH_MANAGER || userRole === ROLES.DEPARTMENT_MANAGER}
+                      value={selectedBranchId}
+                      onChange={(e) => {
+                        setSelectedBranchId(e.target.value);
+                        setSelectedDepartmentId("");
+                      }}
+                      className="w-full rounded-lg border border-appBorder bg-appMuted p-2.5 text-sm text-appText outline-none focus:border-brand"
+                    >
+                      <option value="">اختر الفرع</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-appSubtext mb-1.5">القسم *</label>
+                    <select
+                      disabled={!selectedBranchId}
+                      value={selectedDepartmentId}
+                      onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                      className="w-full rounded-lg border border-appBorder bg-appMuted p-2.5 text-sm text-appText outline-none focus:border-brand"
+                    >
+                      <option value="">اختر القسم</option>
+                      {availableDepartments.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

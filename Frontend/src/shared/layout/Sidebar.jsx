@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import useSidebar from "../hooks/useSidebar";
+import { isEmployee, canManageDepartments } from "../../utils/roles";
 import {
   LayoutDashboard,
   Building,
@@ -19,9 +20,11 @@ import {
 
 const navItems = [
   { label: "لوحة التحكم", path: "/Dashboard", icon: LayoutDashboard },
-  { label: "الشركات", path: "/ContractBrowser", icon: Building },
+  { label: "الشركات الوحشة", path: "/ContractBrowser", icon: Building },
+  { label: "الشركات الحلوة", path: "/companies2", icon: Building },
   // { label: "المستندات", path: "/Documents", icon: FileText },
   { label: "الموظفون", path: "/EmployeeManagement", icon: Users },
+  { label: "الحضور", path: "/attendance", icon: History },
   { label: "مهام الموظفين", path: "/EmployeeTasks", icon: ClipboardList },
   { label: "مهمات قيد التشغيل", path: "/AssignedTasks", icon: ClipboardList },
   { label: "الأقسام", path: "/Departments", icon: Building2 },
@@ -30,6 +33,7 @@ const navItems = [
   // { label: "العقود", path: "/ContractAi", icon: FileSignature },
   // { label: " السجل المالي", path: "/EquilibriumLedger", icon: BookOpen },
   { label: "سجل النشاطات", path: "/ActivityHistory", icon: History },
+  { label: "دليل الموظف", path: "/EmployeeGuide", icon: BookOpen },
 ];
 
 function Sidebar() {
@@ -136,64 +140,98 @@ function Sidebar() {
               : "items-stretch gap-1.5 px-3 sm:gap-2 sm:px-4"
           }`}
         >
-          {navItems.map((item) => {
-            const user = JSON.parse(localStorage.getItem("user"));
-            if ( user?.roleName === "employee" 
-            &&  (item.path === "/EmployeeManagement" || item.path === "/Departments" || item.path === "/AssignedTasks")) {
-              return null; // Skip rendering this item for employees
-            }
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={isDrawer ? close : undefined}
-                title={isCollapsedRail ? item.label : undefined}
-                className={`flex shrink-0 outline-none ${isCollapsedRail ? "flex w-full justify-center p-0" : "block w-full"}`}
-              >
-                {({ isActive }) =>
-                  isCollapsedRail ? (
-                    <span
-                      className={`group flex h-10 w-10 items-center justify-center rounded-xl ui-transition sm:h-11 sm:w-11 ${
-                        isActive
-                          ? "border border-brand/35 bg-brand/15 text-brand shadow-none"
-                          : "border border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
-                      }`}
-                    >
-                      <Icon
-                        size={17}
-                        className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
-                      />
-                    </span>
-                  ) : (
-                    <span
-                      className={`group flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] ui-transition sm:gap-3 sm:px-3 sm:py-3.5 sm:text-xs ${
-                        isActive
-                          ? "border-brand/35 bg-brand/15 text-brand"
-                          : "border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
-                      } ${isOpen || isDrawer ? "justify-start" : "justify-center"}`}
-                    >
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ui-transition sm:h-9 sm:w-9 ${
-                          isActive
-                            ? "border-brand/30 bg-brand/10 text-brand"
-                            : "border-appBorder/70 bg-appMuted/50 text-current group-hover:border-brand/25 group-hover:bg-brand/8"
-                        }`}
-                      >
-                        <Icon
-                          size={17}
-                          className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
-                        />
-                      </span>
-                      {(isOpen || isDrawer) && (
-                        <span className="min-w-0 flex-1 truncate text-start">{item.label}</span>
-                      )}
-                    </span>
-                  )
-                }
-              </NavLink>
-            );
-          })}
+       {navItems.map((item) => {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const roleName = String(user?.roleName || "").toLowerCase();
+
+  // Employees cannot access these pages.
+  if (
+    isEmployee(user) &&
+    [
+      "/EmployeeManagement",
+      "/Departments",
+      "/AssignedTasks",
+    ].includes(item.path)
+  ) {
+    return null;
+  }
+
+  // Only Owner and Branch Manager can manage departments.
+  if (
+    item.path === "/Departments" &&
+    !canManageDepartments(user)
+  ) {
+    return null;
+  }
+
+  // Attendance is restricted to Owner and Branch Manager.
+  if (
+    item.path === "/attendance" &&
+    !["owner", "headbranch", "branchmanager"].includes(roleName)
+  ) {
+    return null;
+  }
+
+  const Icon = item.icon;
+
+  return (
+    <NavLink
+      key={item.path}
+      to={item.path}
+      onClick={isDrawer ? close : undefined}
+      title={isCollapsedRail ? item.label : undefined}
+      className={`flex shrink-0 outline-none ${
+        isCollapsedRail
+          ? "flex w-full justify-center p-0"
+          : "block w-full"
+      }`}
+    >
+      {({ isActive }) =>
+        isCollapsedRail ? (
+          <span
+            className={`group flex h-10 w-10 items-center justify-center rounded-xl ui-transition sm:h-11 sm:w-11 ${
+              isActive
+                ? "border border-brand/35 bg-brand/15 text-brand shadow-none"
+                : "border border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
+            }`}
+          >
+            <Icon
+              size={17}
+              className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
+            />
+          </span>
+        ) : (
+          <span
+            className={`group flex items-center gap-2.5 rounded-2xl border px-2.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] ui-transition sm:gap-3 sm:px-3 sm:py-3.5 sm:text-xs ${
+              isActive
+                ? "border-brand/35 bg-brand/15 text-brand"
+                : "border-transparent text-appSubtext hover:border-appBorder hover:bg-appMuted/80 hover:text-appText"
+            } ${isOpen || isDrawer ? "justify-start" : "justify-center"}`}
+          >
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ui-transition sm:h-9 sm:w-9 ${
+                isActive
+                  ? "border-brand/30 bg-brand/10 text-brand"
+                  : "border-appBorder/70 bg-appMuted/50 text-current group-hover:border-brand/25 group-hover:bg-brand/8"
+              }`}
+            >
+              <Icon
+                size={17}
+                className="transition-transform duration-200 ease-out group-hover:scale-105 sm:size-[18px]"
+              />
+            </span>
+
+            {(isOpen || isDrawer) && (
+              <span className="min-w-0 flex-1 truncate text-start">
+                {item.label}
+              </span>
+            )}
+          </span>
+        )
+      }
+    </NavLink>
+  );
+})}
         </nav>
 
         <div

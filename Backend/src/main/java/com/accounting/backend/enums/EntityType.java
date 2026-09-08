@@ -14,5 +14,6 @@ public enum EntityType {
     PERMISSION,
     EMPLOYEE_ASSIGNMENT,
     CONTRACT_APPROVAL,
-    TASK_APPROVAL
+    TASK_APPROVAL,
+    GUIDE
 }

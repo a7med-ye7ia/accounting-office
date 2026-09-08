@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,13 +18,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.accounting.backend.entities.Branch;
+import com.accounting.backend.entities.User;
 import com.accounting.backend.enums.ActionType;
 import com.accounting.backend.enums.EntityType;
 import com.accounting.backend.repositories.BranchRepository;
-import com.accounting.backend.security.JwtService;
 import com.accounting.backend.services.ActivityLogService;
+import com.accounting.backend.services.AuthorizationService;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -31,13 +35,55 @@ public class BranchController {
 
     @Autowired
     private BranchRepository branchRepository;
+
     @Autowired
-    private JwtService jwtService;
+    private AuthorizationService authorizationService;
+
+    @Autowired
+    private com.accounting.backend.repositories.DepartmentRepository departmentRepository;
+
     @Autowired
     private ActivityLogService activityLogService;
 
     @GetMapping
-    public List<Branch> getAllBranches() {
+    public List<Branch> getAllBranches(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return branchRepository.findAll();
+        }
+        User caller = authorizationService.resolveUser(authHeader);
+        if (caller == null) {
+            return branchRepository.findAll();
+        }
+        Long callerId = caller.getId();
+        com.accounting.backend.enums.SystemRole role = authorizationService.getUserRole(callerId);
+
+        if (role == com.accounting.backend.enums.SystemRole.OWNER) {
+            return branchRepository.findAll();
+        }
+
+        if (role == com.accounting.backend.enums.SystemRole.BRANCH_MANAGER || role == com.accounting.backend.enums.SystemRole.EMPLOYEE) {
+            Long branchId = authorizationService.getUserBranchId(callerId);
+            if (branchId == null) {
+                return List.of();
+            }
+            return branchRepository.findAll().stream()
+                    .filter(b -> b.getId().equals(branchId))
+                    .toList();
+        }
+
+        if (role == com.accounting.backend.enums.SystemRole.DEPARTMENT_MANAGER) {
+            List<Long> managedDeptIds = authorizationService.getManagedDepartmentIds(callerId);
+            List<com.accounting.backend.entities.Department> managedDepts = departmentRepository.findAllById(managedDeptIds);
+            java.util.Set<Long> branchIds = managedDepts.stream()
+                    .filter(d -> d.getBranch() != null)
+                    .map(d -> d.getBranch().getId())
+                    .collect(java.util.stream.Collectors.toSet());
+            return branchRepository.findAll().stream()
+                    .filter(b -> branchIds.contains(b.getId()))
+                    .toList();
+        }
+
         return branchRepository.findAll();
     }
 
@@ -47,63 +93,73 @@ public class BranchController {
     }
 
     @PostMapping
-    public Branch createBranch(
+    public ResponseEntity<?> createBranch(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Branch branch) {
-        Branch saved = branchRepository.save(branch);
-        Long callerId = extractUserId(authHeader);
-        if (callerId != null) {
-            Map<String, Object> meta = new HashMap<>();
-            meta.put("branchName", saved.getName());
-            activityLogService.logAction(callerId, null, EntityType.BRANCH, saved.getId(),
-                ActionType.CREATE, "تم إنشاء فرع: " + saved.getName(), meta);
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        if (!authorizationService.isOwner(caller.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "فقط المالك (Owner) يمكنه إنشاء فروع جديدة"));
         }
-        return saved;
+
+        Branch saved = branchRepository.save(branch);
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("branchName", saved.getName());
+        activityLogService.logAction(caller.getId(), null, EntityType.BRANCH, saved.getId(),
+            ActionType.CREATE, "تم إنشاء فرع: " + saved.getName(), meta);
+
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
-    public Branch updateBranch(
+    public ResponseEntity<?> updateBranch(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Long id,
             @RequestBody Branch branchDetails) {
-        Branch branch = branchRepository.findById(id).orElseThrow();
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        if (!authorizationService.isOwner(caller.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "فقط المالك (Owner) يمكنه تعديل بيانات الفروع"));
+        }
+
+        Branch branch = branchRepository.findById(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "الفرع غير موجود"));
+
         branch.setName(branchDetails.getName());
         branch.setAddress(branchDetails.getAddress());
         branch.setPhone(branchDetails.getPhone());
         Branch saved = branchRepository.save(branch);
-        Long callerId = extractUserId(authHeader);
-        if (callerId != null) {
-            Map<String, Object> meta = new HashMap<>();
-            meta.put("branchName", saved.getName());
-            activityLogService.logAction(callerId, null, EntityType.BRANCH, saved.getId(),
-                ActionType.UPDATE, "تم تحديث الفرع: " + saved.getName(), meta);
-        }
-        return saved;
+
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("branchName", saved.getName());
+        activityLogService.logAction(caller.getId(), null, EntityType.BRANCH, saved.getId(),
+            ActionType.UPDATE, "تم تحديث الفرع: " + saved.getName(), meta);
+
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteBranch(
+    public ResponseEntity<?> deleteBranch(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable Long id) {
+        User caller = authorizationService.requireAuthenticatedUser(authHeader);
+        if (!authorizationService.isOwner(caller.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "فقط المالك (Owner) يمكنه حذف الفروع"));
+        }
+
         Branch branch = branchRepository.findById(id).orElse(null);
-        if (branch == null) return;
+        if (branch == null) {
+            return ResponseEntity.notFound().build();
+        }
         String name = branch.getName();
         branchRepository.deleteById(id);
-        Long callerId = extractUserId(authHeader);
-        if (callerId != null) {
-            Map<String, Object> meta = new HashMap<>();
-            meta.put("branchName", name);
-            activityLogService.logAction(callerId, null, EntityType.BRANCH, id,
-                ActionType.DELETE, "تم حذف الفرع: " + name, meta);
-        }
-    }
 
-    private Long extractUserId(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
-        try {
-            return jwtService.extractUserId(authHeader.substring(7).trim());
-        } catch (Exception e) {
-            return null;
-        }
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("branchName", name);
+        activityLogService.logAction(caller.getId(), null, EntityType.BRANCH, id,
+            ActionType.DELETE, "تم حذف الفرع: " + name, meta);
+
+        return ResponseEntity.ok().build();
     }
 }
