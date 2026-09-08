@@ -578,6 +578,17 @@ public class AuthorizationService {
     }
 
     /**
+     * Attachment access follows task participation: managers, the creator,
+     * and the assigned employee may add or remove task attachments.
+     */
+    public boolean canModifyTaskAttachments(Long callerId, Task task) {
+        if (callerId == null || task == null) return false;
+        if (isOwner(callerId) || isBranchManager(callerId) || isDepartmentManager(callerId)) return true;
+        if (task.getCreatedBy() != null && callerId.equals(task.getCreatedBy().getId())) return true;
+        return task.getAssignedTo() != null && callerId.equals(task.getAssignedTo().getId());
+    }
+
+    /**
      * ONLY the task creator can delete a task.
      */
     public boolean canDeleteTask(Long callerId, Task task) {

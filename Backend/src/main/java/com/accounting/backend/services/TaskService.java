@@ -53,6 +53,8 @@ public class TaskService {
     private AuthorizationService authorizationService;
     @Autowired
     private com.accounting.backend.repositories.CompanyRepository companyRepository;
+    @Autowired
+    private AttachmentService attachmentService;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> getAllTasks() {
@@ -253,6 +255,7 @@ public class TaskService {
         if (task == null) {
             return;
         }
+        attachmentService.cleanupTaskAttachments(id);
         taskApprovalRepository.deleteByTask_Id(id);
         taskRepository.delete(task);
     }

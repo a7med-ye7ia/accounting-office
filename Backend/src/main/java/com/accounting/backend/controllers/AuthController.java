@@ -24,7 +24,6 @@ import java.util.Optional;
  * POST /api/auth/logout - Logout user
  */
 @RestController
-@CrossOrigin(origins = "*")
 @RequestMapping("/api/auth")
 public class AuthController {
 

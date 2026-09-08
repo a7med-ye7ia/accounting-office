@@ -3,6 +3,7 @@ import { Modal } from '../../../shared/components/HrShared';
 import { addCommentToTask } from '../../../api/comments';
 import { startSubTask, completeSubTask, claimSubTask } from '../../../api/tasks';
 import { getApiErrorMessage } from '../../../utils/apiError';
+import TaskAttachments from '../components/TaskAttachments';
 
 function AddCommentBox({ task, setTasks, setSelectedTask }) {
   const [text, setText] = useState('');
@@ -76,6 +77,12 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, o
   const canManage = user ? MANAGER_ROLES.includes(String(user.roleName || '').toLowerCase()) : false;
   const subtasks = selectedTask.subtasks || [];
   const currentUserId = user ? String(user.id) : '';
+  const userRole = String(user?.roleName || user?.canonicalRole || '').toLowerCase();
+  const canModifyAttachments = Boolean(user && (
+    String(selectedTask.createdById) === currentUserId ||
+    String(selectedTask.assignedToId) === currentUserId ||
+    MANAGER_ROLES.includes(userRole)
+  ));
   const workingUserIds = (selectedTask.workingEmployees || []).map((worker) => String(worker.id));
 
   const handleSubtaskAction = async (subtask, action) => {
@@ -115,6 +122,7 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, o
     <Modal
       title={selectedTask.title || 'تفاصيل المهمة'}
       onClose={onClose}
+      bodyScroll
       footer={
         <>
           {canManage && (
@@ -149,6 +157,12 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, o
       }
     >
       <div className="space-y-4">
+        <TaskAttachments
+          taskId={selectedTask.id}
+          canUpload={Boolean(user)}
+          canDelete={canModifyAttachments}
+        />
+
         <div>
           <p className="text-xs text-appSubtext">الوصف</p>
           <p className="text-sm text-appText bg-appMuted p-2 rounded-lg">
@@ -288,6 +302,7 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, o
 
           <AddCommentBox task={selectedTask} setTasks={setTasks} setSelectedTask={setSelectedTask} />
         </div>
+
       </div>
     </Modal>
   );

@@ -10,6 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { createCompanyFromOcr, uploadPdfForOcr } from "../../../api/companies";
+import CameraCaptureButton from "../../../shared/components/CameraCaptureButton";
 import { fetchBranches } from "../../../api/branches";
 import { fetchDepartments } from "../../../api/departments";
 import { getCanonicalRole, ROLES } from "../../../utils/roles";
@@ -291,6 +292,14 @@ export default function AddCompanyModal({ onClose, onCompanyCreated }) {
                   </div>
                 )}
               </button>
+              <CameraCaptureButton
+                outputType="pdf"
+                disabled={isExtracting || isSubmitting}
+                onCapture={setFile}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-appBorder bg-appSurface px-4 py-2 text-xs font-bold text-appText hover:bg-appMuted disabled:opacity-50"
+              >
+                التقاط صورة للمستند
+              </CameraCaptureButton>
             </div>
           )}
 

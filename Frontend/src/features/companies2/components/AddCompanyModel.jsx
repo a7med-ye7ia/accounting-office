@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { uploadPdfForOcr, createCompanyFromOcr } from "../../../api/companies";
+import CameraCaptureButton from "../../../shared/components/CameraCaptureButton";
 
 
 export default function AddCompanyModal({ isOpen, onClose, companies, setCompanies }) {
@@ -217,6 +218,14 @@ export default function AddCompanyModal({ isOpen, onClose, companies, setCompani
                 >
                   اختر ملف PDF
                 </label>
+                <CameraCaptureButton
+                  outputType="pdf"
+                  disabled={isExtracting || isSubmitting}
+                  onCapture={setFile}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-appBorder bg-appSurface px-4 py-2 text-xs font-bold text-appText hover:bg-appMuted disabled:opacity-50"
+                >
+                  التقاط صورة للمستند
+                </CameraCaptureButton>
 
                 {file && (
                   <div className="mt-4 flex items-center gap-2 rounded-lg bg-brand/10 border border-brand/20 px-3 py-1.5 text-xs text-brand font-medium">

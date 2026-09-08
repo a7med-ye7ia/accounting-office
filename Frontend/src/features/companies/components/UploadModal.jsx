@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FilePenLine, FileText, FolderOpen, Upload, X, XCircle } from "lucide-react";
 import { uploadContract } from "../../../api/contracts";
 import { getContractTypeMeta } from "../services/companyWorkflow";
+import CameraCaptureButton from "../../../shared/components/CameraCaptureButton";
 
 const TYPE_OPTIONS = [
   {
@@ -272,6 +273,15 @@ export default function UploadModal({
                 إزالة الملف
               </button>
             )}
+
+            <CameraCaptureButton
+              outputType="pdf"
+              disabled={!type || uploading}
+              onCapture={validateAndSetFile}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-appBorder bg-appSurface px-4 py-2 text-xs font-bold text-appText hover:bg-appMuted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              التقاط صورة للمستند
+            </CameraCaptureButton>
 
             {error && (
               <div className="mt-3 rounded-lg border border-danger/20 bg-danger/10 p-3 text-xs font-bold text-danger">
