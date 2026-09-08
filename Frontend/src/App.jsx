@@ -8,6 +8,7 @@ import EmployeeProfilePage from "./features/employees/pages/EmployeeProfilePage"
 import ActivityHistoryPage from "./features/activityLogs/pages/ActivityHistoryPage";
 import EmployeeTasksPage from "./features/tasks/pages/EmployeeTasksPage";
 import AssignedTasksDashboard from "./features/tasks/pages/AssignedTasksDashboard";
+import ReviewTaskPage from "./features/tasks/pages/ReviewTaskPage";
 import AttendancePage from "./features/attendance/AttendancePage";
 import LoginPage from "./features/login/LoginPage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -93,6 +94,7 @@ function App() {
       <Route element={<ProtectedRoute allowedRoles={[ROLES.OWNER, ROLES.BRANCH_MANAGER, ROLES.DEPARTMENT_MANAGER]} />}>
         <Route path="/EmployeeManagement" element={<EmployeeManagementPage />} />
         <Route path="/AssignedTasks" element={<AssignedTasksDashboard />} />
+        <Route path="/review/:taskId" element={<ReviewTaskPage />} />
         <Route path="/attendance" element={<AttendanceRouteGuard />} />
         <Route path="/EmployeeGuide" element={<EmployeeGuidePage />} />
         <Route path="/EmployeeGuide/:id" element={<EmployeeGuidePage />} />

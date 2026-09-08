@@ -25,6 +25,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         log.info("Checking database migrations...");
         runScript("db/migration/V1__create_department_manager_departments.sql");
         runScript("db/migration/V2__add_company_branch_dept_and_task_company.sql");
+        runScript("db/migration/V3__add_contract_task_link.sql");
     }
 
     private void runScript(String path) {

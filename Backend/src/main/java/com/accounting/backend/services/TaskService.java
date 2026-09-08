@@ -52,11 +52,19 @@ public class TaskService {
     @Autowired
     private AuthorizationService authorizationService;
     @Autowired
+    private com.accounting.backend.repositories.EmployeeAssignmentRepository employeeAssignmentRepository;
+    @Autowired
     private com.accounting.backend.repositories.CompanyRepository companyRepository;
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> getAllTasks() {
-        return taskRepository.findAll().stream().map(TaskResponse::mapToResponse).toList();
+    public List<TaskResponse> getAllTasks(Long callerId) {
+        if (callerId == null || isManager(callerId)) {
+            return taskRepository.findAll().stream().map(TaskResponse::mapToResponse).toList();
+        }
+        // Employees only see their own work plus free tasks in their branch+department scope
+        return taskRepository.findVisibleToAssignee(callerId).stream()
+                .map(TaskResponse::mapToResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -175,6 +183,7 @@ public class TaskService {
 
         String previousTitle = task.getTitle();
         String previousDescription = task.getDescription();
+        TaskStatus previousStatus = task.getStatus();
 
         if (request.getTitle() != null) {
             if (request.getTitle().isBlank()) {
@@ -244,6 +253,18 @@ public class TaskService {
                     updated.getId());
         }
 
+        // Employee submitted the task for manager review
+        if (previousStatus != TaskStatus.DONE && updated.getStatus() == TaskStatus.DONE
+                && updated.getCreatedBy() != null
+                && (caller == null || !updated.getCreatedBy().getId().equals(caller.getId()))) {
+            notificationService.createNotification(
+                    updated.getCreatedBy().getId(),
+                    "Task completed",
+                    "المهمة بانتظار مراجعتك: " + updated.getTitle(),
+                    NotificationType.TASK_COMPLETED,
+                    updated.getId());
+        }
+
         return TaskResponse.mapToResponse(updated);
     }
 
@@ -258,12 +279,13 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse addSubTask(Long taskId, SubTaskRequest request) {
+    public TaskResponse addSubTask(Long taskId, SubTaskRequest request, Long callerId) {
         Task task = requireTask(taskId);
         if (task.getStatus() == TaskStatus.ACCEPTED) {
             throw new IllegalStateException("Cannot add a subtask to an accepted task");
         }
         SubTask subTask = buildSubTask(task, request, task.getAssignedTo());
+        validateSubTaskScope(task, subTask.getAssignedTo(), callerId);
         task.getSubTasks().add(subTask);
         syncParentStatus(task);
         Task saved = taskRepository.save(task);
@@ -279,7 +301,7 @@ public class TaskService {
     }
 
     @Transactional
-    public TaskResponse updateSubTask(Long taskId, Long subTaskId, SubTaskRequest request) {
+    public TaskResponse updateSubTask(Long taskId, Long subTaskId, SubTaskRequest request, Long callerId) {
         Task task = requireTask(taskId);
         SubTask subTask = requireSubTask(task, subTaskId);
 
@@ -301,6 +323,7 @@ public class TaskService {
         }
         if (request.getAssignedToId() != null) {
             User assignee = requireAssignableUser(request.getAssignedToId());
+            validateSubTaskScope(task, assignee, callerId);
             Long previous = subTask.getAssignedTo() != null ? subTask.getAssignedTo().getId() : null;
             subTask.setAssignedTo(assignee);
             if (previous == null || !previous.equals(assignee.getId())) {
@@ -358,9 +381,23 @@ public class TaskService {
         if (subTask.getStatus() != SubTaskStatus.IN_PROGRESS) {
             throw new IllegalStateException("Invalid status transition");
         }
+        TaskStatus previousStatus = task.getStatus();
         subTask.setStatus(SubTaskStatus.DONE);
         syncParentStatus(task);
-        return TaskResponse.mapToResponse(taskRepository.save(task));
+        Task saved = taskRepository.save(task);
+
+        // All subtasks done -> the task is now waiting for manager review
+        if (previousStatus != TaskStatus.DONE && saved.getStatus() == TaskStatus.DONE
+                && saved.getCreatedBy() != null
+                && (callerId == null || !saved.getCreatedBy().getId().equals(callerId))) {
+            notificationService.createNotification(
+                    saved.getCreatedBy().getId(),
+                    "Task completed",
+                    "المهمة بانتظار مراجعتك: " + saved.getTitle(),
+                    NotificationType.TASK_COMPLETED,
+                    saved.getId());
+        }
+        return TaskResponse.mapToResponse(saved);
     }
 
     @Transactional
@@ -371,6 +408,7 @@ public class TaskService {
         if (!TaskResponse.isFree(task)) {
             throw new IllegalStateException("Task is already assigned");
         }
+        assertFreeTaskScope(task, claimer);
         task.setAssignedTo(claimer);
         for (SubTask subTask : TaskResponse.liveSubTasks(task)) {
             if (subTask.getStatus() == SubTaskStatus.DONE) {
@@ -406,6 +444,9 @@ public class TaskService {
         }
         if (!TaskResponse.isFree(task) && !isWorkingOn(task, claimer.getId())) {
             throw new SecurityException("Employee cannot claim a SubTask on an unrelated task");
+        }
+        if (TaskResponse.isFree(task)) {
+            assertFreeTaskScope(task, claimer);
         }
 
         subTask.setAssignedTo(claimer);
@@ -757,6 +798,42 @@ public class TaskService {
         }
     }
 
+    /**
+     * A subtask assignee must belong to the same Branch + Department as the task.
+     * Enforced on the backend; frontend filtering alone is never trusted.
+     */
+    private void validateSubTaskScope(Task task, User assignee, Long callerId) {
+        if (assignee == null || task.getDepartment() == null) {
+            return;
+        }
+        Long branchId = task.getDepartment().getBranch() != null ? task.getDepartment().getBranch().getId() : null;
+        authorizationService.validateTaskAssignment(callerId, branchId, task.getDepartment().getId(), assignee.getId());
+    }
+
+    /**
+     * FREE tasks are only visible/claimable by employees of the same Branch AND
+     * Department as the task's team. Tasks without a department keep the legacy
+     * open visibility. Managers are not restricted.
+     */
+    private boolean isInFreeTaskScope(Task task, User user) {
+        if (task.getDepartment() == null || task.getDepartment().getBranch() == null) {
+            return true;
+        }
+        return employeeAssignmentRepository.findByUser_Id(user.getId()).stream().anyMatch(a ->
+                a.getDepartment() != null
+                        && a.getDepartment().getId().equals(task.getDepartment().getId())
+                        && a.getBranch() != null
+                        && a.getBranch().getId().equals(task.getDepartment().getBranch().getId())
+                        && (a.getEndDate() == null || !a.getEndDate().isBefore(java.time.LocalDate.now())));
+    }
+
+    private void assertFreeTaskScope(Task task, User claimer) {
+        if (isManager(claimer.getId()) || isInFreeTaskScope(task, claimer)) {
+            return;
+        }
+        throw new SecurityException("Free task is limited to employees of the same branch and department");
+    }
+
     private boolean isWorkingOn(Task task, Long userId) {
         if (task.getAssignedTo() != null && task.getAssignedTo().getId().equals(userId)) {
             return true;
@@ -787,6 +864,28 @@ public class TaskService {
                     message,
                     NotificationType.TASK_ASSIGNED,
                     task.getId());
+        }
+        // FREE tasks are only announced to employees of the same Branch + Department
+        if (task.getDepartment() != null && task.getDepartment().getBranch() != null) {
+            Long scopeBranchId = task.getDepartment().getBranch().getId();
+            for (com.accounting.backend.entities.EmployeeAssignment assignment
+                    : employeeAssignmentRepository.findByDepartment_Id(task.getDepartment().getId())) {
+                if (assignment.getBranch() == null || !assignment.getBranch().getId().equals(scopeBranchId)) {
+                    continue;
+                }
+                User employee = assignment.getUser();
+                if (employee == null || employee.getId().equals(leaver.getId()) || notified.contains(employee.getId())) {
+                    continue;
+                }
+                notified.add(employee.getId());
+                notificationService.createNotification(
+                        employee.getId(),
+                        "New task",
+                        message,
+                        NotificationType.TASK_ASSIGNED,
+                        task.getId());
+            }
+            return;
         }
         for (User employee : userRoleRepository.findUsersByRoleName("employee")) {
             if (employee.getId().equals(leaver.getId()) || notified.contains(employee.getId())) {

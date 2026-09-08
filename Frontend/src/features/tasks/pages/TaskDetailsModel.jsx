@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Eye } from 'lucide-react';
 import { Modal } from '../../../shared/components/HrShared';
 import { addCommentToTask } from '../../../api/comments';
 import { startSubTask, completeSubTask, claimSubTask } from '../../../api/tasks';
@@ -68,12 +70,15 @@ const SUBTASK_STATUS_LABELS = {
 function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, onAccept, setSelectedTask }) {
   const [subtaskActionId, setSubtaskActionId] = useState(null);
   const [subtaskActionError, setSubtaskActionError] = useState('');
+  const navigate = useNavigate();
 
   if (!selectedTask) return null;
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   // console.log('Current user:', user);
   console.log('Selected task:', selectedTask);
   const canManage = user ? MANAGER_ROLES.includes(String(user.roleName || '').toLowerCase()) : false;
+  // DONE tasks go through the dedicated review page instead of the popup actions
+  const isManagerReview = canManage && selectedTask.status === 'DONE';
   const subtasks = selectedTask.subtasks || [];
   const currentUserId = user ? String(user.id) : '';
   const workingUserIds = (selectedTask.workingEmployees || []).map((worker) => String(worker.id));
@@ -117,7 +122,17 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, o
       onClose={onClose}
       footer={
         <>
-          {canManage && (
+          {isManagerReview && (
+            <button
+              onClick={() => navigate(`/review/${selectedTask.id}`)}
+              className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brandDeep ui-transition shadow-panel inline-flex items-center gap-2"
+            >
+              <Eye size={16} />
+              عرض المهمة
+            </button>
+          )}
+
+          {canManage && !isManagerReview && (
             <>
               {onEdit && (
                 <button
@@ -133,7 +148,7 @@ function TaskDetailsModel({ selectedTask, setTasks, onClose, onDelete, onEdit, o
               >
                 حذف المهمة
               </button>
-              
+
               {selectedTask.status === 'DONE' && (
                 <button
                   onClick={onAccept}
