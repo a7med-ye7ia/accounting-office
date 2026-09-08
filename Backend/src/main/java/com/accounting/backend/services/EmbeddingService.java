@@ -2,6 +2,7 @@ package com.accounting.backend.services;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -17,14 +18,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 public class EmbeddingService {
 
-    @Value("${ollama.url:http://localhost:11434/api}")
-    private String ollamaUrl;
+    @Value("${ai.embedding-base-url:http://vllm-embeddings:8000/v1}")
+    private String embeddingBaseUrl;
+
+    @Value("${ai.api-key:}")
+    private String apiKey;
 
     @Value("${ai.embedding.max-input-characters:16000}")
     private int maxInputCharacters;
 
-    // Keep model in sync with frontend: qwen3-embedding:0.6b
-    private static final String EMBEDDING_MODEL = "qwen3-embedding:0.6b";
+    @Value("${ai.embedding-model:Qwen/Qwen3-Embedding-0.6B}")
+    private String embeddingModel;
     private final RestTemplate rest = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -32,24 +36,22 @@ public class EmbeddingService {
         return getEmbeddings(List.of(text == null ? "" : text)).get(0);
     }
 
-    /** Embeds a batch without changing input order. Ollama returns one vector per input item. */
+    /** Embeds a batch without changing input order. vLLM returns an index for every vector. */
     public List<List<Double>> getEmbeddings(List<String> texts) throws Exception {
         if (texts == null || texts.isEmpty()) return List.of();
 
         List<String> inputs = new ArrayList<>(texts.size());
         for (String text : texts) inputs.add(validateInput(text));
 
-        String url = ollamaUrl;
-        if (!url.endsWith("/embed")) url = url + (url.endsWith("/") ? "embed" : "/embed");
+        String url = embeddingBaseUrl.replaceAll("/+$", "") + "/embeddings";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        if (!apiKey.isBlank()) headers.setBearerAuth(apiKey);
 
         Map<String, Object> body = Map.of(
-            "model", EMBEDDING_MODEL,
-            "input", inputs,
-            "truncate", false,
-            "keep_alive", "10m"
+            "model", embeddingModel,
+            "input", inputs
         );
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
@@ -59,18 +61,27 @@ public class EmbeddingService {
 
         JsonNode root = mapper.readTree(resp);
 
-        JsonNode embeddingsNode = root.get("embeddings");
+        JsonNode embeddingsNode = root.get("data");
         if (embeddingsNode == null || !embeddingsNode.isArray() || embeddingsNode.size() != inputs.size()) {
             throw new Exception("Unexpected embedding response shape: " + root.toString());
         }
 
-        List<List<Double>> embeddings = new ArrayList<>(embeddingsNode.size());
-        for (JsonNode embedding : embeddingsNode) {
+        List<List<Double>> embeddings = new ArrayList<>(Collections.nCopies(inputs.size(), null));
+        for (JsonNode item : embeddingsNode) {
+            int index = item.path("index").asInt(-1);
+            JsonNode embedding = item.get("embedding");
+            if (index < 0 || index >= inputs.size()) {
+                throw new Exception("Embedding response contains an invalid index");
+            }
             if (!embedding.isArray() || embedding.isEmpty()) {
                 throw new Exception("Embedding response contains an empty vector");
             }
-            embeddings.add(mapper.convertValue(embedding,
+            if (embeddings.get(index) != null) throw new Exception("Embedding response contains a duplicate index");
+            embeddings.set(index, mapper.convertValue(embedding,
                 mapper.getTypeFactory().constructCollectionType(List.class, Double.class)));
+        }
+        if (embeddings.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new Exception("Embedding response omitted an input vector");
         }
         return embeddings;
     }

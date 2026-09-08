@@ -1,20 +1,103 @@
-version: '3.8'
-
 services:
+  vllm-generation:
+    build:
+      context: ./AI
+      dockerfile: Dockerfile.vllm
+      args:
+        VLLM_IMAGE: ${VLLM_IMAGE:-vllm/vllm-openai:v0.27.0}
+    image: accounting-vllm-generation:local
+    container_name: accounting-vllm-generation
+    env_file:
+      - .env
+    environment:
+      CUDA_VISIBLE_DEVICES: ${VLLM_GENERATION_GPU:-0}
+      HF_TOKEN: ${HF_TOKEN:-}
+    command:
+      - --model
+      - ${VLLM_GENERATION_MODEL:-unsloth/Qwen3-4B-unsloth-bnb-4bit}
+      - --served-model-name
+      - ${VLLM_GENERATION_MODEL:-unsloth/Qwen3-4B-unsloth-bnb-4bit}
+      - --enable-lora
+      - --max-lora-rank
+      - ${VLLM_LORA_MAX_RANK:-32}
+      - --lora-modules
+      - ${VLLM_LORA_NAME:-qwen-local}=${VLLM_LORA_ADAPTER_PATH:-/models/qwen-local}
+      - --api-key
+      - ${AI_API_KEY}
+      - --max-model-len
+      - ${VLLM_GENERATION_MAX_MODEL_LEN:-8192}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.85}
+    gpus: all
+    ipc: host
+    volumes:
+      - ${VLLM_LORA_ADAPTER_HOST_DIR:?Set VLLM_LORA_ADAPTER_HOST_DIR in .env}:/models/qwen-local:ro
+      - vllm-generation-hf-cache:/root/.cache/huggingface
+      - vllm-generation-compile-cache:/root/.cache/vllm
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - accounting-network
+
+  vllm-embeddings:
+    image: ${VLLM_IMAGE:-vllm/vllm-openai:v0.27.0}
+    container_name: accounting-vllm-embeddings
+    env_file:
+      - .env
+    environment:
+      CUDA_VISIBLE_DEVICES: ${VLLM_EMBEDDING_GPU:-1}
+      HF_TOKEN: ${HF_TOKEN:-}
+    command:
+      - --model
+      - ${VLLM_EMBEDDING_MODEL:-Qwen/Qwen3-Embedding-0.6B}
+      - --served-model-name
+      - ${AI_EMBEDDING_MODEL:-Qwen/Qwen3-Embedding-0.6B}
+      - --runner
+      - pooling
+      - --api-key
+      - ${AI_API_KEY}
+      - --max-model-len
+      - ${VLLM_EMBEDDING_MAX_MODEL_LEN:-32768}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.85}
+    gpus: all
+    ipc: host
+    volumes:
+      - vllm-embeddings-hf-cache:/root/.cache/huggingface
+      - vllm-embeddings-compile-cache:/root/.cache/vllm
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - accounting-network
+
   backend:
     build:
       context: ./Backend
       dockerfile: Dockerfile
     container_name: accounting-backend
+    env_file:
+      - .env
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      # ربط الباك إند بقاعدة بيانات Neon السحابية
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://ep-orange-bonus-an80r1b5-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require
-      - SPRING_DATASOURCE_USERNAME=neondb_owner
-      - SPRING_DATASOURCE_PASSWORD=npg_jB9aKS3XcDYN
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+    depends_on:
+      vllm-generation:
+        condition: service_healthy
+      vllm-embeddings:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "java", "-version"]
       interval: 30s
@@ -44,6 +127,12 @@ services:
       start_period: 5s
     networks:
       - accounting-network
+
+volumes:
+  vllm-generation-hf-cache:
+  vllm-generation-compile-cache:
+  vllm-embeddings-hf-cache:
+  vllm-embeddings-compile-cache:
 
 networks:
   accounting-network:

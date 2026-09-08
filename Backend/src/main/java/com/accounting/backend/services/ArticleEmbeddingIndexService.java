@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.accounting.backend.entities.Contract;
@@ -26,13 +27,15 @@ public class ArticleEmbeddingIndexService {
 
     public static final String INDEX_FILE_NAME = "article-embeddings.json";
     private static final String FILE_SYSTEM_ROOT = "../FileSystem";
-    private static final String EMBEDDING_MODEL = "qwen3-embedding:0.6b";
     private static final int BATCH_SIZE = 16;
     private static final Logger log = LoggerFactory.getLogger(ArticleEmbeddingIndexService.class);
 
     private final EmbeddingService embeddingService;
     private final FileService fileService;
     private final ObjectMapper mapper = new ObjectMapper();
+
+    @Value("${ai.embedding-model:Qwen/Qwen3-Embedding-0.6B}")
+    private String embeddingModel;
 
     public ArticleEmbeddingIndexService(EmbeddingService embeddingService, FileService fileService) {
         this.embeddingService = embeddingService;
@@ -51,7 +54,7 @@ public class ArticleEmbeddingIndexService {
         index.put("companyId", contract.getCompany().getId());
         index.put("sourceFile", "ocrData.json");
         index.put("sourceHash", sha256(ocrJson));
-        index.put("embeddingModel", EMBEDDING_MODEL);
+        index.put("embeddingModel", embeddingModel);
         index.put("generatedAt", Instant.now().toString());
         ArrayNode indexedArticles = index.putArray("articles");
 
@@ -196,7 +199,7 @@ public class ArticleEmbeddingIndexService {
         index.put("companyId", contract.getCompany().getId());
         index.put("sourceFile", "ocrData.json");
         index.put("sourceHash", sha256(ocrJson));
-        index.put("embeddingModel", EMBEDDING_MODEL);
+        index.put("embeddingModel", embeddingModel);
         index.put("generatedAt", Instant.now().toString());
         ArrayNode indexedArticles = index.putArray("articles");
 

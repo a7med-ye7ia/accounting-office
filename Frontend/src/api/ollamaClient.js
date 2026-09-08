@@ -1,7 +1,7 @@
 import axios from "axios";
 import { generateText, generateTextStream } from "./generationApi.js";
 
-// Frontend should call the backend embedding endpoint. This keeps Ollama
+// The frontend calls the backend embedding endpoint. This keeps vLLM
 // network access server-side and avoids exposing model details.
 const BACKEND_API = import.meta.env.VITE_API_URL || ""; // e.g. '/api'
 

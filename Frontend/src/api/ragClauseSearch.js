@@ -4,7 +4,7 @@ const RAG_BASE_URL =
   import.meta.env.VITE_RAG_CLAUSE_API_URL ?? "http://localhost:8765";
 
 /**
- * Clause-level search: splits `oldText` by مادة (n), Ollama embed + FAISS (optional).
+ * Clause-level search: splits `oldText` by مادة (n), vLLM embeddings + FAISS (optional).
  */
 export async function searchClausesRag({ oldText, query, retrieveK = 10, finalK = 3 }) {
   const { data } = await axios.post(
@@ -21,7 +21,7 @@ export async function searchClausesRag({ oldText, query, retrieveK = 10, finalK 
 }
 
 /**
- * Picks the single best article from `articles` using only `query` (Ollama embed + FAISS).
+ * Picks the single best article from `articles` using only `query` (vLLM embeddings + FAISS).
  * Response: { article_id, title, score } — match `article_id` to your list for full content.
  */
 export async function pickArticleByPrompt({ articles, query }) {

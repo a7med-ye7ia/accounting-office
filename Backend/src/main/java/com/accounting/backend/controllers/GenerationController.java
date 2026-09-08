@@ -29,7 +29,7 @@ public class GenerationController {
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**
-     * Generate text via Ollama (non-streaming).
+     * Generate text via the configured vLLM service (non-streaming).
      *
      * Request body:
      * {
@@ -66,24 +66,16 @@ public class GenerationController {
         
         try {
             String prompt = body.getOrDefault("prompt", "");
-            String rawResponse = generationService.generateResponse(prompt, true);
-            
-            // Parse Ollama's NDJSON stream and forward to client
             PrintWriter out = response.getWriter();
-            String[] lines = rawResponse.split("\n");
-            
-            for (String line : lines) {
-                if (line.trim().isEmpty()) continue;
-                JsonNode node = mapper.readTree(line);
-                
-                if (node.has("response")) {
-                    // Forward each chunk as-is
-                    out.println(mapper.writeValueAsString(Map.of("response", node.get("response").asText())));
+            generationService.stream(prompt, chunk -> {
+                try {
+                    // Preserve the frontend's existing NDJSON contract while vLLM sends SSE upstream.
+                    out.println(mapper.writeValueAsString(Map.of("response", chunk)));
                     out.flush();
+                } catch (Exception e) {
+                    throw new IllegalStateException("Unable to forward vLLM stream", e);
                 }
-            }
-            
-            out.close();
+            });
         } catch (Exception e) {
             e.printStackTrace();
             try {
@@ -95,4 +87,3 @@ public class GenerationController {
         }
     }
 }
-

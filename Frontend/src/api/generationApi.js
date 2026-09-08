@@ -4,7 +4,7 @@ const BACKEND_API = import.meta.env.VITE_API_URL || "";
 
 /**
  * Generate text via backend.
- * Backend internally calls Ollama and returns the complete generated text.
+ * Backend internally calls vLLM and returns the complete generated text.
  *
  * @param {string} prompt - The full prompt (includes task + context)
  * @returns {Promise<string>} - The generated text

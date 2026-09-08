@@ -4,6 +4,13 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
+# Reuse the repository's untracked deployment settings when they are available.
+if [[ -f "$DIR/../.env" ]]; then
+  set -a
+  source "$DIR/../.env"
+  set +a
+fi
+
 if [[ ! -x .venv/bin/python ]]; then
   echo "Creating .venv …"
   python3 -m venv .venv
@@ -17,5 +24,5 @@ else
   echo "Using existing .venv dependencies."
 fi
 
-echo "Starting server on http://0.0.0.0:8765 (Ollama must be on 11434; ollama pull nomic-embed-text)"
+echo "Starting RAG server on http://0.0.0.0:8765 (expects vLLM embeddings via AI_EMBEDDING_BASE_URL)"
 exec .venv/bin/uvicorn rag_clause_server:app --host 0.0.0.0 --port 8765 "$@"

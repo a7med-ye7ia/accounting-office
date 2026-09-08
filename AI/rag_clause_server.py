@@ -1,14 +1,15 @@
 """
 FastAPI: (1) clause-level RAG on one long text, (2) pick one article from a list using only a query.
-Uses Ollama embeddings + FAISS when Ollama is up; otherwise falls back to simple word-overlap (no extra deps).
+Uses vLLM embeddings + FAISS when vLLM is up; otherwise falls back to simple word-overlap (no extra deps).
 
 Run: ./run_rag_server.sh   (creates .venv, pip install, uvicorn — avoids system pip PEP 668)
      Or: .venv/bin/pip install -r requirements-rag.txt && .venv/bin/uvicorn rag_clause_server:app --host 0.0.0.0 --port 8765
 
 Env:
-  OLLAMA_HOST               default http://127.0.0.1:11434  (127.0.0.1 avoids some IPv6 localhost issues)
-  OLLAMA_EMBED_MODEL        default nomic-embed-text  (ollama pull nomic-embed-text)
-  OLLAMA_EMBED_TIMEOUT_SEC  default 25 (then lexical fallback if Ollama is down)
+  AI_EMBEDDING_BASE_URL     default http://127.0.0.1:8000/v1
+  AI_EMBEDDING_MODEL        default Qwen/Qwen3-Embedding-0.6B
+  AI_API_KEY                optional vLLM API key
+  AI_REQUEST_TIMEOUT_SECONDS default 25 (then lexical fallback if vLLM is down)
   RAG_CORS_ORIGINS          comma-separated origins (default includes Vite :5173)
 """
 
@@ -76,7 +77,7 @@ class ArticlePickResponse(BaseModel):
     method: Literal["embedding", "lexical"] = "embedding"
 
 
-# --- lexical fallback (no Ollama) ------------------------------------------
+# --- lexical fallback (no vLLM) --------------------------------------------
 _TOKEN_RE = re.compile(r"[\u0600-\u06FF]+|[\w]+", re.UNICODE)
 
 
@@ -134,17 +135,22 @@ def _article_embed_text(a: ArticleIn, max_chars: int = 10000) -> str:
 _http: httpx.Client | None = None
 
 
-def _ollama_base() -> str:
-    return os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+def _embedding_base() -> str:
+    return os.environ.get("AI_EMBEDDING_BASE_URL", "http://127.0.0.1:8000/v1").rstrip("/")
 
 
 def _embed_model() -> str:
-    return os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+    return os.environ.get("AI_EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
 
 
 def _embed_http_timeout() -> httpx.Timeout:
-    sec = float(os.environ.get("OLLAMA_EMBED_TIMEOUT_SEC", "25"))
+    sec = float(os.environ.get("AI_REQUEST_TIMEOUT_SECONDS", "25"))
     return httpx.Timeout(sec, connect=min(10.0, sec))
+
+
+def _headers() -> dict[str, str]:
+    api_key = os.environ.get("AI_API_KEY", "").strip()
+    return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
 
 def _l2_normalize(vecs: np.ndarray) -> np.ndarray:
@@ -153,37 +159,37 @@ def _l2_normalize(vecs: np.ndarray) -> np.ndarray:
     return (vecs / norms).astype(np.float32)
 
 
-def ollama_embed_batch(client: httpx.Client, texts: list[str]) -> np.ndarray:
-    """Call Ollama /api/embed; returns float32 array shape (n, dim), L2-normalized rows."""
+def vllm_embed_batch(client: httpx.Client, texts: list[str]) -> np.ndarray:
+    """Call vLLM /v1/embeddings; returns float32 vectors in the input order."""
     if not texts:
         return np.zeros((0, 0), dtype=np.float32)
-    url = f"{_ollama_base()}/api/embed"
+    url = f"{_embedding_base()}/embeddings"
     r = client.post(
         url,
         json={"model": _embed_model(), "input": texts},
+        headers=_headers(),
         timeout=_embed_http_timeout(),
     )
     r.raise_for_status()
     data = r.json()
-    emb = data.get("embeddings")
-    if emb is None:
-        # single-input older shapes
-        one = data.get("embedding")
-        if one is not None:
-            emb = [one]
-        else:
-            raise RuntimeError(f"Unexpected Ollama embed response keys: {list(data.keys())}")
+    items = data.get("data")
+    if not isinstance(items, list) or len(items) != len(texts):
+        raise RuntimeError(f"Unexpected vLLM embed response keys: {list(data.keys())}")
+    items.sort(key=lambda item: item.get("index", -1))
+    if [item.get("index") for item in items] != list(range(len(texts))):
+        raise RuntimeError("vLLM embedding response omitted or duplicated an input index")
+    emb = [item.get("embedding") for item in items]
     arr = np.asarray(emb, dtype=np.float32)
     if arr.ndim == 1:
         arr = arr.reshape(1, -1)
     return _l2_normalize(arr)
 
 
-def ollama_embed_chunks(client: httpx.Client, texts: list[str], chunk_size: int = 32) -> np.ndarray:
+def vllm_embed_chunks(client: httpx.Client, texts: list[str], chunk_size: int = 32) -> np.ndarray:
     parts: list[np.ndarray] = []
     for i in range(0, len(texts), chunk_size):
         batch = texts[i : i + chunk_size]
-        parts.append(ollama_embed_batch(client, batch))
+        parts.append(vllm_embed_batch(client, batch))
     if not parts:
         return np.zeros((0, 0), dtype=np.float32)
     return np.vstack(parts)
@@ -207,7 +213,7 @@ def _cors_allow_origins() -> list[str]:
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
-app = FastAPI(title="Clause RAG (Ollama)", lifespan=lifespan)
+app = FastAPI(title="Clause RAG (vLLM)", lifespan=lifespan)
 # Do not use allow_origins=["*"] with allow_credentials=True (browser will block).
 app.add_middleware(
     CORSMiddleware,
@@ -220,19 +226,19 @@ app.add_middleware(
 
 @app.get("/health")
 def health(probe: int | None = None) -> dict:
-    """GET /health?probe=1 tries one Ollama embedding (shows ollama_embed_ok / ollama_embed_error)."""
-    out: dict = {"status": "ok", "embed_model": _embed_model(), "ollama": _ollama_base()}
+    """GET /health?probe=1 tries one vLLM embedding request."""
+    out: dict = {"status": "ok", "embed_model": _embed_model(), "embedding_base_url": _embedding_base()}
     if probe == 1:
         if _http is None:
-            out["ollama_embed_ok"] = False
-            out["ollama_embed_error"] = "http client not ready"
+            out["vllm_embed_ok"] = False
+            out["vllm_embed_error"] = "http client not ready"
         else:
             try:
-                ollama_embed_batch(_http, ["ok"])
-                out["ollama_embed_ok"] = True
+                vllm_embed_batch(_http, ["ok"])
+                out["vllm_embed_ok"] = True
             except Exception as e:
-                out["ollama_embed_ok"] = False
-                out["ollama_embed_error"] = f"{type(e).__name__}: {e}"[:400]
+                out["vllm_embed_ok"] = False
+                out["vllm_embed_error"] = f"{type(e).__name__}: {e}"[:400]
     return out
 
 
@@ -251,14 +257,14 @@ def clause_rag_search(body: SearchRequest) -> SearchResponse:
         return SearchResponse(clause_count=0, results=[])
 
     try:
-        doc_vecs = ollama_embed_chunks(_http, clauses)
+        doc_vecs = vllm_embed_chunks(_http, clauses)
         if doc_vecs.size == 0 or doc_vecs.shape[0] != len(clauses):
             raise RuntimeError("Embedding dimension mismatch")
 
         index = faiss.IndexFlatIP(doc_vecs.shape[1])
         index.add(doc_vecs.astype("float32"))
 
-        q_vecs = ollama_embed_batch(_http, [query])
+        q_vecs = vllm_embed_batch(_http, [query])
         if q_vecs.shape[0] != 1:
             raise RuntimeError("Expected single query vector")
 
@@ -290,7 +296,7 @@ def clause_rag_search(body: SearchRequest) -> SearchResponse:
 
 @app.post("/api/article-rag/pick", response_model=ArticlePickResponse)
 def article_rag_pick(body: ArticlePickRequest) -> ArticlePickResponse:
-    """Best article: Ollama embeddings + FAISS when available; else lexical Jaccard on tokens."""
+    """Best article: vLLM embeddings + FAISS when available; else lexical Jaccard on tokens."""
     if _http is None:
         raise RuntimeError("HTTP client not initialized")
 
@@ -305,14 +311,14 @@ def article_rag_pick(body: ArticlePickRequest) -> ArticlePickResponse:
     score = 0.0
 
     try:
-        doc_vecs = ollama_embed_chunks(_http, texts)
+        doc_vecs = vllm_embed_chunks(_http, texts)
         if doc_vecs.size == 0 or doc_vecs.shape[0] != len(arts):
             raise RuntimeError("Embedding dimension mismatch")
 
         index = faiss.IndexFlatIP(doc_vecs.shape[1])
         index.add(doc_vecs.astype("float32"))
 
-        q_vecs = ollama_embed_batch(_http, [query])
+        q_vecs = vllm_embed_batch(_http, [query])
         scores, indices = index.search(q_vecs.astype("float32"), 1)
         best_i = int(indices[0][0])
         if best_i < 0 or best_i >= len(arts):

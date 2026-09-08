@@ -1,0 +1,6 @@
+ARG VLLM_IMAGE=vllm/vllm-openai:v0.27.0
+FROM ${VLLM_IMAGE}
+
+# The trained qwen-local adapter was trained against a BitsAndBytes 4-bit base.
+# vLLM requires this plugin to serve that base model.
+RUN uv pip install --system vllm-bnb-plugin

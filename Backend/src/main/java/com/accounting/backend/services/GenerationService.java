@@ -1,6 +1,13 @@
 package com.accounting.backend.services;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -12,64 +19,90 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/** Client for vLLM's OpenAI-compatible Chat Completions API. */
 @Service
 public class GenerationService {
 
-    @Value("${ollama.url:http://localhost:11434/api}")
-    private String ollamaUrl;
+    @Value("${ai.base-url:http://vllm-generation:8000/v1}")
+    private String aiBaseUrl;
 
-    // Use the same model as frontend: qwen-local
-    private static final String GENERATION_MODEL = "qwen-local";
+    @Value("${ai.api-key:}")
+    private String apiKey;
+
+    @Value("${ai.generation-model:qwen-local}")
+    private String generationModel;
+
+    @Value("${ai.request-timeout-seconds:120}")
+    private int requestTimeoutSeconds;
 
     private final RestTemplate rest = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
 
-    /**
-     * Generate text using Ollama.
-     * 
-     * @param prompt The input prompt
-     * @param stream Whether to stream the response (if false, returns complete text)
-     * @return Generated text response
-     */
-    public String generateResponse(String prompt, boolean stream) throws Exception {
-        if (prompt == null) prompt = "";
+    public String generate(String prompt) throws Exception {
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody(prompt, false), headers());
+        String response = rest.postForObject(endpoint("/chat/completions"), request, String.class);
+        if (response == null) throw new IllegalStateException("Empty vLLM generation response");
 
-        String url = ollamaUrl;
-        if (!url.endsWith("/generate")) 
-            url = url + (url.endsWith("/") ? "generate" : "/generate");
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        Map<String, Object> body = Map.of(
-            "model", GENERATION_MODEL,
-            "prompt", prompt,
-            "stream", stream
-        );
-
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-
-        String resp = rest.postForObject(url, request, String.class);
-        if (resp == null) throw new Exception("Empty generation response");
-
-        // For non-streaming: Ollama returns JSON with "response" field
-        // For streaming: returns NDJSON, we handle it differently
-        if (!stream) {
-            JsonNode root = mapper.readTree(resp);
-            if (root.has("response")) {
-                return root.get("response").asText();
-            }
-            throw new Exception("Unexpected generation response shape: " + root.toString());
+        JsonNode content = mapper.readTree(response).at("/choices/0/message/content");
+        if (content.isMissingNode() || content.isNull()) {
+            throw new IllegalStateException("Unexpected vLLM generation response shape");
         }
-
-        // For streaming, return the raw response (caller handles NDJSON parsing)
-        return resp;
+        return content.asText();
     }
 
-    /**
-     * Generate text (non-streaming, simpler API).
-     */
-    public String generate(String prompt) throws Exception {
-        return generateResponse(prompt, false);
+    /** Streams vLLM Server-Sent Events and emits only generated text deltas. */
+    public void stream(String prompt, Consumer<String> onChunk) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) URI.create(endpoint("/chat/completions")).toURL().openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setConnectTimeout(10_000);
+        connection.setReadTimeout(requestTimeoutSeconds * 1_000);
+        connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+        connection.setRequestProperty("Accept", MediaType.TEXT_EVENT_STREAM_VALUE);
+        if (!apiKey.isBlank()) connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+
+        byte[] payload = mapper.writeValueAsBytes(requestBody(prompt, true));
+        connection.getOutputStream().write(payload);
+
+        int status = connection.getResponseCode();
+        if (status < 200 || status >= 300) {
+            throw new IllegalStateException("vLLM generation request failed with HTTP " + status);
+        }
+
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data:")) continue;
+                String data = line.substring("data:".length()).trim();
+                if ("[DONE]".equals(data)) return;
+
+                JsonNode delta = mapper.readTree(data).at("/choices/0/delta/content");
+                if (!delta.isMissingNode() && !delta.isNull() && !delta.asText().isEmpty()) {
+                    onChunk.accept(delta.asText());
+                }
+            }
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private Map<String, Object> requestBody(String prompt, boolean stream) {
+        return Map.of(
+            "model", generationModel,
+            "messages", List.of(Map.of("role", "user", "content", prompt == null ? "" : prompt)),
+            "stream", stream
+        );
+    }
+
+    private HttpHeaders headers() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (!apiKey.isBlank()) headers.setBearerAuth(apiKey);
+        return headers;
+    }
+
+    private String endpoint(String path) {
+        return aiBaseUrl.replaceAll("/+$", "") + path;
     }
 }
