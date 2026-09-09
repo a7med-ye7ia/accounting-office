@@ -90,7 +90,7 @@ class ArticleSearchServiceTest {
         Files.writeString(contractDir.resolve(ArticleEmbeddingIndexService.INDEX_FILE_NAME), indexJson);
 
         when(contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING))
-            .thenReturn(Optional.of(contract));
+            .thenReturn(List.of(contract));
         when(embeddingService.getEmbedding(anyString()))
             .thenReturn(List.of(1.0, 0.0, 0.0)); // Query points towards ART_1
 
@@ -139,7 +139,7 @@ class ArticleSearchServiceTest {
         Files.writeString(contractDir.resolve(ArticleEmbeddingIndexService.INDEX_FILE_NAME), staleIndexJson);
 
         when(contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING))
-            .thenReturn(Optional.of(contract));
+            .thenReturn(List.of(contract));
         when(embeddingService.getEmbedding(anyString()))
             .thenReturn(List.of(1.0, 0.0, 0.0));
 

@@ -41,9 +41,12 @@ public class ArticleSearchService {
         if (query == null || query.isBlank() || topK < 1) return Collections.emptyList();
 
         Contract contract = contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING)
-            .orElseGet(() -> contractRepository.findAll().stream()
-                .filter(c -> c.getCompany() != null && c.getCompany().getId().equals(companyId))
-                .findFirst().orElse(null));
+            .stream()
+            .findFirst()
+            .orElseGet(() -> contractRepository.findByCompany_Id(companyId)
+                .stream()
+                .findFirst()
+                .orElse(null));
         if (contract == null || contract.getFilePath() == null) return Collections.emptyList();
 
         List<Double> queryVector = embeddingService.getEmbedding(query);
