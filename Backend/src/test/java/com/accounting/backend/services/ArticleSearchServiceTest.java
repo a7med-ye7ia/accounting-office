@@ -4,7 +4,6 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -90,7 +89,7 @@ class ArticleSearchServiceTest {
         Files.writeString(contractDir.resolve(ArticleEmbeddingIndexService.INDEX_FILE_NAME), indexJson);
 
         when(contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING))
-            .thenReturn(Optional.of(contract));
+            .thenReturn(List.of(contract));
         when(embeddingService.getEmbedding(anyString()))
             .thenReturn(List.of(1.0, 0.0, 0.0)); // Query points towards ART_1
 
@@ -139,7 +138,7 @@ class ArticleSearchServiceTest {
         Files.writeString(contractDir.resolve(ArticleEmbeddingIndexService.INDEX_FILE_NAME), staleIndexJson);
 
         when(contractRepository.findByCompany_IdAndType(companyId, ContractType.CREATING))
-            .thenReturn(Optional.of(contract));
+            .thenReturn(List.of(contract));
         when(embeddingService.getEmbedding(anyString()))
             .thenReturn(List.of(1.0, 0.0, 0.0));
 
