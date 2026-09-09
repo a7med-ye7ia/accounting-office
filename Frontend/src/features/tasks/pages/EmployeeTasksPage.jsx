@@ -374,13 +374,27 @@ const isTaskVisibleToUser = (
   empRankMap,
   empIdMap,
   myRank,
+  scopeById,
+  currentUserIsManager,
 ) => {
   if (!currentUser) return false;
   const currentUserId = String(currentUser.id);
   const actualAssignedToId = task.assignedToId || empIdMap[task.assignedToName];
   if (String(actualAssignedToId || "") === currentUserId) return true;
   if (taskWorkerIds(task).includes(currentUserId)) return true;
-  if (task.free) return true;
+  if (task.free) {
+    // FREE tasks are visible only to employees of the same branch AND department
+    // (the backend enforces the same rule; tasks without a department stay open,
+    // managers keep their existing visibility)
+    if (currentUserIsManager) return true;
+    if (!task.departmentId) return true;
+    const myScope = scopeById ? scopeById[currentUserId] : null;
+    if (!myScope) return false;
+    return (
+      String(myScope.branchId || "") === String(task.branchId || "") &&
+      String(myScope.departmentId || "") === String(task.departmentId || "")
+    );
+  }
   const assigneeRank = empRankMap[actualAssignedToId] || 1;
   return assigneeRank < myRank;
 };
@@ -448,18 +462,31 @@ function EmployeeTasksPage() {
 
         const empRankMap = {};
         const empIdMap = {};
+        const scopeById = {};
         employeesData.forEach((emp) => {
           const empRoleKey = emp.roleName
             ? emp.roleName.toLowerCase()
             : "employee";
           empRankMap[emp.id] = roleRank[empRoleKey];
           empIdMap[emp.fullName] = emp.id;
+          scopeById[String(emp.id)] = {
+            branchId: emp.branchId,
+            departmentId: emp.departmentId,
+          };
         });
 
         console.log("All tasks from API:", allTasks);
 
         const filteredTasks = allTasks.filter((task) =>
-          isTaskVisibleToUser(task, currentUser, empRankMap, empIdMap, myRank),
+          isTaskVisibleToUser(
+            task,
+            currentUser,
+            empRankMap,
+            empIdMap,
+            myRank,
+            scopeById,
+            isManagerUser(currentUser),
+          ),
         );
 
         console.log("Filtered tasks:", filteredTasks);
@@ -1239,14 +1266,17 @@ function EmployeeTasksPage() {
 
               <button
                 type="button"
-                disabled={!form.departmentId}
+                disabled={!form.branchId || !form.departmentId}
                 onClick={() => {
                   setEditingSubtaskIndex(null);
                   setShowSubtaskModal(true);
                 }}
                 className="w-full border-2 border-dashed border-appBorder rounded-xl px-4 py-3 text-sm font-medium text-appSubtext hover:text-appText hover:border-brand hover:bg-appMuted/50 ui-transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                + إضافة مهمة فرعية {!form.departmentId ? "(يرجى اختيار الفرع والقسم أولاً)" : ""}
+                + إضافة مهمة فرعية{" "}
+                {!form.branchId || !form.departmentId
+                  ? "(يرجى اختيار الفرع والقسم أولاً)"
+                  : ""}
               </button>
 
               {subtasks.length > 0 && (
@@ -1381,7 +1411,7 @@ function EmployeeTasksPage() {
               ? "إضافة مهمة فرعية"
               : "تعديل مهمة فرعية"
           }
-          employees={availableEmployees.length > 0 ? availableEmployees : employees}
+          employees={availableEmployees}
           defaultAssignedToId={form.assignedToId}
           initial={
             editingSubtaskIndex === null ? null : subtasks[editingSubtaskIndex]

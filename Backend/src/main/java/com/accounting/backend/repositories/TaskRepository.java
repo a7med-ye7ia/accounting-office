@@ -37,6 +37,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
                           AND activeSubTask.assignedTo IS NOT NULL
                           AND activeSubTask.status <> com.accounting.backend.enums.SubTaskStatus.DONE
                     )
+                    AND (
+                        t.department IS NULL
+                        OR EXISTS (
+                            SELECT 1 FROM EmployeeAssignment ea
+                            WHERE ea.user.id = :userId
+                              AND ea.department.id = t.department.id
+                              AND ea.branch.id = t.department.branch.id
+                              AND (ea.endDate IS NULL OR ea.endDate >= CURRENT_DATE)
+                        )
+                    )
                )
             """)
     List<Task> findVisibleToAssignee(@Param("userId") Long userId);

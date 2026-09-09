@@ -26,6 +26,7 @@ export default function UpdatingContract() {
   const [loading, setLoading] = useState(true);
   const [selectedContract, setSelectedContract] = useState(null);
   const [showContractReview, setShowContractReview] = useState(false);
+  const [pdfContractUrl, setPdfContractUrl] = useState(null);
 
   useEffect(() => {
     const loadContracts = async () => {
@@ -82,6 +83,13 @@ export default function UpdatingContract() {
   };
 
   const handleViewContract = async (contract) => {
+    // Amendments generated through the AI flow are stored as PDF files,
+    // older manual uploads are JSON payloads reviewed via FinalContractReview.
+    if (String(contract.filePath || "").toLowerCase().endsWith(".pdf")) {
+      const blob = await getFileFromPath(contract.filePath);
+      setPdfContractUrl(URL.createObjectURL(blob));
+      return;
+    }
     const file = await getFileFromPath(contract.filePath);
     const text = await file.text();
     const jsonObject = JSON.parse(text);
@@ -410,6 +418,27 @@ export default function UpdatingContract() {
           setSelectedContract(null);
         }}
       />
+    )}
+
+    {pdfContractUrl && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div dir="rtl" className="flex h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-appBorder bg-appSurface shadow-panel">
+          <div className="flex items-center justify-between border-b border-appBorder p-4">
+            <h3 className="font-extrabold text-appText">عرض ملف PDF</h3>
+            <button
+              type="button"
+              onClick={() => {
+                URL.revokeObjectURL(pdfContractUrl);
+                setPdfContractUrl(null);
+              }}
+              className="rounded-lg bg-appMuted px-3 py-1.5 text-xs font-bold text-appText ui-transition hover:bg-appBorder/40"
+            >
+              إغلاق
+            </button>
+          </div>
+          <iframe title="Amendment Contract PDF" src={pdfContractUrl} className="w-full flex-1 rounded-b-2xl border-0" />
+        </div>
+      </div>
     )}
 
     </>

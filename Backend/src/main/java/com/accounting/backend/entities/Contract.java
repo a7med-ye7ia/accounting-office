@@ -44,6 +44,10 @@ public class Contract {
     @Column(name = "ocr_data", columnDefinition = "TEXT")
     private String ocrData;
 
+    @ManyToOne
+    @JoinColumn(name = "task_id")
+    private Task task;
+
     // Getters and setters
 
     public Long getId() { return id; }
@@ -75,6 +79,9 @@ public class Contract {
 
     public String getOcrData() { return ocrData; }
     public void setOcrData(String ocrData) { this.ocrData = ocrData; }
+
+    public Task getTask() { return task; }
+    public void setTask(Task task) { this.task = task; }
     @Override
     public String toString() {
         return "Contract [id=" + id + ", type=" + type + ", company=" + company + ", createdBy=" + createdBy

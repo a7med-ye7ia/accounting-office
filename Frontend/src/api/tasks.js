@@ -142,3 +142,35 @@ export const leaveTask = async (taskId) => {
     throw new Error(apiError(error, 'تعذر مغادرة المهمة'));
   }
 };
+
+// ---- Manager review workflow (/review/:taskId) ----
+
+export const getTaskReview = async (taskId) => {
+  try {
+    const response = await apiClient.get(`/tasks/${taskId}/review`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching task review:', error);
+    throw error;
+  }
+};
+
+export const approveTaskReview = async (taskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/approve`);
+    return response.data;
+  } catch (error) {
+    console.error('Error approving task:', error);
+    throw new Error(apiError(error, 'تعذر قبول المهمة'));
+  }
+};
+
+export const returnTaskReview = async (taskId) => {
+  try {
+    const response = await apiClient.post(`/tasks/${taskId}/return`);
+    return response.data;
+  } catch (error) {
+    console.error('Error returning task:', error);
+    throw new Error(apiError(error, 'تعذر إعادة المهمة للتعديل'));
+  }
+};

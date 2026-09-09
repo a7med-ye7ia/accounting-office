@@ -27,13 +27,16 @@ public class TaskController {
     @Autowired
     private TaskService taskService;
     @Autowired
+    private com.accounting.backend.services.TaskReviewService taskReviewService;
+    @Autowired
     private JwtService jwtService;
     @Autowired
     private ActivityLogService activityLogService;
 
     @GetMapping
-    public List<TaskResponse> getAllTasks() {
-        return taskService.getAllTasks();
+    public List<TaskResponse> getAllTasks(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        return taskService.getAllTasks(extractUserId(authHeader));
     }
 
     @GetMapping("/tasks/{id}")
@@ -125,8 +128,9 @@ public class TaskController {
             @PathVariable Long id,
             @RequestBody SubTaskRequest request) {
         return handle(() -> {
-            taskService.assertManager(extractUserId(authHeader));
-            return ResponseEntity.ok(taskService.addSubTask(id, request));
+            Long callerId = extractUserId(authHeader);
+            taskService.assertManager(callerId);
+            return ResponseEntity.ok(taskService.addSubTask(id, request, callerId));
         });
     }
 
@@ -137,8 +141,9 @@ public class TaskController {
             @PathVariable Long subTaskId,
             @RequestBody SubTaskRequest request) {
         return handle(() -> {
-            taskService.assertManager(extractUserId(authHeader));
-            return ResponseEntity.ok(taskService.updateSubTask(id, subTaskId, request));
+            Long callerId = extractUserId(authHeader);
+            taskService.assertManager(callerId);
+            return ResponseEntity.ok(taskService.updateSubTask(id, subTaskId, request, callerId));
         });
     }
 
@@ -219,6 +224,27 @@ public class TaskController {
     @GetMapping("/createdBy/{userId}")
     public List<TaskResponse> getTasksByCreatedByUserId(@PathVariable Long userId) {
         return taskService.getTasksByCreator(userId);
+    }
+
+    @GetMapping("/{id}/review")
+    public ResponseEntity<?> getTaskReview(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        return handle(() -> ResponseEntity.ok(taskReviewService.getReviewData(id, extractUserId(authHeader))));
+    }
+
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<?> approveTask(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        return handle(() -> ResponseEntity.ok(taskReviewService.approveTask(id, extractUserId(authHeader))));
+    }
+
+    @PostMapping("/{id}/return")
+    public ResponseEntity<?> returnTask(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id) {
+        return handle(() -> ResponseEntity.ok(taskReviewService.returnTaskForModification(id, extractUserId(authHeader))));
     }
 
     private Long extractUserId(String authHeader) {

@@ -101,3 +101,20 @@ export const deleteContract = async (id) => {
     throw error;
   }
 };
+
+// Generates the amendment PDF on the backend and persists it as a
+// PENDING_APPROVAL UPDATING contract (linked to the task when taskId is given).
+export const generateAmendmentContract = async ({ companyId, taskId, fileName, pdf }) => {
+  try {
+    const response = await apiClient.post("/contracts/amendments/generate", {
+      companyId,
+      taskId: taskId ?? null,
+      fileName,
+      pdf,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error generating amendment contract:", error);
+    throw error;
+  }
+};
