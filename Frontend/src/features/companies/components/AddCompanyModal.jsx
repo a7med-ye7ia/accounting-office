@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   ArrowRight,
   Building2,
@@ -69,7 +69,7 @@ function buildCompanyRequest(ocrData, branchId, departmentId) {
     company_type: ocrData.company_type,
     company_address: ocrData.company_address,
     company_capital: ocrData.company_capital,
-    commercial_register_number: ocrData.commercial_register_number,
+    commercial_register_number: new Date().toLocaleString,
     approval_date: ocrData.approval_date,
     company_duration: ocrData.company_duration,
     company_activity: ocrData.company_activity,

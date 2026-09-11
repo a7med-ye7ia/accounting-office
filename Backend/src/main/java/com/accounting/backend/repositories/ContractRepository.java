@@ -19,6 +19,8 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
     ContractType type
 );
 
+    List<Contract> findByCompany_Id(Long companyId);
+
     Optional<Contract> findFirstByTask_IdOrderByIdDesc(Long taskId);
 
     Optional<Contract> findFirstByCompany_IdAndTypeAndStatusOrderByIdDesc(

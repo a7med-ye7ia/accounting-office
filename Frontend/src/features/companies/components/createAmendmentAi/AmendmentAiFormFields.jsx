@@ -4,9 +4,12 @@
 // ─────────────────────────────────────────────────────────
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
-  generateAmendmentPdfBlob,
-  generateAmendmentPdfBlobFromPayload,
-} from "./amendmentPdfUtils.js";
+  createAmendmentPdfPreview,
+  downloadAmendmentPdfPreview,
+  getSectionEditsFromPdfPayload,
+  regenerateAmendmentPdfPreview,
+  revokeAmendmentPdfPreview,
+} from "../../../../services/amendmentPdfService.js";
 import PdfReviewModal from "./PdfReviewModal.jsx";
 import ArticleSection from "./ArticleSection.jsx";
 
@@ -31,7 +34,7 @@ export default function AmendmentAiFormFields({
 
   const closePdfPreview = useCallback(() => {
     setPdfPreview((current) => {
-      if (current?.url) window.URL.revokeObjectURL(current.url);
+      revokeAmendmentPdfPreview(current);
       return null;
     });
     setReviewPayload(null);
@@ -42,17 +45,16 @@ export default function AmendmentAiFormFields({
   // Revoke object URL on unmount / url change
   useEffect(
     () => () => {
-      if (pdfPreview?.url) window.URL.revokeObjectURL(pdfPreview.url);
+      revokeAmendmentPdfPreview(pdfPreview);
     },
     [pdfPreview?.url]
   );
 
   const regeneratePdfFromPayload = useCallback(async (payload, fileName) => {
-    const { blob } = await generateAmendmentPdfBlobFromPayload(payload, fileName);
-    const url = window.URL.createObjectURL(blob);
+    const preview = await regenerateAmendmentPdfPreview(payload, fileName);
     setPdfPreview((current) => {
-      if (current?.url) window.URL.revokeObjectURL(current.url);
-      return { url, fileName, blob };
+      revokeAmendmentPdfPreview(current);
+      return preview;
     });
     renderedPayloadRef.current = JSON.stringify(payload);
     setHasPendingEdits(false);
@@ -62,11 +64,10 @@ export default function AmendmentAiFormFields({
     if (!sections || sections.length === 0) return;
     setIsGeneratingPdf(true);
     try {
-      const { blob, fileName, payload } = await generateAmendmentPdfBlob(company, sections);
-      const url = window.URL.createObjectURL(blob);
+      const { preview, payload } = await createAmendmentPdfPreview(company, sections);
       setPdfPreview((current) => {
-        if (current?.url) window.URL.revokeObjectURL(current.url);
-        return { url, fileName, blob };
+        revokeAmendmentPdfPreview(current);
+        return preview;
       });
       setReviewPayload(payload);
       renderedPayloadRef.current = JSON.stringify(payload);
@@ -103,23 +104,8 @@ export default function AmendmentAiFormFields({
 
   // Sync edits made inside the PDF review modal back to the main form state
   const syncReviewPayloadToSections = useCallback(() => {
-    if (!reviewPayload?.sections) return;
-    reviewPayload.sections.forEach((payloadSection, index) => {
-      const formSection = sections[index];
-      if (!formSection) return;
-      const patch = {};
-      if (payloadSection.beforeText !== formSection.beforeText) {
-        patch.beforeText = payloadSection.beforeText;
-      }
-      if (payloadSection.afterText !== formSection.afterText) {
-        patch.afterText = payloadSection.afterText;
-      }
-      if (payloadSection.amendmentTitle !== formSection.amendmentTitle) {
-        patch.amendmentTitle = payloadSection.amendmentTitle;
-      }
-      if (Object.keys(patch).length > 0) {
-        handleChangeSection(index, patch);
-      }
+    getSectionEditsFromPdfPayload(reviewPayload, sections).forEach(({ index, patch }) => {
+      handleChangeSection(index, patch);
     });
   }, [reviewPayload, sections, handleChangeSection]);
 
@@ -130,12 +116,7 @@ export default function AmendmentAiFormFields({
 
   const handleDownloadPreview = () => {
     if (!pdfPreview || hasPendingEdits) return;
-    const link = document.createElement("a");
-    link.href = pdfPreview.url;
-    link.setAttribute("download", pdfPreview.fileName);
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode.removeChild(link);
+    downloadAmendmentPdfPreview(pdfPreview);
   };
 
   // ── Render ────────────────────────────────────────────
@@ -242,7 +223,7 @@ export default function AmendmentAiFormFields({
             section={section}
             availableArticles={availableArticles}
             onChangeSection={handleChangeSection}
-            getCachedEmbedding={getCachedEmbedding} // Cach
+            company={company}
           />
         ))}
       </div>

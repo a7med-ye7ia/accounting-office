@@ -46,6 +46,8 @@ import com.accounting.backend.repositories.ContractRepository;
 import com.accounting.backend.repositories.DepartmentRepository;
 import com.accounting.backend.repositories.UserRepository;
 import com.accounting.backend.services.ActivityLogService;
+import com.accounting.backend.services.ArticleEmbeddingIndexService;
+import com.accounting.backend.services.EmbeddingIndexBackgroundService;
 import com.accounting.backend.services.AuthorizationService;
 import com.accounting.backend.services.FileService;
 
@@ -80,6 +82,9 @@ public class CompanyController {
 
     @Autowired
     private FileService fileService;
+
+    @Autowired
+    private EmbeddingIndexBackgroundService embeddingIndexBackgroundService;
 
     @GetMapping
     public ResponseEntity<List<Company>> getAllCompanies(
@@ -320,7 +325,7 @@ public class CompanyController {
             @RequestPart("company") CreateCompanyRequest request,
             @RequestPart("pdf") MultipartFile pdfFile,
             @RequestPart("ocrJson") String ocrJson,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         User user = authorizationService.requireAuthenticatedUser(authHeader);
         Long callerId = user.getId();
@@ -386,7 +391,10 @@ public class CompanyController {
         contract.setCreatedAt(LocalDateTime.now());
         contract.setUpdatedAt(LocalDateTime.now());
 
-        contractRepository.save(contract);
+        contract = contractRepository.save(contract);
+
+        embeddingIndexBackgroundService.queueIndex(contract.getId());
+
         savedCompany.setContracts(Collections.singletonList(contract));
 
         Map<String, Object> meta = new HashMap<>();

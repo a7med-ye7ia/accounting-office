@@ -6,19 +6,22 @@
 //   • smart semantic search
 // ─────────────────────────────────────────────────────────
 import { useState } from "react";
-import { generateResponseStream, getEmbedding } from "../../../../api/ollamaClient.js";
+import { useParams } from "react-router-dom";
+import { generateResponseStream } from "../../../../api/ollamaClient.js";
+import { handleSmartPickArticles } from "../../../../services/smartPickService.js";
 import MicButton from "../../../../shared/components/MicButton.jsx";
 import DocumentLoader from "./DocumentLoader.jsx";
 import ArticlePickerOverlay from "./ArticlePickerOverlay.jsx";
-import { buildCatInstruction, normalizeCatOutput, stripThinkingContent } from "./amendmentUtils.js";
+import { buildCatInstruction, normalizeCatOutput, stripThinkingContent } from "../../../../utils/amendmentUtils.js";
 
 export default function ArticleSection({
   index,
   section,
   availableArticles,
   onChangeSection,
-  getCachedEmbedding, // Cach
+  company, // Company object with id
 }) {
+  const params = useParams();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [streamingOutput, setStreamingOutput] = useState("");
@@ -44,61 +47,46 @@ export default function ArticleSection({
   };
 
   const handleSmartPick = async () => {
-    if (!section.prompt) return;
+    const resolvedCompanyId = company?.id ?? params?.companyId ?? (typeof company === "number" || typeof company === "string" ? company : null);
+
+    if (!section.prompt?.trim()) {
+      setSmartSearchNote("يرجى كتابة تعليمات التعديل أولاً للبحث عن المادة المناسبة.");
+      return;
+    }
+
+    if (!resolvedCompanyId) {
+      console.warn("Smart search: company object missing ID", company);
+      setSmartSearchNote("تعذر التعرّف على رقم الشركة الحالية.");
+      return;
+    }
+
     setSmartSearching(true);
     setSmartSearchNote("");
     setSmartSearchScore(null);
     setSmartSearchResults([]);
+
     try {
-      const cosineSimilarity = (vecA, vecB) => {
-        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-        const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-        const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-        if (!magA || !magB) return 0;
-        return dotProduct / (magA * magB);
-      };
-
-      const minSimilarity = 0.5;
-
-      // 1. Get query embedding
-      const queryVector = await getEmbedding(section.prompt);
-      if (!queryVector) {
-        setSmartSearchNote("تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً، وتم إيقاف البحث الذكي مؤقتاً.");
-        return;
-      }
-
-      // 2. Embedding-based scoring (cosine similarity) for all articles
-      const scoredArticles = await Promise.all(
-        availableArticles.map(async (article) => {
-          const articleVector = await getCachedEmbedding(
-            String(article.id),
-            String(article.content ?? "")
-          );
-          const score = cosineSimilarity(queryVector, articleVector);
-          return { ...article, score };
-        })
+      const result = await handleSmartPickArticles(
+        resolvedCompanyId,
+        section.prompt,
+        3 // topK
       );
 
-      const sorted = scoredArticles.sort((a, b) => b.score - a.score);
-      const topScore = sorted[0]?.score ?? null;
-      setSmartSearchScore(topScore);
-
-      if (!topScore || topScore < minSimilarity) {
-        setSmartSearchNote("لم يتم العثور على مادة مطابقة بشكل كافٍ.");
-        return;
+      if (result.success && result.bestArticle) {
+        // Pick the best article from backend search
+        handlePickArticle({
+          id: result.bestArticle.id,
+          title: result.bestArticle.title,
+          content: result.bestArticle.content,
+        });
       }
 
-      // Directly pick the best candidate based on cosine similarity
-      const bestArticle = sorted[0];
-      handlePickArticle(bestArticle);
-      setSmartSearchNote(
-        `✓ تم اختيار المادة رقم ${bestArticle.id}: ${bestArticle.title}`
-      );
-
-      // Show top 3 candidates as suggestions for easy switching
-      setSmartSearchResults(sorted.slice(0, 3));
+      setSmartSearchNote(result.message);
+      setSmartSearchScore(result.bestScore);
+      setSmartSearchResults(result.results || []);
     } catch (err) {
       console.error("Smart search error:", err);
+      setSmartSearchNote("حدث خطأ أثناء إجراء البحث الذكي.");
     } finally {
       setSmartSearching(false);
     }
@@ -356,9 +344,13 @@ export default function ArticleSection({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {smartSearchResults.map((article, idx) => (
                   <button
-                    key={article.id}
+                    key={article.articleId}
                     type="button"
-                    onClick={() => handlePickArticle(article)}
+                    onClick={() => handlePickArticle({
+                      id: article.articleId,
+                      title: `المادة #${article.articleId}`,
+                      content: article.content,
+                    })}
                     className="text-right rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm
                                hover:border-emerald-300 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md
                                transition-all"
@@ -368,12 +360,11 @@ export default function ArticleSection({
                         #{idx + 1}
                       </span>
                       <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {
-                        Math.round(article.score * 100) + (idx === 0 ? 30 : 0)}%
+                        {Math.round(article.score * 100)}%
                       </span>
                     </div>
                     <div className="font-semibold text-slate-800 line-clamp-2">
-                      م.{article.id}: {article.title}
+                      م.{article.articleId}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-2 line-clamp-3">
                       {article.content}

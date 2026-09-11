@@ -2,9 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react"; // Cach
 import { mockArticles } from "../../../shared/data/mockData";
 import companyExampleData from "../../../shared/data/companyExampleData.json";
 import { generateResponse } from "../../../api/ollamaClient.js";
-import { getEmbedding } from "../../../api/ollamaClient.js";
-import MicButton from "../../../shared/components/MicButton.jsx";
-
+import { handleSmartPickArticles } from "../../../services/smartPickService.js";
 
 // ─────────────────────────────────────────────────────────
 // helpers
@@ -610,10 +608,6 @@ function ArticleSection({
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [smartSearching, setSmartSearching] = useState(false);
-  const [smartSearchNote, setSmartSearchNote] = useState("");
-  const [smartSearchScore, setSmartSearchScore] = useState(null); // Cach
-  const [smartSearchResults, setSmartSearchResults] = useState([]);
 
   const selectedArticle =
     availableArticles.find(
@@ -629,45 +623,23 @@ function ArticleSection({
   };
 
   const handleSmartPick = async () => {
-    if (!section.prompt) return;
+    if (!section.prompt || !company?.id) return;
     setSmartSearching(true);
     setSmartSearchNote("");
-    setSmartSearchScore(null); // Cach
+    setSmartSearchScore(null);
     setSmartSearchResults([]);
     try {
-      const cosineSimilarity = (vecA, vecB) => {
-        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-        const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-        const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-        if (!magA || !magB) return 0;
-        return dotProduct / (magA * magB);
-      };
-
-      const minSimilarity = 0.5;
-
-      const queryVector = await getEmbedding(section.prompt);
-      if (!queryVector) {
-        setSmartSearchNote("تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً، وتم إيقاف البحث الذكي مؤقتاً.");
-        return;
+      const result = await handleSmartPickArticles(company.id, section.prompt, 3);
+      if (result.success && result.bestArticle) {
+        handlePickArticle({
+          id: result.bestArticle.id,
+          title: result.bestArticle.title,
+          content: result.bestArticle.content,
+        });
       }
-      const scoredArticles = await Promise.all(
-        availableArticles.map(async (article) => {
-          const articleVector = await getCachedEmbedding( // Cach
-            String(article.id), // Cach
-            String(article.content ?? "") // Cach
-          ); // Cach
-          const score = cosineSimilarity(queryVector, articleVector);
-          return { ...article, score };
-        })
-      );
-      const sorted = scoredArticles.sort((a, b) => b.score - a.score);
-      const topMatches = sorted.slice(0, 3);
-      const topScore = sorted[0] ? sorted[0].score : null; // Cach
-      setSmartSearchScore(topScore); // Cach
-      setSmartSearchResults(topMatches);
-      if (!topScore || topScore < minSimilarity) {
-        setSmartSearchNote("لم يتم العثور على مادة مطابقة بشكل كافٍ.");
-      }
+      setSmartSearchNote(result.message);
+      setSmartSearchScore(result.bestScore);
+      setSmartSearchResults(result.results || []);
     } catch (err) {
       console.error("Smart search error:", err);
     } finally {
@@ -708,9 +680,12 @@ function ArticleSection({
     }
   };
 
-  
-
   const canSend = !!section.beforeText && !!section.prompt && !loading;
+  const canArticleRag =
+    !!section.prompt?.trim() &&
+    availableArticles.length > 0 &&
+    !ragLoading &&
+    !loading;
 
   return (
     <>
@@ -840,122 +815,46 @@ function ArticleSection({
             <label className="text-sm font-bold text-slate-700">
               تعليمات التعديل للذكاء الاصطناعي
             </label>
-            <div className="flex items-start gap-2">
-              <textarea
-                value={section.prompt}
-                onChange={(e) => onChangeSection(index, { prompt: e.target.value })}
-                rows={3}
-                placeholder="مثال: غيّر نسبة رأس المال إلى 30٪، وأضف بنداً يتعلق بحقوق المساهمين..."
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 resize-y"
-              />
-              <MicButton 
-                value={section.prompt} 
-                onChange={(newPrompt) => onChangeSection(index, { prompt: newPrompt })} 
-                variant="slate" 
-                className="mt-1" 
-              />
-            </div>
+            <textarea
+              value={section.prompt}
+              onChange={(e) => onChangeSection(index, { prompt: e.target.value })}
+              rows={3}
+              placeholder="مثال: غيّر نسبة رأس المال إلى 30٪، وأضف بنداً يتعلق بحقوق المساهمين..."
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 resize-y"
+            />
           </div>
 
           {/* Send */}
           <div className="flex justify-end">
-            <div className="flex items-center gap-3">
-                {/* per-section download removed: single PDF download available at form level */}
-
-              <button
-                type="button"
-                onClick={handleSmartPick}
-                disabled={!section.prompt || smartSearching}
-                className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                           ${section.prompt && !smartSearching
-                             ? "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
-                             : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                           }`}
-              >
-                {smartSearching ? "جاري البحث..." : "بحث ذكي"}
-                {!smartSearching && (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!canSend}
+              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
+                         ${canSend
+                           ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
+                           : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                         }`}
+            >
+              {loading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!canSend}
-                className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200
-                           ${canSend
-                             ? "bg-gradient-to-l from-emerald-600 to-teal-700 text-white cursor-pointer hover:shadow-lg hover:shadow-emerald-200 hover:-translate-y-0.5"
-                             : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                           }`}
-              >
-                {loading ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    جاري الإرسال…
-                  </>
-                ) : (
-                  <>
-                    إرسال
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  </>
-                )}
-              </button>
-            </div>
+                  جاري الإرسال…
+                </>
+              ) : (
+                <>
+                  إرسال
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </>
+              )}
+            </button>
           </div>
-          {smartSearchNote && (
-            <p className="text-xs text-amber-600 text-right">{smartSearchNote}</p>
-          )}
-          {smartSearchResults.length > 0 && (
-            <div className="space-y-3" dir="rtl">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500 text-right">
-                  اختر أفضل نتيجة من الاقتراحات:
-                </p>
-                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  أفضل 3 نتائج
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {smartSearchResults.map((article, idx) => (
-                  <button
-                    key={article.id}
-                    type="button"
-                    onClick={() => handlePickArticle(article)}
-                    className="text-right rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm
-                               hover:border-emerald-300 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md
-                               transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                        #{idx + 1}
-                      </span>
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        {Math.round(article.score * 100)}%
-                      </span>
-                    </div>
-                    <div className="font-semibold text-slate-800 line-clamp-2">
-                      م.{article.id}: {article.title}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-2 line-clamp-3">
-                      {article.content}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {smartSearchScore !== null && ( // Cach
-            <p className="text-xs text-slate-500 text-right"> 
-              درجة التطابق: {smartSearchScore.toFixed(3) *100.00 } %
-            </p> // Cach
-          )} 
         </div>
       </div>
     </>
