@@ -37,9 +37,9 @@ public class ArticleSearchController {
     @PostMapping("/search")
     public ResponseEntity<?> searchArticles(@RequestBody Map<String, Object> body) {
         try {
-            Long companyId = ((Number) body.get("companyId")).longValue();
+            Long companyId = Long.parseLong(body.get("companyId").toString());
             String query = (String) body.get("query");
-            int topK = body.containsKey("topK") ? ((Number) body.get("topK")).intValue() : 5;
+            int topK = body.containsKey("topK") ? Integer.parseInt(body.get("topK").toString()) : 5;
 
             List<ArticleSearchResult> results = articleSearchService.searchArticles(companyId, query, topK);
             return ResponseEntity.ok(results);

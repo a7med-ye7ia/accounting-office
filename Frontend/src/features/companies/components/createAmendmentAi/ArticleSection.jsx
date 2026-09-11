@@ -12,7 +12,7 @@ import { handleSmartPickArticles } from "../../../../services/smartPickService.j
 import MicButton from "../../../../shared/components/MicButton.jsx";
 import DocumentLoader from "./DocumentLoader.jsx";
 import ArticlePickerOverlay from "./ArticlePickerOverlay.jsx";
-import { buildCatInstruction, normalizeCatOutput, stripThinkingContent } from "./amendmentUtils.js";
+import { buildCatInstruction, normalizeCatOutput, stripThinkingContent } from "../../../../utils/amendmentUtils.js";
 
 export default function ArticleSection({
   index,

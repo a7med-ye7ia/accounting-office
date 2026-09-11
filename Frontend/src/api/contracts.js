@@ -57,7 +57,7 @@ export const uploadContract = async ({ companyId, type, file }) => {
   formData.append("type", type);
   if (type === "UPDATING") {
     let fileName = file.title;
-    for(const mod of file.modifications) {
+    for (const mod of file.modifications) {
       fileName += `_${Number(mod.articleId) + 1}`;
     }
     const jsonBlob = new Blob(
@@ -69,7 +69,7 @@ export const uploadContract = async ({ companyId, type, file }) => {
   } else {
     formData.append("file", file);
   }
-  
+
 
   try {
     const response = await apiClient.post("/contracts/upload", formData

@@ -1,9 +1,10 @@
 import apiClient from "./client";
 
 export const searchArticles = async (companyId, query, topK = 3) => {
+  console.log("Searching articles for company ID:", companyId);
   try {
     const response = await apiClient.post("/articles/search", {
-      companyId,
+      companyId: Number(companyId),
       query,
       topK,
     });

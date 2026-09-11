@@ -19,6 +19,9 @@ import { uploadContract } from "../../../api/contracts";
 import MainLayout from "../../../shared/layout/MainLayout";
 // import { getCreatingContractByCompanyId } from "../services/contractsService";
 import FinalContractReview from "./FinalContractReview";
+import { handleSmartPickArticles } from "../../../services/smartPickService.js";
+import { generateResponseStream } from "../../../api/ollamaClient.js";
+import { buildCatInstruction, normalizeCatOutput, stripThinkingContent } from "../../../utils/amendmentUtils.js";
 
 const getCreatingContractByCompanyId = async (companyId) => {
   return {
@@ -308,37 +311,10 @@ const getCreatingContractByCompanyId = async (companyId) => {
 // PLACEHOLDER API FUNCTIONS
 // ============================================================================
 
-const smartPickArticle = async (articles, prompt) => {
-  /*
-    Later:
-
-    const response = await apiClient.post("/...", {
-      articles,
-      prompt,
-    });
-
-    return response.data;
-  */
-
-  throw new Error("Smart Pick API is not connected yet.");
-};
+// Removed smartPickArticle mock function as we now use handleSmartPickArticles from smartPickService.js
 
 
-const modifyArticleWithAI = async (article, prompt) => {
-  /*
-    Later:
-
-    const response = await apiClient.post("/...", {
-      article,
-      prompt,
-    });
-
-    return response.data;
-  */
-
-  return { modifiedText: "this is model responce" };
-  // throw new Error("Modify Article API is not connected yet.");
-};
+// Removed modifyArticleWithAI mock function as we now use real ollamaClient stream.شبلت المودبل من الفرونت دونت وري
 
 
 // ============================================================================
@@ -778,7 +754,7 @@ function ModificationCard({
 
 
         {/* ============================================================ */}
-        {/* SMART PICK REASON */}
+        {/* SMART PICK REASON & RESULTS */}
         {/* ============================================================ */}
 
         {modification.smartPickReason && (
@@ -798,6 +774,44 @@ function ModificationCard({
               {modification.smartPickReason}
             </p>
 
+          </div>
+        )}
+
+        {modification.smartSearchResults && modification.smartSearchResults.length > 0 && (
+          <div className="space-y-3 mt-4" dir="rtl">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500 text-right">اختر أفضل نتيجة من الاقتراحات:</p>
+              <span className="text-[10px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                أفضل 3 نتائج
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {modification.smartSearchResults.map((articleResult, idx) => (
+                <button
+                  key={articleResult.articleId}
+                  type="button"
+                  onClick={() => selectArticle(articles.find(a => String(a.id) === String(articleResult.articleId)))}
+                  className="text-right rounded-2xl border border-gray-200 bg-white p-4 text-xs shadow-sm
+                             hover:border-green-300 hover:bg-green-50 hover:-translate-y-0.5 hover:shadow-md
+                             transition-all"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                      {Math.round(articleResult.score * 100)}%
+                    </span>
+                  </div>
+                  <div className="font-semibold text-gray-800 line-clamp-2">
+                    م.{articleResult.articleId}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-2 line-clamp-3">
+                    {articleResult.content}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1087,74 +1101,54 @@ export default function CreateUpdatingContractPage() {
       /*
         IMPORTANT:
 
-        All articles are sent to the AI.
-
-        The AI chooses the article related to
-        the user's prompt.
+        Uses smartPickService to search for articles.
       */
 
-      const result =
-        await smartPickArticle(
-          articles,
-          modification.prompt
+      const result = await handleSmartPickArticles(
+        companyId,
+        modification.prompt
+      );
+
+      let selectedArticle = modification.selectedArticle;
+      let errorMsg = null;
+
+      if (result.success && result.bestArticle) {
+        const matchedArticle = articles.find(
+          (item) => String(item.id) === String(result.bestArticle?.id)
         );
 
+        if (!matchedArticle) {
+          errorMsg = "لم يتم العثور على المادة التي اختارها النموذج.";
+        } else {
+          const alreadyUsed = modifications.some(
+            (item) =>
+              item.id !== modification.id &&
+              item.selectedArticle &&
+              String(item.selectedArticle.id) === String(matchedArticle.id)
+          );
 
-      const article =
-        articles.find(
-          (item) =>
-            String(item.id) ===
-            String(result?.articleId)
-        );
-
-
-      if (!article) {
-
-        throw new Error(
-          "لم يتم العثور على المادة التي اختارها النموذج."
-        );
-
+          if (alreadyUsed) {
+            errorMsg = "النموذج اختار مادة مستخدمة بالفعل في تعديل آخر.";
+          } else {
+            selectedArticle = matchedArticle;
+          }
+        }
+      } else {
+        errorMsg = result.message;
       }
-
-
-      const alreadyUsed =
-        modifications.some(
-          (item) =>
-            item.id !== modification.id &&
-            item.selectedArticle &&
-            String(
-              item.selectedArticle.id
-            ) === String(article.id)
-        );
-
-
-      if (alreadyUsed) {
-
-        throw new Error(
-          "النموذج اختار مادة مستخدمة بالفعل في تعديل آخر."
-        );
-
-      }
-
 
       updateModification(
         modification.id,
         {
-          selectedArticle: article,
-
-          originalText:
-            article.value || "",
-
+          selectedArticle: selectedArticle,
+          originalText: selectedArticle ? (selectedArticle.value || "") : (modification.originalText || ""),
           modifiedText: "",
-
-          smartPickReason:
-            result?.reason || "",
-
+          smartPickReason: result.message || "",
+          smartSearchResults: result.results || [],
+          smartSearchScore: result.bestScore,
           smartPickLoading: false,
-
           completed: false,
-
-          error: null,
+          error: errorMsg,
         }
       );
 
@@ -1222,42 +1216,35 @@ export default function CreateUpdatingContractPage() {
         modification.id,
         {
           modificationLoading: true,
+          modifiedText: "",
           error: null,
         }
       );
 
+      const catInstruction = buildCatInstruction(modification.id, modification.prompt);
+      
+      const data = await generateResponseStream(
+        catInstruction, 
+        modification.selectedArticle.value || "", 
+        (completeText) => {
+          const visibleText = stripThinkingContent(completeText);
+          updateModification(modification.id, {
+            modifiedText: visibleText,
+          });
+        }
+      );
 
-      const result =
-        await modifyArticleWithAI(
-          modification.selectedArticle,
-          modification.prompt
-        );
-
-
-      if (!result?.modifiedText) {
-
-        throw new Error(
-          "لم يُرجع النموذج النص المعدل."
-        );
-
-      }
-
-
+      const normalized = normalizeCatOutput(data);
+      
       updateModification(
         modification.id,
         {
-          modifiedText:
-            result.modifiedText,
-
-          modificationLoading:
-            false,
-
+          modifiedText: normalized.afterText || stripThinkingContent(data) || "لم يتم الحصول على رد من النموذج.",
+          modificationLoading: false,
           completed: true,
-
           error: null,
         }
       );
-
 
     } catch (error) {
 

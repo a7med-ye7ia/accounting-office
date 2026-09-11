@@ -4,7 +4,7 @@
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getEmbedding } from "../../../../api/ollamaClient.js";
-import { createEmptySection } from "./amendmentUtils.js";
+import { createEmptySection } from "../../../../utils/amendmentUtils.js";
 
 export function useCreateAmendmentAiForm(company, articlesFromProps) {
   const [articleCount, setArticleCount] = useState(1);
